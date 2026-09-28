@@ -1,0 +1,23 @@
+{
+  "repository": "https://github.com/tabidachinokaze/music-party",
+  "commit": "91514369748ff803f2ee30385e4367dd71950740",
+  "files": {
+    "main/service.ts": "91e5fdb41daa908e86848ef179714bdd92a0f43e529a5177bc15bcb587ccbc61",
+    "main/transport.ts": "b4218abf3c327ad2d13116491e41b146bce2ae97351abe82cdf666b8d9b92ad0",
+    "main/multi-api.ts": "e2b2d9c4ee992d8c67b66ed9f6f5d28f4cc7e6eca06faeebe790b1725c98a409",
+    "main/precise-json.ts": "10a88d0f3202677d36c76f7ddf86b4107de874c1b8c11edcb27adf90182b1c38",
+    "main/stickers.ts": "296f9af9cedd3b509304a9f5ac8435c57b4e72b356709908ba56ad3f1b9ed1f5",
+    "shared/types.ts": "3fe2c9581d0d1f6dada0b5775845e55f419e946d32725015a83caa06a9faaccc",
+    "shared/protocol.ts": "8af05dd3c870f15496d8673cf5e07788bcafa33618afa232340d8b074d62ea2e",
+    "shared/multiplayer.ts": "7843396f6bf522820b14adcc7ccd4877e655b7e5f20236653e6087ee5bd1740d",
+    "shared/playback-queue.ts": "9caecb420829d950d02591795f64274bfbe6483df1b0ea88417c12f8c15fa5a6",
+    "shared/chat.ts": "c047d869c6013efa9085fc2b191dce7f6f5fee8065998d2b50f3e64bb3c6ffeb",
+    "shared/private-messages.ts": "1226798b210f4d0b9cf08ab28f83de5040850e2b9cff72be0820059ef690642c",
+    "shared/message-content.ts": "98a83dfa54fffc8ea21ecf5ba39fde131f5fd8e6a34592d79f5e5e0a85d2cd16",
+    "shared/media.ts": "7d73ab2a56843e0f13a122c0b42c719cbc22aaabc2e9a151422b5a674c5f4983",
+    "shared/stickers.ts": "f8b09971ca17f91f32cb81cbfcb3080b63784dd0c80f64ab6d61cef99ecb9e93",
+    "shared/desktop.ts": "3acc8381046b38c4f4d017fbd8482d72e12281c89e9ef0590c677daea7ca5426",
+    "shared/updates.ts": "c3ff9b0f0e9ec289883e0d2546316d29896523a32b8489bdea4f8b1e661a6b76",
+    "renderer/src/room-transition.ts": "7b60138fdcc40e10881ea188d1d2a858dec3a38cea4ea8b82a68ccb0027aa26a"
+  }
+}

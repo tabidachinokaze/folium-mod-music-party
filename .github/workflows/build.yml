@@ -1,0 +1,62 @@
+name: Build Folium plugin
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run check
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:ui
+      - uses: actions/upload-artifact@v7
+        with:
+          name: folium-mod-music-party
+          path: |
+            dist/folium-mod-music-party-*.zip
+            dist/SHA256SUMS
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v7
+        with:
+          name: folium-mod-music-party
+          path: dist
+      - name: Validate tag and publish plugin ZIP
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node --input-type=module -e '
+            import fs from "node:fs";
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            const mod = JSON.parse(fs.readFileSync("mod.json", "utf8"));
+            if (process.env.GITHUB_REF_NAME !== `v${pkg.version}` || mod.version !== pkg.version) {
+              throw new Error("Release tag, package.json and mod.json must have the same version");
+            }
+          '
+          gh release create "$GITHUB_REF_NAME" dist/*.zip dist/SHA256SUMS \
+            --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "Music Party Folium $GITHUB_REF_NAME" --notes-file RELEASE.md

@@ -1,0 +1,37 @@
+{
+  "name": "folium-mod-music-party",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:ui": "playwright test",
+    "check": "npm run typecheck && npm test && npm run build",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.6.3",
+    "esbuild": "^0.27.0",
+    "fflate": "^0.8.2",
+    "typescript": "^6.0.0",
+    "vitest": "^5.0.2",
+    "prettier": "^3.9.9"
+  },
+  "description": "网易云官方多人一起听 Folium 插件",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tabidachinokaze/folium-mod-music-party.git"
+  },
+  "homepage": "https://github.com/tabidachinokaze/folium-mod-music-party",
+  "bugs": {
+    "url": "https://github.com/tabidachinokaze/folium-mod-music-party/issues"
+  },
+  "author": "tabidachinokaze",
+  "engines": {
+    "node": ">=24"
+  }
+}

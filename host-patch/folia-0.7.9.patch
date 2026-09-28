@@ -1,0 +1,463 @@
+diff --git a/src/App.tsx b/src/App.tsx
+index 6c6136e..15e6fb4 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -1,4 +1,5 @@
+-import { useState, useRef, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
++import { hasExternalPlayback, subscribeExternalPlayback, routeExternalPlayback } from './services/externalPlaybackSession';
++import { useState, useSyncExternalStore, useRef, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
+ import { AnimatePresence, motion, useMotionValueEvent } from 'framer-motion';
+ import { useTranslation } from 'react-i18next';
+ import { ChevronLeft } from 'lucide-react';
+@@ -158,6 +159,7 @@ const LOCAL_TAIL_DECODE_ERROR_TOLERANCE_SEC = 3;
+ const NEXT_UP_LEAD_SEC = 5;
+ 
+ export default function App() {
++    const externalPlaybackActive = useSyncExternalStore(subscribeExternalPlayback, hasExternalPlayback, () => false);
+     countRender('App');
+     const { t } = useTranslation();
+     const {
+@@ -500,7 +502,7 @@ export default function App() {
+     // control below keeps editing the per-song value alone.
+     const effectiveLyricTimelineOffsetMs = lyricTimelineOffsetMs + globalLyricTimelineOffsetMs;
+ 
+-    const effectiveLoopMode: StageLoopMode = loopMode;
++    const effectiveLoopMode: StageLoopMode = externalPlaybackActive ? 'off' : loopMode;
+ 
+     const getTargetPlaybackVolume = useCallback(() => (isMuted ? 0 : volume), [isMuted, volume]);
+ 
+@@ -1149,7 +1151,7 @@ export default function App() {
+         currentSongKeyRef: currentSongRef,
+         coverUrl,
+         loopMode: effectiveLoopMode,
+-        isEnabled: automixEnabled && !isNowPlayingStageActive,
++        isEnabled: automixEnabled && !isNowPlayingStageActive && !externalPlaybackActive,
+         transition: transitionSettings,
+         onAdvanceTrack: () => {
+             // Same advance the end of a track would trigger, only early enough for the outgoing
+@@ -2033,6 +2035,7 @@ export default function App() {
+         return true;
+     };
+     const seekMainAudio = useCallback((time: number) => {
++        if (routeExternalPlayback({ type: 'seek', seconds: time })) return;
+         if (seekDuringTransitionRef.current(time)) {
+             return;
+         }
+@@ -2086,7 +2089,13 @@ export default function App() {
+         seekToLyricTime: handleMonetLyricLineSeek,
+         next: () => { void handleNextTrack(); },
+         previous: handlePrevTrack,
+-        playSong: (song) => playSong(song),
++        playSong: (song, externalToken) => externalToken
++            ? new Promise<void>((resolve, reject) => {
++                void playSong(song, [song], false, { externalPlaybackToken: externalToken,
++                    autoplay: false, shouldNavigateToPlayer: false, onAudioReady: resolve,
++                }).then(resolve, reject);
++            })
++            : playSong(song),
+         enqueue: addOnlineSongToQueue,
+         navigateToPlayer,
+         navigateToHome,
+diff --git a/src/hooks/usePlaybackQueueController.ts b/src/hooks/usePlaybackQueueController.ts
+index 5a5f273..33b14e2 100644
+--- a/src/hooks/usePlaybackQueueController.ts
++++ b/src/hooks/usePlaybackQueueController.ts
+@@ -1,3 +1,4 @@
++import { routeExternalPlayback, externalPlaybackRevision, isExternalPlaybackOwner } from '../services/externalPlaybackSession';
+ import { useCallback, useEffect, useRef, useState } from 'react';
+ import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
+ import type { MotionValue } from 'framer-motion';
+@@ -258,6 +259,7 @@ export function usePlaybackQueueController({
+     }, [activePlaybackContext, currentSong, mainPlaybackSnapshotRef, persistLastPlaybackCache, playQueue, queueAddBehavior, setPlayQueue, setStatusMsg, t]);
+ 
+     const addOnlineSongToQueue = useCallback((song: SongResult) => {
++        if (routeExternalPlayback({ type: 'select', song })) return;
+         if (isSongUnavailable(song)) {
+             return;
+         }
+@@ -449,6 +451,8 @@ export function usePlaybackQueueController({
+         // The hook is async, so a later playSong may finish its hook first; this call then drops
+         // out instead of replacing the song the user picked last.
+         // An automix advance skips the hook (see `isAutomixAdvance`).
++        if (routeExternalPlayback({ type: 'select', song: requestedSong }, options.externalPlaybackToken)) return;
++        const externalRevision = externalPlaybackRevision();
+         const playSongCallId = ++playSongCallIdRef.current;
+         const allowedSong = !options.isAutomixAdvance && hasBeforePlayHook()
+             ? await runBeforePlayHook(requestedSong)
+@@ -456,6 +460,8 @@ export function usePlaybackQueueController({
+         if (!allowedSong || playSongCallIdRef.current !== playSongCallId) {
+             return;
+         }
++        if (externalPlaybackRevision() !== externalRevision) return;
++        if (options.externalPlaybackToken && allowedSong !== requestedSong) throw new Error('房间歌曲不能被其他插件替换');
+         const song = allowedSong;
+         interruptStagePlaybackForMainTransition();
+ 
+@@ -474,7 +480,9 @@ export function usePlaybackQueueController({
+         }
+ 
+         const playbackRequestId = ++playbackRequestIdRef.current;
+-        const isLatestPlaybackRequest = () => playbackRequestIdRef.current === playbackRequestId;
++        const isLatestPlaybackRequest = () => playbackRequestIdRef.current === playbackRequestId
++            && externalPlaybackRevision() === externalRevision
++            && (!options.externalPlaybackToken || isExternalPlaybackOwner(options.externalPlaybackToken));
+         const isLocal = isLocalPlaybackSong(song);
+         const isNavidrome = isNavidromePlaybackSong(song);
+         let prefetched: ReturnType<typeof getPrefetchedData> = null;
+@@ -487,6 +495,7 @@ export function usePlaybackQueueController({
+         // prompt or a countdown, so they are not the blend's advance even when this call was.
+         const deferredPlayOptions: PlaybackNavigationOptions = { ...options, isAutomixAdvance: undefined };
+ 
++        if (options.externalPlaybackToken && isSongUnavailable(song)) throw new Error('当前账号无法完整播放这首房间歌曲');
+         if (!isLocal && !isNavidrome && isSongUnavailable(song)) {
+             if (await handleMarkedUnavailableSong(song, queueContext, isFmCall, deferredPlayOptions)) {
+                 return;
+@@ -558,6 +567,7 @@ export function usePlaybackQueueController({
+             }
+ 
+             if (preloadedOnlineAudioResult.kind === 'unavailable') {
++                if (options.externalPlaybackToken) throw new Error('当前账号无法播放这首房间歌曲');
+                 const nextSong = getNextPlayableQueueSong(queueContext, song);
+                 const canSkip = Boolean(nextSong) && skipCount < MAX_UNAVAILABLE_AUTO_SKIP_COUNT;
+ 
+@@ -577,13 +587,15 @@ export function usePlaybackQueueController({
+                 return;
+             }
+         } catch (error) {
++            if (!isLatestPlaybackRequest()) return;
++            if (options.externalPlaybackToken) throw error;
+             console.error('[App] Failed to fetch song URL:', error);
+             setStatusMsg({ type: 'error', text: t('status.playbackError') });
+             setIsLyricsLoading(false);
+             return;
+         }
+ 
+-        shouldAutoPlayRef.current = true;
++        shouldAutoPlayRef.current = options.autoplay !== false;
+         const songKey = getPlaybackSongKey(song);
+         const resolvedSong = preloadedOnlineAudioResult?.kind === 'ok'
+             ? applyOnlineAudioSourceMetadata(song, preloadedOnlineAudioResult.replayGain)
+@@ -595,6 +607,7 @@ export function usePlaybackQueueController({
+         currentOnlineAudioUrlFetchedAtRef.current = null;
+ 
+         const onlineLyricsState = await loadOnlineLyricsState(song);
++        if (!isLatestPlaybackRequest()) return;
+ 
+         setLyrics(null);
+         setCurrentLineIndex(-1);
+@@ -615,7 +628,7 @@ export function usePlaybackQueueController({
+             setPlayQueue(resolvedQueue);
+         }
+ 
+-        void persistLastPlaybackCache({ ...resolvedSong, onlineLyricsState: onlineLyricsState ?? undefined }, resolvedQueue);
++        if (!options.externalPlaybackToken) void persistLastPlaybackCache({ ...resolvedSong, onlineLyricsState: onlineLyricsState ?? undefined }, resolvedQueue);
+ 
+         if (shouldNavigateToPlayer) {
+             navigateToPlaybackView();
+@@ -623,7 +636,7 @@ export function usePlaybackQueueController({
+         setPlayerState(PlayerState.IDLE);
+ 
+         const cachedCoverUrl = await getCachedSongCoverUrl(song);
+-        if (currentSongRef.current !== songKey) return;
++        if (currentSongRef.current !== songKey || !isLatestPlaybackRequest()) return;
+         if (cachedCoverUrl) {
+             setCachedCoverUrl(cachedCoverUrl);
+         } else if (prefetched?.coverUrl) {
+@@ -650,10 +663,11 @@ export function usePlaybackQueueController({
+             currentOnlineAudioUrlFetchedAtRef.current = null;
+         }
+         setAudioSrc(audioResult.audioSrc);
++        options.onAudioReady?.();
+ 
+         try {
+             await loadOnlineSongLyrics(song, prefetched, userId, {
+-                isCurrent: () => currentSongRef.current === songKey,
++                isCurrent: () => currentSongRef.current === songKey && isLatestPlaybackRequest(),
+                 onLyrics: resolvedLyrics => setLyrics(resolvedLyrics),
+                 onPureMusicChange: isPureMusic => {
+                     setCurrentSong(prev => {
+@@ -673,14 +687,16 @@ export function usePlaybackQueueController({
+                 onDone: () => setIsLyricsLoading(false),
+             });
+         } catch (error) {
++            if (!isLatestPlaybackRequest()) return;
+             console.warn('[App] Lyric fetch failed', error);
+             setLyrics(null);
+             setIsLyricsLoading(false);
+         }
+ 
++        if (!isLatestPlaybackRequest()) return;
+         try {
+             await restoreCachedThemeForSong(song);
+-            if (currentSongRef.current !== songKey) return;
++            if (currentSongRef.current !== songKey || !isLatestPlaybackRequest()) return;
+         } catch (error) {
+             console.warn('Theme load error', error);
+         }
+@@ -843,6 +859,7 @@ export function usePlaybackQueueController({
+     ]);
+ 
+     const handleNextTrack = useCallback(async (options?: NextTrackOptions) => {
++        if (routeExternalPlayback({ type: options?.allowStopOnMissing || options?.isAutomixAdvance ? 'ended' : 'next' })) return;
+         if (isNowPlayingStageActive) return;
+ 
+         const stopAtQueueEnd = () => {
+@@ -916,6 +933,7 @@ export function usePlaybackQueueController({
+     }, [audioRef, currentSong, endHeldTransition, getDisplaySong, isFmMode, isNowPlayingStageActive, loopMode, playQueue, playSong, setPlayQueue, setPlayerState, shouldNavigateToPlayerOnTrackChange]);
+ 
+     const handlePrevTrack = useCallback(() => {
++        if (routeExternalPlayback({ type: 'previous' })) return;
+         if (isNowPlayingStageActive) return;
+         if (!currentSong || playQueue.length === 0) return;
+ 
+diff --git a/src/mods/folium/externalPlayback.ts b/src/mods/folium/externalPlayback.ts
+new file mode 100644
+index 0000000..69d214d
+--- /dev/null
++++ b/src/mods/folium/externalPlayback.ts
+@@ -0,0 +1,67 @@
++import { omni } from '@/services/onlineMusic/omni';
++import { usePlaybackStore } from '@/stores/usePlaybackStore';
++import { currentTime } from '@/stores/motionSignals';
++import { PlayerState, type SongResult } from '@/types';
++import type { FoliumSong } from './contract';
++import { resolveFoliumSongRef, toFoliumSong } from './dto';
++import {
++    acquireExternalPlayback, isExternalPlaybackOwner, releaseExternalPlayback,
++    runExternalPlaybackCommand, type ExternalPlaybackIntent,
++} from '@/services/externalPlaybackSession';
++
++// src/mods/folium/externalPlayback.ts
++// Versioned, opt-in internal bridge for a server-owned play queue. No provider credentials escape here.
++type Actions = {
++    play: (song: SongResult, token: symbol) => Promise<void>;
++    pause: () => void;
++    seek: (seconds: number) => void;
++};
++let actions: Actions | null = null;
++export const registerExternalPlaybackActions = (value: Actions | null) => { actions = value; };
++
++export const externalPlaybackBridge = Object.freeze({
++    version: 1,
++    async resolveSong(provider: string, id: string): Promise<FoliumSong> {
++        if (provider !== 'netease' || !/^[1-9]\d{0,23}$/.test(id)) throw new Error('歌曲来源或 ID 无效');
++        const song = await omni.getSongDetail('netease', id);
++        if (!song) throw new Error('未找到这首网易云歌曲');
++        return toFoliumSong(song)!;
++    },
++    acquire(dispatch: (intent: Omit<ExternalPlaybackIntent, 'song'> & { song?: FoliumSong }) => void) {
++        if (!actions) throw new Error('播放器尚未就绪');
++        const state = usePlaybackStore.getState();
++        if (state.activePlaybackContext === 'stage' || state.transitionDisplay) {
++            throw new Error('请先结束 Stage 播放或等待歌曲过渡完成');
++        }
++        const queue = state.playQueue;
++        const token = acquireExternalPlayback(intent => dispatch(
++            intent.type === 'select' ? { type: 'select', song: toFoliumSong(intent.song)! } : intent,
++        ));
++        actions.pause();
++        state.setPlayQueue([]);
++        state.setIsFmMode(false);
++        return Object.freeze({
++            async play(song: FoliumSong) {
++                if (!isExternalPlaybackOwner(token)) return false;
++                const resolved = resolveFoliumSongRef(song.ref);
++                if (!resolved || toFoliumSong(resolved)?.source !== 'netease') throw new Error('歌曲引用已失效，请重新同步');
++                await actions!.play(resolved, token);
++                return isExternalPlaybackOwner(token);
++            },
++            seek(seconds: number) {
++                if (!Number.isFinite(seconds) || seconds < 0) throw new Error('播放进度无效');
++                runExternalPlaybackCommand(token, () => actions!.seek(seconds));
++            },
++            release() {
++                if (!isExternalPlaybackOwner(token)) return;
++                actions?.pause();
++                releaseExternalPlayback(token);
++                // Restore the user's queue without starting music after leaving/disabling a mod.
++                usePlaybackStore.setState({ playQueue: queue, currentSong: null, audioSrc: null,
++                    lyrics: null, cachedCoverUrl: null, duration: 0, playerState: PlayerState.IDLE,
++                    currentLineIndex: -1, isFmMode: false });
++                currentTime.set(0);
++            },
++        });
++    },
++});
+diff --git a/src/mods/folium/hostActions.ts b/src/mods/folium/hostActions.ts
+index d2137b1..3ae2b45 100644
+--- a/src/mods/folium/hostActions.ts
++++ b/src/mods/folium/hostActions.ts
+@@ -1,4 +1,5 @@
+ import { useEffect, useRef } from 'react';
++import { registerExternalPlaybackActions } from './externalPlayback';
+ import type { SongResult } from '@/types';
+ import { PlayerState } from '@/types';
+ import {
+@@ -29,7 +30,7 @@ export interface FoliumAppActions {
+     seekToLyricTime: (lyricSeconds: number) => void;
+     next: () => void;
+     previous: () => void;
+-    playSong: (song: SongResult) => void | Promise<void>;
++    playSong: (song: SongResult, externalToken?: symbol) => void | Promise<void>;
+     enqueue: (song: SongResult) => void;
+     navigateToPlayer: () => void;
+     navigateToHome: () => void;
+@@ -61,6 +62,11 @@ export const useFoliumHostActions = (actions: FoliumAppActions) => {
+     ).disabled;
+ 
+     useEffect(() => {
++        registerExternalPlaybackActions({
++            play: async (song, token) => { await actionsRef.current.playSong(song, token); },
++            pause: () => actionsRef.current.pause(),
++            seek: (seconds) => actionsRef.current.seek(seconds),
++        });
+         registerFoliumHostActions({
+             getPlaybackState: () => {
+                 const state = usePlaybackStore.getState();
+@@ -113,7 +119,7 @@ export const useFoliumHostActions = (actions: FoliumAppActions) => {
+             navigate: (target) => (target === 'player' ? actionsRef.current.navigateToPlayer() : actionsRef.current.navigateToHome()),
+             openVolume: () => actionsRef.current.openVolume(),
+         });
+-        return () => registerFoliumHostActions(null);
++        return () => { registerFoliumHostActions(null); registerExternalPlaybackActions(null); };
+     }, []);
+ 
+     // playback.likeChanged follows the value getState().liked reports, whatever changed it.
+diff --git a/src/mods/folium/internals.ts b/src/mods/folium/internals.ts
+index f0a9954..67057bd 100644
+--- a/src/mods/folium/internals.ts
++++ b/src/mods/folium/internals.ts
+@@ -1,4 +1,5 @@
+ import React from 'react';
++import { externalPlaybackBridge } from './externalPlayback';
+ import * as ReactDOMClient from 'react-dom/client';
+ import { usePlaybackStore } from '@/stores/usePlaybackStore';
+ import { useAppViewStore } from '@/stores/useAppViewStore';
+@@ -28,5 +29,6 @@ export const createFoliumInternals = (): Record<string, unknown> => ({
+         lyricSettings: useLyricSettingsStore,
+     }),
+     omni,
++    externalPlayback: externalPlaybackBridge,
+     visualizerRegistry: VISUALIZER_REGISTRY,
+ });
+diff --git a/src/services/externalPlaybackSession.ts b/src/services/externalPlaybackSession.ts
+new file mode 100644
+index 0000000..659d2b1
+--- /dev/null
++++ b/src/services/externalPlaybackSession.ts
+@@ -0,0 +1,51 @@
++import type { SongResult } from '../types';
++
++// src/services/externalPlaybackSession.ts
++// One owner at a time. User commands are routed separately from server snapshots.
++export type ExternalPlaybackIntent =
++    | { type: 'select'; song: SongResult }
++    | { type: 'next' | 'previous' | 'ended' }
++    | { type: 'seek'; seconds: number };
++
++let owner: { token: symbol; dispatch: (intent: ExternalPlaybackIntent) => void } | null = null;
++let revision = 0;
++let bypass: symbol | undefined;
++const listeners = new Set<() => void>();
++export const subscribeExternalPlayback = (fn: () => void) => {
++    listeners.add(fn);
++    return () => { listeners.delete(fn); };
++};
++export const hasExternalPlayback = () => owner !== null;
++export const externalPlaybackRevision = () => revision;
++export const isExternalPlaybackOwner = (token: symbol) => owner?.token === token;
++
++export function acquireExternalPlayback(dispatch: (intent: ExternalPlaybackIntent) => void) {
++    if (owner) throw new Error('另一个插件正在接管播放，请先结束其播放会话');
++    const token = Symbol('external-playback');
++    owner = { token, dispatch };
++    revision++;
++    listeners.forEach(fn => fn());
++    return token;
++}
++
++export function releaseExternalPlayback(token: symbol) {
++    if (!isExternalPlaybackOwner(token)) return;
++    owner = null;
++    revision++;
++    listeners.forEach(fn => fn());
++}
++
++/** Returns true even if the owner fails: external playback must never fall through to a local skip. */
++export function routeExternalPlayback(intent: ExternalPlaybackIntent, token?: symbol) {
++    if (token && !isExternalPlaybackOwner(token)) return true;
++    if (!owner || owner.token === token || owner.token === bypass) return false;
++    try { owner.dispatch(intent); } catch { /* The plugin presents its own error state. */ }
++    return true;
++}
++
++export function runExternalPlaybackCommand<T>(token: symbol, fn: () => T): T {
++    if (!isExternalPlaybackOwner(token)) throw new Error('播放会话已结束');
++    const previous = bypass;
++    bypass = token;
++    try { return fn(); } finally { bypass = previous; }
++}
+diff --git a/src/types/appPlayback.ts b/src/types/appPlayback.ts
+index 592018a..77eec33 100644
+--- a/src/types/appPlayback.ts
++++ b/src/types/appPlayback.ts
+@@ -14,6 +14,11 @@ import type { MediaId } from './onlineMusic';
+ 
+ // Shared playback-specific types extracted from App.tsx.
+ export type PlaybackNavigationOptions = {
++    /** Internal server-owned playback lease. */
++    externalPlaybackToken?: symbol;
++    autoplay?: boolean;
++    /** Signals source commit before independent lyric/theme work finishes. */
++    onAudioReady?: () => void;
+     shouldNavigateToPlayer?: boolean;
+     unavailableSkipCount?: number;
+     unifiedQueue?: SongResult[];
+diff --git a/test/unit/mod-system/externalPlaybackSession.test.ts b/test/unit/mod-system/externalPlaybackSession.test.ts
+new file mode 100644
+index 0000000..d1dc12b
+--- /dev/null
++++ b/test/unit/mod-system/externalPlaybackSession.test.ts
+@@ -0,0 +1,42 @@
++import { afterEach, describe, expect, it, vi } from 'vitest';
++import {
++    acquireExternalPlayback, releaseExternalPlayback, routeExternalPlayback, runExternalPlaybackCommand,
++    hasExternalPlayback, externalPlaybackRevision, subscribeExternalPlayback,
++} from '@/services/externalPlaybackSession';
++
++// test/unit/mod-system/externalPlaybackSession.test.ts
++let token: symbol | undefined;
++afterEach(() => { if (token) releaseExternalPlayback(token); token = undefined; });
++describe('server-owned playback', () => {
++    it('keeps native next and natural end separate and never falls through when the owner throws', () => {
++        const dispatch = vi.fn(() => { throw new Error('offline'); });
++        token = acquireExternalPlayback(dispatch);
++        expect(routeExternalPlayback({ type: 'next' })).toBe(true);
++        expect(routeExternalPlayback({ type: 'ended' })).toBe(true);
++        expect(dispatch.mock.calls.map(call => (call as unknown as [{ type: string }])[0].type)).toEqual(['next', 'ended']);
++    });
++    it('only allows the current lease to seek locally and rejects a stale lease after release', () => {
++        const dispatch = vi.fn();
++        token = acquireExternalPlayback(dispatch);
++        expect(runExternalPlaybackCommand(token, () => routeExternalPlayback({ type: 'seek', seconds: 42 }))).toBe(false);
++        expect(dispatch).not.toHaveBeenCalled();
++        const stale = token;
++        releaseExternalPlayback(token);
++        expect(routeExternalPlayback({ type: 'select', song: {} as never }, stale)).toBe(true);
++        expect(() => runExternalPlaybackCommand(stale, () => {})).toThrow('会话已结束');
++    });
++    it('invalidates in-flight local loads and notifies the app when loop and automix must change', () => {
++        const before = externalPlaybackRevision();
++        const changed = vi.fn();
++        const stop = subscribeExternalPlayback(changed);
++        token = acquireExternalPlayback(() => {});
++        expect(hasExternalPlayback()).toBe(true);
++        expect(externalPlaybackRevision()).not.toBe(before);
++        expect(() => acquireExternalPlayback(() => {})).toThrow('另一个插件');
++        releaseExternalPlayback(token);
++        expect(hasExternalPlayback()).toBe(false);
++        expect(changed).toHaveBeenCalledTimes(2);
++        expect(routeExternalPlayback({ type: 'next' })).toBe(false);
++        stop();
++    });
++});

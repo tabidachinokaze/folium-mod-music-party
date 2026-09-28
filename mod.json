@@ -1,0 +1,12 @@
+{
+  "folium": 1,
+  "id": "music-party",
+  "name": "Music Party · 网易云多人一起听",
+  "version": "0.1.0",
+  "author": "tabidachinokaze",
+  "description": "与网易云官方多人房间互通：同步播放、推歌、待播列表、成员和聊天。需要 Music Party 播放适配接口 v1。",
+  "main": "index.cjs",
+  "client": "client.mjs",
+  "permissions": ["playback.control"],
+  "folia": "=0.7.9"
+}

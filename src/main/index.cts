@@ -1,0 +1,15 @@
+import { createBackend } from './backend'
+
+// src/main/index.cts
+type MainApi = {
+  rpc: { handle(name: string, fn: (...args: any[]) => unknown): void }
+  lifecycle: { onDeactivate(fn: () => void): void }
+}
+function activate(api: MainApi) {
+  const backend = createBackend()
+  api.rpc.handle('connect', (cookie: string, port: number) => backend.connect(cookie, port))
+  api.rpc.handle('call', (request) => backend.call(request))
+  api.rpc.handle('disconnect', () => backend.close())
+  api.lifecycle.onDeactivate(() => backend.close())
+}
+module.exports = activate

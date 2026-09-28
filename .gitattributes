@@ -1,0 +1,2 @@
+# Unified diff context markers intentionally contain trailing spaces on blank lines.
+host-patch/*.patch -whitespace
