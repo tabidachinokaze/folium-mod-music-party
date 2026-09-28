@@ -1,0 +1,7 @@
+{
+  "repository": "https://github.com/tabidachinokaze/folia-major",
+  "branch": "pr/folium-external-playback",
+  "commit": "755df454b52e2e2e272fc93133da68ca66008465",
+  "path": "src/mods/folium/contract.ts",
+  "sha256": "63afc21a4c0d0d62bb6b28d2c6a9ac63d820c2ec76268976ece5669b446927e6"
+}

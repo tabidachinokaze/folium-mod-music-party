@@ -6,25 +6,25 @@ Music Party for Folia · [插件仓库](https://github.com/tabidachinokaze/foliu
 
 ## 兼容性：请先看这里
 
-当前版本为 **0.1.0**，适配 **Folia 0.7.9 + externalPlayback v1**。推荐使用 [tabidachinokaze/folia-major](https://github.com/tabidachinokaze/folia-major)，该 fork 已集成播放适配接口。上游原版 Folia 0.7.9 只安装插件 ZIP 无法开始一起听。
+此开发分支适配 `folium.experimental['playback.sessions']`，需搭配 [Folia 的 PR 分支](https://github.com/tabidachinokaze/folia-major/tree/pr/folium-external-playback)。已发布的 Folia 0.7.9 与插件 0.1.0 使用旧的 internals 适配接口；本分支尚未发布，不能直接安装到旧宿主。
 
-插件清单限定精确版本；升级 Folia 时，需要重新验证兼容性。
+manifest 现在显式声明 `experimental: ["playback.sessions"]` 和 `playback.control`。宿主拒绝未知实验能力，因此旧宿主需继续使用已发布的插件 ZIP。
 
 ## 安装
 
-1. 安装包含 `externalPlayback v1` 的 [Folia fork](https://github.com/tabidachinokaze/folia-major/releases)。若还没有对应安装包，可以从 fork 源码运行：
+1. 从 Folia 的接口重构分支运行宿主（已发布安装包尚未包含此接口）：
 
    ```bash
-   git clone git@github.com:tabidachinokaze/folia-major.git
+   git clone -b pr/folium-external-playback git@github.com:tabidachinokaze/folia-major.git
    cd folia-major
    npm ci
    npm run dev:electron
    ```
 
-2. 从本项目 [Releases](https://github.com/tabidachinokaze/folium-mod-music-party/releases) 下载插件 ZIP，或独立构建：
+2. 从本插件适配分支构建开发包：
 
    ```bash
-   git clone git@github.com:tabidachinokaze/folium-mod-music-party.git
+   git clone -b refactor/playback-sessions git@github.com:tabidachinokaze/folium-mod-music-party.git
    cd folium-mod-music-party
    npm ci
    npm run build
@@ -35,7 +35,7 @@ Music Party for Folia · [插件仓库](https://github.com/tabidachinokaze/foliu
 
 运行时直接使用 Folia 自带的本地网易云 API，不需要 Docker，也不需要另开 Music Party 客户端。插件不会另存 Cookie；账号切换后需要重新连接。构建所需的协议代码已随仓库提供，不依赖旁边的 Music Party 源码目录。
 
-如果选择手动适配上游原版 0.7.9，可对基线 `481805873a0b04ca6277dd21c0968ab1e1c4ab02` 执行 `node scripts/apply-host-patch.mjs /path/to/folia-major`，然后重新构建桌面版。**本 fork 已包含补丁，不要重复应用**；脚本不能直接修改已安装应用的 ASAR。
+如果选择手动适配上游原版 0.7.9，可对基线 `481805873a0b04ca6277dd21c0968ab1e1c4ab02` 执行 `node scripts/apply-host-patch.mjs /path/to/folia-major`，然后重新构建桌面版。**宿主 PR 分支已包含重构，不要重复应用**；脚本不能直接修改已安装应用的 ASAR。
 
 ## 已实现
 
@@ -52,7 +52,7 @@ Music Party for Folia · [插件仓库](https://github.com/tabidachinokaze/foliu
 
 ## 当前边界
 
-- 仅桌面 Folium 主窗口；不支持 Web/PWA、Stage 播放或混音过渡中途接管。当前官方 API 的版权、会员和风控限制仍然适用。
+- 仅桌面 Folium 主窗口；不支持 Web/PWA，也不在私人 FM、Stage、视频录制或混音过渡期间接管。当前官方 API 的版权、会员和风控限制仍然适用。
 - 同步及收信使用心跳/状态/历史查询；已加入歌曲结束附近的快速状态重查，尚未接入官方云信 IM 实时推送。
 - 自定义表情可读取和发送；图片/文件上传、录音和视频发送尚未移植到插件版。Music Party 独立客户端中的这些功能继续保留。
 - 本版不覆盖所有 Folia 外部播放模式；使用一起听时请通过正常网易云歌曲入口选歌。插件没有自定义完整音源 provider。
@@ -72,7 +72,7 @@ npm run test:ui
 
 `build` 将 `vendor/music-party/src` 中的多人协议、校验、队列和消息解析一起打进插件，产物不依赖源码目录。来源提交及文件指纹见 `vendor/music-party/provenance.json` 和 [NOTICES.md](NOTICES.md)。`src/main` 只允许固定房间/消息操作；普通歌曲搜索与播放走宿主 Omni。`src/client/host.ts` 集中封装 Folia 账号与内部接口适配。
 
-`host-patch/folia-0.7.9.patch` 增加版本化的播放租约接口，并在现有选歌、下一首、上一首、进度调整处区分用户意图和服务端播放。租约释放及切换时失效的异步请求不能重新启动歌曲；未启用插件时保持原有路径。
+`host-patch/folia-0.7.9.patch` 增加 experimental playback.sessions 播放会话接口，并在现有选歌、下一首、上一首、进度调整处区分用户意图和服务端播放。租约释放及切换时失效的异步请求不能重新启动歌曲；未启用插件时保持原有路径。
 
 自动化验证使用本地模拟网易云服务，不发送真实私信或房间消息。真实账号跨端联调需使用安装后的适配版 Folia 验收，不能用模拟测试替代。
 
@@ -83,3 +83,10 @@ npm run test:ui
 Folia 本体从 [fork 的 GitHub Releases](https://github.com/tabidachinokaze/folia-major/releases) 更新。首次需要安装 fork 构建的应用，后续发布更高版本的正式 Release 和完整更新元数据后，应用内即可检查更新。详细通道说明见 [宿主文档](https://github.com/tabidachinokaze/folia-major/blob/main/docs/desktop/music-party-fork.md)。
 
 本插件推送代码后由 GitHub Actions 检查并上传构建 artifact。准备发布时同步更新 `package.json`、`mod.json`、`RELEASE.md`，再推送对应 `v*` 标签，工作流会发布 ZIP 和 SHA-256 校验值到本仓库 Releases。插件更新仍通过安装新的 ZIP 完成；模组 ID 保持 `music-party`，保留与既有安装的身份一致性。
+
+## 播放接口迁移
+
+- 获取会话改为 `acquire({ onIntent, restore: 'queue-stopped' })`；播放、批量入队、自然结束、播放错误和 seek 使用不同的事件类型。
+- `play()` 明确返回音源提交、取消、被替代、不可用或失败；插件只在音源提交并取得 metadata 后对齐进度并播放，取消不再进入 20 秒等待。
+- 会话由宿主管理清理，插件也会主动释放。私人 FM、Stage、视频录制和混音过渡中不获取会话，给出可操作的提示；退出后恢复原队列并停止播放。
+- 聊天/私信/房间协议继续留在插件。网易云来源校验也留在插件；宿主接口支持其他 Omni provider。

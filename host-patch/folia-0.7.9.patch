@@ -1,15 +1,233 @@
+diff --git a/docs/folium/api.md b/docs/folium/api.md
+index 323ff4c..2e880c4 100644
+--- a/docs/folium/api.md
++++ b/docs/folium/api.md
+@@ -13,7 +13,7 @@
+ - **客户端入口**：[FoliumContextKind](#foliumcontextkind) · [FoliumHostInfo](#foliumhostinfo) · [FoliumStorage](#foliumstorage) · [FoliumRpc](#foliumrpc) · [FoliumLogger](#foliumlogger) · [FoliumClientApi](#foliumclientapi) · [FoliumClientModule](#foliumclientmodule)
+ - **注册表与条目**：[FoliumVisualizerDef](#foliumvisualizerdef) · [FoliumTuningDef](#foliumtuningdef) · [FoliumCommandContext](#foliumcommandcontext) · [FoliumCommandDef](#foliumcommanddef) · [FoliumBackgroundContext](#foliumbackgroundcontext) · [FoliumBackgroundDef](#foliumbackgrounddef) · [FoliumStageSlot](#foliumstageslot) · [FoliumStageLayerDef](#foliumstagelayerdef) · [FoliumSettingsSectionDef](#foliumsettingssectiondef) · [FoliumPlayerPanelTabDef](#foliumplayerpaneltabdef) · [FoliumProgressContext](#foliumprogresscontext) · [FoliumControlSlot](#foliumcontrolslot) · [FoliumControlButtonDef](#foliumcontrolbuttondef) · [FoliumProgressLayerDef](#foliumprogresslayerdef) · [FoliumStyleDef](#foliumstyledef) · [FoliumRegistryHandle](#foliumregistryhandle) · [FoliumSettingsSectionHandle](#foliumsettingssectionhandle) · [FoliumRegistry](#foliumregistry) · [FoliumRegistries](#foliumregistries)
+ - **宿主容器与上下文**：[FoliumMount](#foliummount) · [FoliumPanelContext](#foliumpanelcontext) · [FoliumSettingsPanelContext](#foliumsettingspanelcontext) · [FoliumClock](#foliumclock) · [FoliumSurface](#foliumsurface) · [FoliumAudioBands](#foliumaudiobands) · [FoliumAudio](#foliumaudio) · [FoliumDisplay](#foliumdisplay) · [FoliumStageContext](#foliumstagecontext)
+-- **事件**：[FoliumEventPriority](#foliumeventpriority) · [FoliumNotificationEvents](#foliumnotificationevents) · [FoliumLyricsTransformEvent](#foliumlyricstransformevent) · [FoliumBeforePlayEvent](#foliumbeforeplayevent) · [FoliumOmniLyricsEvent](#foliumomnilyricsevent) · [FoliumOmniAudioEvent](#foliumomniaudioevent) · [FoliumHookEvents](#foliumhookevents) · [FoliumEventMap](#foliumeventmap) · [FoliumEvents](#foliumevents)
++- **事件**：[FoliumEventPriority](#foliumeventpriority) · [FoliumNotificationEvents](#foliumnotificationevents) · [FoliumLyricsTransformEvent](#foliumlyricstransformevent) · [FoliumBeforePlayEvent](#foliumbeforeplayevent) · [FoliumOmniLyricsEvent](#foliumomnilyricsevent) · [FoliumOmniAudioEvent](#foliumomniaudioevent) · [FoliumHookEvents](#foliumhookevents) · [FoliumEventMap](#foliumeventmap) · [FoliumEvents](#foliumevents) · [FoliumPlaybackSessionIntent](#foliumplaybacksessionintent) · [FoliumPlaybackStartResult](#foliumplaybackstartresult) · [FoliumPlaybackSession](#foliumplaybacksession) · [FoliumPlaybackSessions](#foliumplaybacksessions) · [FoliumExperimentalServices](#foliumexperimentalservices)
+ - **服务**：[FoliumPlaybackService](#foliumplaybackservice) · [FoliumFileHandle](#foliumfilehandle) · [FoliumIconOptions](#foliumiconoptions) · [FoliumUiService](#foliumuiservice) · [FoliumFetchInit](#foliumfetchinit) · [FoliumFetchResponse](#foliumfetchresponse) · [FoliumNetService](#foliumnetservice)
+ - **共享工具**：[FoliumWordSegment](#foliumwordsegment) · [FoliumWordColorRange](#foliumwordcolorrange) · [FoliumLyricsHelpers](#foliumlyricshelpers) · [FoliumThemeHelpers](#foliumthemehelpers)
+ - **参数 schema**：[FoliumParamType](#foliumparamtype) · [FoliumParamOption](#foliumparamoption) · [FoliumParam](#foliumparam) · [FoliumParamValues](#foliumparamvalues) · [FoliumParamAccess](#foliumparamaccess)
+@@ -93,10 +93,10 @@ The object a client entry's `activate(folium)` receives.
+ | `readonly rpc` | `FoliumRpc` | Calls into this mod's main entry. |
+ | `readonly lyrics` | `FoliumLyricsHelpers` | Folium 1.3. |
+ | `readonly theme` | `FoliumThemeHelpers` | Folium 1.3. |
+-| `readonly experimental` | `Readonly<Record<string, unknown>>` | Unfrozen surfaces; each requires the matching manifest `experimental` opt-in. |
++| `readonly experimental` | `Readonly<FoliumExperimentalServices>` | Unfrozen surfaces; each requires the matching manifest `experimental` opt-in. |
+ | `readonly internals` | `Readonly<Record<string, unknown>>` | Host internals with no compatibility promise. Only available when the manifest pins host versions with `"folia"`; otherwise accessing it throws. |
+ 
+-相关：[FoliumHostInfo](#foliumhostinfo) · [FoliumContextKind](#foliumcontextkind) · [FoliumLogger](#foliumlogger) · [FoliumRegistries](#foliumregistries) · [FoliumEvents](#foliumevents) · [FoliumPlaybackService](#foliumplaybackservice) · [FoliumUiService](#foliumuiservice) · [FoliumNetService](#foliumnetservice) · [FoliumStorage](#foliumstorage) · [FoliumRpc](#foliumrpc) · [FoliumLyricsHelpers](#foliumlyricshelpers) · [FoliumThemeHelpers](#foliumthemehelpers)
++相关：[FoliumHostInfo](#foliumhostinfo) · [FoliumContextKind](#foliumcontextkind) · [FoliumLogger](#foliumlogger) · [FoliumRegistries](#foliumregistries) · [FoliumEvents](#foliumevents) · [FoliumPlaybackService](#foliumplaybackservice) · [FoliumUiService](#foliumuiservice) · [FoliumNetService](#foliumnetservice) · [FoliumStorage](#foliumstorage) · [FoliumRpc](#foliumrpc) · [FoliumLyricsHelpers](#foliumlyricshelpers) · [FoliumThemeHelpers](#foliumthemehelpers) · [FoliumExperimentalServices](#foliumexperimentalservices)
+ 
+ ### FoliumClientModule
+ 
+@@ -640,6 +640,59 @@ The event bus, as `folium.events`.
+ 
+ 相关：[FoliumEventMap](#foliumeventmap) · [FoliumEventPriority](#foliumeventpriority) · [FoliumDisposer](#foliumdisposer)
+ 
++### FoliumPlaybackSessionIntent
++
++EXPERIMENTAL (`playback.sessions`): user intent while a mod owns the player.
++
++```ts
++type FoliumPlaybackSessionIntent = | { type: 'play'; song: FoliumSong } | { type: 'enqueue'; songs: readonly FoliumSong[] } | { type: 'next' | 'previous' | 'ended' | 'playback-error' } | { type: 'seek'; seconds: number; resume: boolean }
++```
++
++相关：[FoliumSong](#foliumsong)
++
++### FoliumPlaybackStartResult
++
++Source assignment, not an assertion that decoding or audible playback succeeded.
++
++| 成员 | 类型 | 说明 |
++| --- | --- | --- |
++| `status` | `'source-committed' \| 'cancelled' \| 'superseded' \| 'unavailable' \| 'failed'` | Whether the source committed, the request ended early, or the source was unavailable. |
++
++### FoliumPlaybackSession
++
++An exclusive session, released automatically on mod disable or failed activation.
++
++| 成员 | 类型 | 说明 |
++| --- | --- | --- |
++| `play()` | `(song: FoliumSong): Promise<FoliumPlaybackStartResult>` | Load a host-ref song without autoplay. Resolves at source assignment, cancellation or failure. |
++| `seek()` | `(seconds: number): void` | Set local audio time in seconds, preserving the current pause state. |
++| `release()` | `(): void` | Idempotent. Restore the previous queue stopped; clear current audio, song and lyrics. |
++
++相关：[FoliumSong](#foliumsong) · [FoliumPlaybackStartResult](#foliumplaybackstartresult)
++
++### FoliumPlaybackSessions
++
++EXPERIMENTAL: requires manifest `playback.sessions` and permission `playback.control`. Main window only.
++
++| 成员 | 类型 | 说明 |
++| --- | --- | --- |
++| `readonly version` | `1` | Experimental service contract version. |
++| `resolveSong()` | `(provider: string, id: string): Promise<FoliumSong>` | Resolve an online provider's opaque media ID through Omni, returning a host song ref. |
++| `acquire()` | `(options: { onIntent: (intent: FoliumPlaybackSessionIntent) => void \| Promise<void>; /** Explicit restoration policy: queue restored, current source cleared, no automatic playback. */ restore: 'queue-stopped'; }): FoliumPlaybackSession` | FM, Stage, video recording, active transitions and another session are rejected before changing playback. |
++
++相关：[FoliumSong](#foliumsong) · [FoliumPlaybackSessionIntent](#foliumplaybacksessionintent) · [FoliumPlaybackSession](#foliumplaybacksession)
++
++### FoliumExperimentalServices
++
++Typed experimental surfaces; reading an undeclared name throws.
++
++| 成员 | 类型 | 说明 |
++| --- | --- | --- |
++| `readonly playback.sessions` | `FoliumPlaybackSessions` | Opt-in external playback ownership. |
++| `readonly` | `[name: string]: unknown` | Other experimental registries retain their existing contracts. |
++
++相关：[FoliumPlaybackSessions](#foliumplaybacksessions)
++
+ ## 服务
+ 
+ `folium.playback` / `folium.ui` / `folium.net`。标注需要权限的方法未在 `mod.json` 声明对应权限时抛 `permission-denied:<权限>`；导出窗口里调用会抛 `*-unavailable-in-export-context`（`ui.icon` 除外）。
+diff --git a/docs/folium/contributing.md b/docs/folium/contributing.md
+index 5ee2ebf..a66bc20 100644
+--- a/docs/folium/contributing.md
++++ b/docs/folium/contributing.md
+@@ -188,7 +188,7 @@ function mountHello(folium, container, ctx) {
+ ### 兼容与版本
+ 
+ - 用 `folium.host.folium.minor` 做功能探测，例如 `if (folium.host.folium.minor >= 3)` 再使用 1.3 新增的接口。
+-- 实验接口（`omni.providers`、`omni.hooks`、`ponder.targets`）需要在清单的 `experimental` 里选用，任何 minor 版本都可能变化。
++- 实验接口（`omni.providers`、`omni.hooks`、`ponder.targets`、`playback.sessions`）需要在清单的 `experimental` 里选用，任何 minor 版本都可能变化。
+ - `folium.internals` 没有兼容承诺，使用时必须在清单里用 `folia` 固定宿主版本范围；社区模组应尽量不用。
+ - 模组更新时提升 `mod.json` 的 `version`（`MAJOR.MINOR.PATCH`）。
+ 
+diff --git a/docs/folium/playback-sessions.md b/docs/folium/playback-sessions.md
+new file mode 100644
+index 0000000..a3060d6
+--- /dev/null
++++ b/docs/folium/playback-sessions.md
+@@ -0,0 +1,79 @@
++# Experimental playback sessions
++
++`folium.experimental['playback.sessions']` lets a mod own song selection and the queue while a remote system supplies the playback timeline. It reuses Folia's audio, lyrics and provider pipelines. Room protocols, authentication and networking remain in the mod.
++
++Declare both capabilities in `mod.json`:
++
++```json
++{
++  "folium": 1,
++  "id": "session-example",
++  "version": "1.0.0",
++  "client": "client.mjs",
++  "permissions": ["playback.control"],
++  "experimental": ["playback.sessions"]
++}
++```
++
++The service is available only in the main renderer. It does not require `internals` or a pinned `folia` range. Older hosts that do not recognize this capability reject the manifest; mods should publish a compatible package for those hosts separately. The current service contract version is `1`; the surface remains experimental.
++
++```js
++export default function activate(folium) {
++    const sessions = folium.experimental['playback.sessions'];
++    const session = sessions.acquire({
++        restore: 'queue-stopped',
++        onIntent(intent) {
++            switch (intent.type) {
++                case 'play':
++                    // Forward intent.song through the mod's own protocol.
++                    break;
++                case 'enqueue':
++                    // Forward all intent.songs as one user selection.
++                    break;
++                case 'seek':
++                    // seconds is audio time; resume preserves the originating control's policy.
++                    break;
++                case 'next':
++                case 'previous':
++                case 'ended':
++                case 'playback-error':
++                    // Distinguish user commands, natural boundaries and audio failure.
++                    break;
++            }
++        },
++    });
++    return () => session.release();
++}
++```
++
++## Ownership and restoration
++
++Only one session can own the player. Acquisition rejects FM, Stage, active video recording and an active transition before changing their state. These contexts need their own restoration policies; this version does not flatten them into a normal queue.
++
++`queue-stopped` is the supported restoration policy. The current source is stopped at acquisition. Release restores a copy of the previous queue, clears the current song/audio/lyrics, and keeps playback stopped. Volume and the user's loop/transition preferences remain intact. Looping and automix are temporarily disabled while a session owns the player.
++
++Pause, resume and volume remain local controls. Play, enqueue, next, previous and seek intents go to the owning mod. Native personal-queue reordering/clearing and Stage queue-edit requests are unavailable while a session owns the queue; a mod presents its remote queue controls itself. Stage entry and recording the main player window are rejected until the session is released.
++
++Normal release, mod disable/reload, failed activation and host teardown all release ownership and invalidate in-flight source loads. The host cleans up even if the mod's disposer throws. Retained service objects cannot reacquire ownership after disposal. A synchronous or asynchronous `onIntent` failure is reported through Folium diagnostics and releases the session; mods should catch recoverable network/business errors themselves.
++
++## Resolving and loading songs
++
++`resolveSong(provider, id)` uses Omni to resolve an online provider's opaque media ID into a `FoliumSong` with a host `ref`. Provider-specific restrictions belong to the mod. Songs obtained from host notifications/hooks can also be passed to `session.play`, including host refs for local and Navidrome tracks.
++
++`session.play(song)` loads without autoplay and returns one of these statuses:
++
++| Status | Meaning |
++| --- | --- |
++| `source-committed` | The source was assigned to the player. This does not guarantee metadata, decoding or audible playback. |
++| `cancelled` | A hook cancelled, the session ended, or the host did not commit a source. |
++| `superseded` | A newer source request overtook this one. |
++| `unavailable` | The ref or source was unavailable. |
++| `failed` | Loading failed; diagnostics contain the error. |
++
++After `source-committed`, wait for the expected song and a usable duration in `folium.playback.getState()`, apply the remote timeline with `session.seek(seconds)`, then resume with `folium.playback.play()` if the user is listening. `session.seek` preserves pause state, clamps to the media duration and never broadcasts an intent. It is ignored before the media has metadata.
++
++Every source load participates in the same request lifecycle. Acquiring/releasing a session or starting another song prevents older online/local/Navidrome/Stage loads from committing. Uncommitted blob URLs are released on cancellation; resources already handed to Folia keep the existing deck-aware cleanup behavior.
++
++## Validation
++
++Regression coverage includes capability gates, opaque provider IDs, payload types, cancelled/superseded requests, mod activation/disposal errors, host teardown, queue restoration, FM/Stage rejection, arrow-key routing, batch enqueue, delayed local/Navidrome results and blob cleanup. See `test/unit/mod-system/*Playback*.test.ts` and the generated [API reference](api.md).
+diff --git a/electron/modSystem/manifest.cjs b/electron/modSystem/manifest.cjs
+index c66549b..b705237 100644
+--- a/electron/modSystem/manifest.cjs
++++ b/electron/modSystem/manifest.cjs
+@@ -26,6 +26,7 @@ const KNOWN_PERMISSIONS = new Set([
+ 
+ // Unfrozen surfaces a mod must opt into explicitly; they may change in any minor.
+ const KNOWN_EXPERIMENTAL = new Set([
++    'playback.sessions',
+     'omni.providers',
+     'omni.hooks',
+     'ponder.targets',
+diff --git a/mods/README.md b/mods/README.md
+index 4570b57..74322a2 100644
+--- a/mods/README.md
++++ b/mods/README.md
+@@ -139,7 +139,7 @@ client 只能用相对路径 import 模组目录里的 `.mjs/.js`，**不能 imp
+ | `depends` | 模组 id 或 `id@^1.2.3`（仅支持 `^` 与 `*`）。缺失、版本不符、成环或依赖未启用时，只有该依赖子图不加载 |
+ | `permissions` | 见下表。未知权限直接拒绝 |
+ | `embedOrigins` | `folium.ui.embed` 可以加载的 https origin（形如 `https://host[:port]`），需要 `net.embed` |
+-| `experimental` | 选用的实验接口：`omni.providers`、`omni.hooks`、`ponder.targets` |
++| `experimental` | 选用的实验接口：`omni.providers`、`omni.hooks`、`ponder.targets`、`playback.sessions` |
+ | `folia` | 宿主版本范围（空格分隔的比较式，支持 `>= > <= < = ^` 与 `*`）。**使用 `folium.internals` 时必填**；宿主版本不在范围内时加载器拒绝加载（`host-version-mismatch`） |
+ 
+ | 权限 | 解锁 |
+@@ -578,3 +578,7 @@ folium.experimental['omni.providers'].register({
+ - 单模组加载失败不影响宿主与其他模组；依赖图损坏只波及相关子图。
+ - 每次加载周期先停用当前模组再重新激活，不会叠加多代定时器与监听器。
+ - 导出会话全局互斥（`export-already-running`）；取消 / 失败时清理 ffmpeg 进程、离屏窗口与半成品文件。
++
++## 外部播放会话（实验接口）
++
++`playback.sessions` 允许模组通过宿主播放器跟随外部队列和时间线，需要同名 experimental 声明及 `playback.control` 权限。会话绑定模组生命周期，禁用或激活失败时由宿主清理。参见 [接口说明](../docs/folium/playback-sessions.md)；它不属于稳定的 Folium 1.x 播放服务，也不需要使用 internals。
 diff --git a/src/App.tsx b/src/App.tsx
-index 6c6136e..15e6fb4 100644
+index 6c6136e..88f310a 100644
 --- a/src/App.tsx
 +++ b/src/App.tsx
-@@ -1,4 +1,5 @@
+@@ -1,4 +1,6 @@
 -import { useState, useRef, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
++import { createSessionTransport } from './components/app/playback/createSessionTransport';
 +import { hasExternalPlayback, subscribeExternalPlayback, routeExternalPlayback } from './services/externalPlaybackSession';
 +import { useState, useSyncExternalStore, useRef, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
  import { AnimatePresence, motion, useMotionValueEvent } from 'framer-motion';
  import { useTranslation } from 'react-i18next';
  import { ChevronLeft } from 'lucide-react';
-@@ -158,6 +159,7 @@ const LOCAL_TAIL_DECODE_ERROR_TOLERANCE_SEC = 3;
+@@ -158,6 +160,7 @@ const LOCAL_TAIL_DECODE_ERROR_TOLERANCE_SEC = 3;
  const NEXT_UP_LEAD_SEC = 5;
  
  export default function App() {
@@ -17,7 +235,7 @@ index 6c6136e..15e6fb4 100644
      countRender('App');
      const { t } = useTranslation();
      const {
-@@ -500,7 +502,7 @@ export default function App() {
+@@ -500,7 +503,7 @@ export default function App() {
      // control below keeps editing the per-song value alone.
      const effectiveLyricTimelineOffsetMs = lyricTimelineOffsetMs + globalLyricTimelineOffsetMs;
  
@@ -26,7 +244,7 @@ index 6c6136e..15e6fb4 100644
  
      const getTargetPlaybackVolume = useCallback(() => (isMuted ? 0 : volume), [isMuted, volume]);
  
-@@ -1149,7 +1151,7 @@ export default function App() {
+@@ -1149,7 +1152,7 @@ export default function App() {
          currentSongKeyRef: currentSongRef,
          coverUrl,
          loopMode: effectiveLoopMode,
@@ -35,97 +253,553 @@ index 6c6136e..15e6fb4 100644
          transition: transitionSettings,
          onAdvanceTrack: () => {
              // Same advance the end of a track would trigger, only early enough for the outgoing
-@@ -2033,6 +2035,7 @@ export default function App() {
+@@ -1466,6 +1469,7 @@ export default function App() {
+ 
+     const {
+         exportState,
++        isExportRunning,
+         handleExportCommand,
+     } = useElectronVideoExportController({
+         isElectronWindow,
+@@ -2033,6 +2037,7 @@ export default function App() {
          return true;
      };
      const seekMainAudio = useCallback((time: number) => {
-+        if (routeExternalPlayback({ type: 'seek', seconds: time })) return;
++        if (routeExternalPlayback({ type: 'seek', seconds: time, resume: true })) return;
          if (seekDuringTransitionRef.current(time)) {
              return;
          }
-@@ -2086,7 +2089,13 @@ export default function App() {
+@@ -2086,7 +2091,9 @@ export default function App() {
          seekToLyricTime: handleMonetLyricLineSeek,
          next: () => { void handleNextTrack(); },
          previous: handlePrevTrack,
 -        playSong: (song) => playSong(song),
-+        playSong: (song, externalToken) => externalToken
-+            ? new Promise<void>((resolve, reject) => {
-+                void playSong(song, [song], false, { externalPlaybackToken: externalToken,
-+                    autoplay: false, shouldNavigateToPlayer: false, onAudioReady: resolve,
-+                }).then(resolve, reject);
-+            })
-+            : playSong(song),
++        playSong: (song, request) => playSong(song, request ? [song] : [], false,
++            request ? { request, autoplay: false, shouldNavigateToPlayer: false } : {}),
++        sessionTransport: createSessionTransport({ audioRef, shouldAutoPlay, currentSongRef, blobUrlRef, pendingResumeTimeRef }, () => !isExportRunning()),
          enqueue: addOnlineSongToQueue,
          navigateToPlayer,
          navigateToHome,
+@@ -2511,7 +2518,7 @@ export default function App() {
+                 // If single loop is active, native loop handles it.
+                 // If not, we handle queue logic.
+                 if (effectiveLoopMode !== 'one') {
+-                    void handleNextTrack({ allowStopOnMissing: true, shouldNavigateToPlayer: false });
++                    void handleNextTrack({ allowStopOnMissing: true, shouldNavigateToPlayer: false, reason: 'ended' });
+                 }
+             }}
+             onLoadedMetadata={(e) => {
+@@ -2570,7 +2577,7 @@ export default function App() {
+                         return;
+                     }
+ 
+-                    void handleNextTrack({ allowStopOnMissing: true, shouldNavigateToPlayer: false });
++                    void handleNextTrack({ allowStopOnMissing: true, shouldNavigateToPlayer: false, reason: 'playback-error' });
+                     return;
+                 }
+ 
+diff --git a/src/components/app/playback/createSessionTransport.ts b/src/components/app/playback/createSessionTransport.ts
+new file mode 100644
+index 0000000..59c849a
+--- /dev/null
++++ b/src/components/app/playback/createSessionTransport.ts
+@@ -0,0 +1,44 @@
++import type { MutableRefObject } from 'react';
++import { retireBlobUrl } from '@/services/playbackBlobUrls';
++import { setAudioSrc, setPlayerState } from '@/stores/usePlaybackStore';
++import { PlayerState } from '@/types';
++
++// src/components/app/playback/createSessionTransport.ts
++// Direct lease operations preserve pause on seek and synchronously disarm pending autoplay on stop.
++export function createSessionTransport(
++    refs: {
++        audioRef: MutableRefObject<HTMLAudioElement | null>;
++        shouldAutoPlay: MutableRefObject<boolean>;
++        currentSongRef: MutableRefObject<string | number | null>;
++        blobUrlRef: MutableRefObject<string | null>;
++        pendingResumeTimeRef: MutableRefObject<number | null>;
++    },
++    canAcquire: () => boolean = () => true,
++) {
++    return {
++        canAcquire,
++        stop() {
++            refs.shouldAutoPlay.current = false;
++            refs.currentSongRef.current = null;
++            refs.pendingResumeTimeRef.current = null;
++            const audio = refs.audioRef.current;
++            try {
++                audio?.pause();
++                audio?.removeAttribute('src');
++                audio?.load();
++            } finally {
++                retireBlobUrl(refs.blobUrlRef.current);
++                refs.blobUrlRef.current = null;
++                setAudioSrc(null);
++                setPlayerState(PlayerState.IDLE);
++            }
++        },
++        seek(seconds: number) {
++            const audio = refs.audioRef.current;
++            if (!audio || audio.readyState < 1) return;
++            audio.currentTime = Number.isFinite(audio.duration)
++                ? Math.min(seconds, Math.max(0, audio.duration - 0.1))
++                : seconds;
++        },
++    };
++}
+diff --git a/src/components/app/player-panel/createQueueMutations.ts b/src/components/app/player-panel/createQueueMutations.ts
+index 17be45d..16c6bd1 100644
+--- a/src/components/app/player-panel/createQueueMutations.ts
++++ b/src/components/app/player-panel/createQueueMutations.ts
+@@ -1,3 +1,4 @@
++import { hasExternalPlayback, routeExternalPlayback } from '../../../services/externalPlaybackSession';
+ import type { Dispatch, SetStateAction } from 'react';
+ import { buildNavidromeQueue } from '../../../services/playbackAdapters';
+ import { applyQueueAddBehavior } from '../../../utils/queueAddBehavior';
+@@ -33,6 +34,7 @@ export const createQueueMutations = ({
+         }
+ 
+         const unifiedSongs = buildNavidromeQueue(songs);
++        if (routeExternalPlayback({ type: 'enqueue', songs: unifiedSongs })) return;
+         const baseQueue = playQueue.length > 0 ? playQueue : (currentSong ? [currentSong] : []);
+         const { nextQueue, affectedSongs, changed } = applyQueueAddBehavior({
+             queue: baseQueue,
+@@ -55,6 +57,7 @@ export const createQueueMutations = ({
+     };
+ 
+     const updateQueueOrder = (nextQueue: SongResult[]) => {
++        if (hasExternalPlayback()) { setStatusMsg({ type: 'info', text: t('status.externalPlaybackActive') }); return; }
+         setPlayQueue(nextQueue);
+         void persistLastPlaybackCache(currentSong, nextQueue);
+     };
+@@ -86,6 +89,7 @@ export const createQueueMutations = ({
+     };
+ 
+     const applyQueueBatchOperation = (action: QueueBatchAction, targetIndices: number[]) => {
++        if (hasExternalPlayback()) { setStatusMsg({ type: 'info', text: t('status.externalPlaybackActive') }); return false; }
+         const result = transformQueueBatch({
+             queue: playQueue,
+             targetIndices,
+diff --git a/src/hooks/useElectronPlaybackBridge.ts b/src/hooks/useElectronPlaybackBridge.ts
+index e5ff2b1..3ef1383 100644
+--- a/src/hooks/useElectronPlaybackBridge.ts
++++ b/src/hooks/useElectronPlaybackBridge.ts
+@@ -1,3 +1,4 @@
++import { routeExternalPlayback } from '../services/externalPlaybackSession';
+ import { useEffect, useRef, useState } from 'react';
+ import type React from 'react';
+ import type { RefObject } from 'react';
+@@ -617,6 +618,7 @@ export const useElectronPlaybackBridge = ({
+                     ? safeDuration
+                     : command.time;
+                 const nextTime = Math.max(0, Math.min(command.time, upperBound));
++                if (routeExternalPlayback({ type: 'seek', seconds: nextTime, resume: false })) return;
+                 // During a blend the visible track is the outgoing one; route through the same
+                 // cancel-and-resume the window's bar uses instead of moving the hidden incoming deck.
+                 if (onRemoteTransitionSeek?.(nextTime)) {
+@@ -687,6 +689,11 @@ export const useElectronPlaybackBridge = ({
+ 
+                 if (request.action === 'seek') {
+                     const nextTime = Math.max(0, (request.positionMs ?? 0) / 1000);
++                    if (routeExternalPlayback({ type: 'seek', seconds: nextTime, resume: false })) {
++                        // The owning mod receives the intent and controls the resulting position.
++                        complete(request.requestId, true);
++                        return;
++                    }
+                     // Same order as the remote's own seek above: mid-blend `audioRef` names the
+                     // INCOMING deck, silent and holding a different track, so moving it moves
+                     // nothing the listener can hear. The transition-aware path cancels the blend
+diff --git a/src/hooks/useElectronVideoExportController.ts b/src/hooks/useElectronVideoExportController.ts
+index 8fb6258..c837558 100644
+--- a/src/hooks/useElectronVideoExportController.ts
++++ b/src/hooks/useElectronVideoExportController.ts
+@@ -1,3 +1,4 @@
++import { hasExternalPlayback } from '../services/externalPlaybackSession';
+ import { useCallback, useEffect, useRef, useState } from 'react';
+ import type React from 'react';
+ import type { RefObject } from 'react';
+@@ -64,6 +65,10 @@ export const useElectronVideoExportController = ({
+     }, []);
+ 
+     const startExport = useCallback(async (preset: VideoExportPreset, startMode: 'from-start' | 'current') => {
++        if (hasExternalPlayback()) {
++            setExportState({ ...idleVideoExportState(), status: 'error', presetId: preset.id, error: t('status.externalPlaybackActive') });
++            return;
++        }
+         if (!isElectronWindow || runningRef.current) {
+             return;
+         }
+@@ -329,6 +334,7 @@ export const useElectronVideoExportController = ({
+ 
+     return {
+         exportState,
++        isExportRunning: () => runningRef.current,
+         handleExportCommand,
+     };
+ };
+diff --git a/src/hooks/useLibraryPlaybackController.ts b/src/hooks/useLibraryPlaybackController.ts
+index 3c16c1b..ff9650f 100644
+--- a/src/hooks/useLibraryPlaybackController.ts
++++ b/src/hooks/useLibraryPlaybackController.ts
+@@ -1,3 +1,5 @@
++import { beginPlaybackRequest } from '../services/playbackRequest';
++import { captureExternalPlaybackBoundary, routeExternalPlayback } from '../services/externalPlaybackSession';
+ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+ import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
+ import type { MotionValue } from 'framer-motion';
+@@ -443,8 +445,10 @@ export function useLibraryPlaybackController({
+     }, [currentSong, lyrics, resolveLocalSongRecord, resolveOnlineSongLyricsState]);
+ 
+     const handleLocalQueueAdd = useCallback(async (localSong: LocalSong) => {
++        const isCurrentBoundary = captureExternalPlaybackBoundary();
+         const preparedLocalSong = await ensureLocalSongCoverAsset(localSong);
+         const { unifiedSong } = await resolveLocalMetadataUI(preparedLocalSong, null);
++        if (!isCurrentBoundary() || routeExternalPlayback({ type: 'enqueue', songs: [unifiedSong] })) return;
+         const baseQueue = playQueue.length > 0 ? playQueue : (currentSong ? [currentSong] : []);
+         const { nextQueue, affectedSongs, changed } = applyQueueAddBehavior({
+             queue: baseQueue,
+@@ -516,16 +520,24 @@ export function useLibraryPlaybackController({
+     }, [prewarmLocalSongMetadata]);
+ 
+     const onPlayLocalSong = useCallback(async (localSong: LocalSong, queue: LocalSong[] = [], options: PlaybackNavigationOptions = {}) => {
++        const request = options.request ?? beginPlaybackRequest();
++        if (!request.isCurrent()) return;
+         interruptStagePlaybackForMainTransition();
+ 
+         const blobUrl = await getAudioFromLocalSong(localSong);
+         if (!blobUrl) {
++            if (!request.isCurrent()) return;
++            request.finish('unavailable');
+             setStatusMsg({ type: 'error', text: t('status.localFileAccessError') || '' });
+             return;
+         }
+ 
++        const handOffAudio = request.onCancel(() => { if (blobUrl.startsWith('blob:')) URL.revokeObjectURL(blobUrl); });
++        if (!request.isCurrent()) return;
+         const preparedLocalSong = await ensureLocalSongCoverAsset(localSong);
++        if (!request.isCurrent()) return;
+         const initialMeta = await resolveLocalMetadataUI(preparedLocalSong, null);
++        if (!request.isCurrent()) return;
+         const initialSongKey = getPlaybackSongKey(initialMeta.unifiedSong);
+         const recoveredRepresentation = getPlaybackRepresentationForRevision(
+             initialSongKey,
+@@ -535,6 +547,7 @@ export function useLibraryPlaybackController({
+ 
+         // Handed over, not revoked here: a blend is still playing the song this replaces on the
+         // other deck, and a revoked URL is a deck that can no longer be seeked. See `retireBlobUrl`.
++        handOffAudio();
+         retireBlobUrl(blobUrlRef.current);
+         blobUrlRef.current = recoveredRepresentation ? null : blobUrl;
+         if (recoveredRepresentation) {
+@@ -542,18 +555,21 @@ export function useLibraryPlaybackController({
+             retireBlobUrl(null);
+         }
+ 
+-        shouldAutoPlayRef.current = true;
++        shouldAutoPlayRef.current = options.autoplay !== false;
+         currentSongRef.current = initialSongKey;
+         setLyrics(initialMeta.lyrics);
++        if (!request.isCurrent()) return;
+         setActiveLocalLyricsSource(initialMeta.lyricsSource);
+         setCurrentLineIndex(-1);
+         currentTime.set(0);
+         setCurrentSong(initialMeta.unifiedSong);
++        if (!request.isCurrent()) return;
+         setAudioSrc(playbackUrl);
++        request.finish('source-committed');
+ 
+         if (initialMeta.coverUrl) {
+             loadCachedOrFetchCover(`cover_local_${preparedLocalSong.id}`, initialMeta.coverUrl).then((resolvedCoverUrl) => {
+-                if (currentSongRef.current === initialSongKey) {
++                if (request.isCurrent() && currentSongRef.current === initialSongKey) {
+                     setManagedCachedCoverUrl(resolvedCoverUrl);
+                 }
+             });
+@@ -569,7 +585,7 @@ export function useLibraryPlaybackController({
+                 ? buildLocalQueue(queue, initialMeta.unifiedSong, initialMeta.catalog)
+                 : [initialMeta.unifiedSong];
+         setPlayQueue(finalQueue);
+-        void persistLastPlaybackCache(initialMeta.unifiedSong, finalQueue);
++        if (!request.external) void persistLastPlaybackCache(initialMeta.unifiedSong, finalQueue);
+ 
+         if (options.shouldNavigateToPlayer ?? true) {
+             navigateToPlaybackView();
+@@ -586,9 +602,10 @@ export function useLibraryPlaybackController({
+             try {
+                 const { updatedLocalSong, matchedSongResult } = await handleLocalSongMatch(preparedLocalSong);
+                 prewarmBaseSong = updatedLocalSong;
+-                if (currentSongRef.current !== initialSongKey) return;
++                if (!request.isCurrent() || currentSongRef.current !== initialSongKey) return;
+ 
+                 const updatedMeta = await resolveLocalMetadataUI(updatedLocalSong, matchedSongResult);
++                if (!request.isCurrent()) return;
+                 setCurrentSong(updatedMeta.unifiedSong);
+                 setLyrics(updatedMeta.lyrics);
+                 setActiveLocalLyricsSource(updatedMeta.lyricsSource);
+@@ -596,7 +613,7 @@ export function useLibraryPlaybackController({
+ 
+                 if (updatedMeta.coverUrl && updatedMeta.coverUrl !== initialMeta.coverUrl) {
+                     loadCachedOrFetchCover(`cover_local_${updatedLocalSong.id}`, updatedMeta.coverUrl).then((resolvedCoverUrl) => {
+-                        if (currentSongRef.current === initialSongKey) {
++                        if (request.isCurrent() && currentSongRef.current === initialSongKey) {
+                             setManagedCachedCoverUrl(resolvedCoverUrl);
+                         }
+                     });
+@@ -609,11 +626,11 @@ export function useLibraryPlaybackController({
+                 });
+             } catch (error) {
+                 console.warn('Local song match pipeline failed:', error);
+-                if (currentSongRef.current === initialSongKey) {
++                if (request.isCurrent() && currentSongRef.current === initialSongKey) {
+                     setIsLyricsLoading(false);
+                 }
+             } finally {
+-                if (currentSongRef.current === initialSongKey) {
++                if (request.isCurrent() && currentSongRef.current === initialSongKey) {
+                     prewarmNearbyLocalSongs(prewarmBaseSong, queue);
+                 }
+             }
+@@ -646,11 +663,14 @@ export function useLibraryPlaybackController({
+         queue: NavidromeSong[] = [],
+         options: PlaybackNavigationOptions = {},
+     ) => {
++        const request = options.request ?? beginPlaybackRequest();
++        if (!request.isCurrent()) return;
+         interruptStagePlaybackForMainTransition();
+ 
+         const shouldNavigateToPlayer = options.shouldNavigateToPlayer ?? true;
+         const config = getNavidromeConfig();
+         if (!config) {
++            request.finish('unavailable');
+             setStatusMsg({ type: 'error', text: 'Navidrome not configured' });
+             return;
+         }
+@@ -661,6 +681,7 @@ export function useLibraryPlaybackController({
+             const navidromeId = navidromeSong.navidromeData.id;
+             const streamUrl = navidromeApi.getStreamUrl(config, navidromeId);
+             const serverSongPromise = navidromeApi.getSong(config, navidromeId);
++            void serverSongPromise.catch(() => {});
+             const matchData = await getFromCacheWithMigration<NavidromeMatchData>(
+                 `navidrome_match_${navidromeId}`,
+                 migrateMatchedLyricsCarrierRenderHints,
+@@ -777,6 +798,7 @@ export function useLibraryPlaybackController({
+                 }
+             }
+ 
++            if (!request.isCurrent()) return;
+             const mutableSong = navidromeSong as NavidromeSong & {
+                 matchedLyrics?: LyricData;
+                 matchedIsPureMusic?: boolean;
+@@ -807,6 +829,7 @@ export function useLibraryPlaybackController({
+             }
+ 
+             const serverSong = await serverSongPromise;
++            if (!request.isCurrent()) return;
+             if (serverSong?.replayGain) {
+                 navidromeSong.navidromeData.replayGain = serverSong.replayGain;
+             }
+@@ -825,14 +848,17 @@ export function useLibraryPlaybackController({
+                 buildNavidromeSourceRevision(unifiedSong, streamUrl),
+             );
+ 
+-            shouldAutoPlayRef.current = true;
++            shouldAutoPlayRef.current = options.autoplay !== false;
+             currentSongRef.current = unifiedSongKey;
+             setLyrics(nextLyrics);
++            if (!request.isCurrent()) return;
+             setCurrentLineIndex(-1);
+             currentTime.set(0);
+             setCurrentSong(unifiedSong);
+             setManagedCachedCoverUrl(coverUrl ?? null);
++            if (!request.isCurrent()) return;
+             setAudioSrc(recoveredRepresentation?.url ?? streamUrl);
++            request.finish('source-committed');
+             setIsLyricsLoading(false);
+ 
+             const finalQueue = options.unifiedQueue
+@@ -841,7 +867,7 @@ export function useLibraryPlaybackController({
+                     ? buildNavidromeQueue(queue, unifiedSong)
+                     : [unifiedSong];
+             setPlayQueue(finalQueue);
+-            void persistLastPlaybackCache(unifiedSong, finalQueue);
++            if (!request.external) void persistLastPlaybackCache(unifiedSong, finalQueue);
+ 
+             if (shouldNavigateToPlayer) {
+                 navigateToPlaybackView();
+@@ -852,6 +878,9 @@ export function useLibraryPlaybackController({
+                 console.warn('Theme load error', error);
+             });
+         } catch (error) {
++            if (!request.isCurrent()) return;
++            if (request.external) throw error;
++            request.finish('failed');
+             console.error('[App] Failed to play Navidrome song:', error);
+             setStatusMsg({ type: 'error', text: t('status.playbackFailed')});
+             setIsLyricsLoading(false);
+diff --git a/src/hooks/usePlaybackInteractionBridge.ts b/src/hooks/usePlaybackInteractionBridge.ts
+index 78cca10..60216ab 100644
+--- a/src/hooks/usePlaybackInteractionBridge.ts
++++ b/src/hooks/usePlaybackInteractionBridge.ts
+@@ -1,3 +1,4 @@
++import { routeExternalPlayback } from '../services/externalPlaybackSession';
+ import { useCallback, useEffect } from 'react';
+ import type React from 'react';
+ import type { MotionValue } from 'framer-motion';
+@@ -282,7 +283,8 @@ export function usePlaybackInteractionBridge({
+                         // Off the motion value, not the element: during a blend that value is driven
+                         // by the deck on screen, which is the track this key is meant to move.
+                         const nextTime = Math.max(0, currentTime.get() - 5);
+-                        if (!seekDuringTransition?.(nextTime) && audioRef.current) {
++                        if (!routeExternalPlayback({ type: 'seek', seconds: nextTime, resume: false })
++                            && !seekDuringTransition?.(nextTime) && audioRef.current) {
+                             audioRef.current.currentTime = nextTime;
+                         }
+                     }
+@@ -318,7 +320,8 @@ export function usePlaybackInteractionBridge({
+                         // the element holds the ARRIVING track's length, and clamping this track's
+                         // position against it lands past its end.
+                         const nextTime = Math.min(duration || 0, currentTime.get() + 5);
+-                        if (!seekDuringTransition?.(nextTime) && audioRef.current) {
++                        if (!routeExternalPlayback({ type: 'seek', seconds: nextTime, resume: false })
++                            && !seekDuringTransition?.(nextTime) && audioRef.current) {
+                             audioRef.current.currentTime = nextTime;
+                         }
+                     }
 diff --git a/src/hooks/usePlaybackQueueController.ts b/src/hooks/usePlaybackQueueController.ts
-index 5a5f273..33b14e2 100644
+index 5a5f273..17b5a64 100644
 --- a/src/hooks/usePlaybackQueueController.ts
 +++ b/src/hooks/usePlaybackQueueController.ts
-@@ -1,3 +1,4 @@
-+import { routeExternalPlayback, externalPlaybackRevision, isExternalPlaybackOwner } from '../services/externalPlaybackSession';
+@@ -1,3 +1,5 @@
++import { captureExternalPlaybackBoundary, hasExternalPlayback, routeExternalPlayback } from '../services/externalPlaybackSession';
++import { beginPlaybackRequest } from '../services/playbackRequest';
  import { useCallback, useEffect, useRef, useState } from 'react';
  import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
  import type { MotionValue } from 'framer-motion';
-@@ -258,6 +259,7 @@ export function usePlaybackQueueController({
+@@ -198,7 +200,7 @@ export function usePlaybackQueueController({
+     const [pendingUnavailableReplacement, setPendingUnavailableReplacement] = useState<UnavailableReplacementRequest | null>(null);
+ 
+     const appendOnlineSongsToMainQueue = useCallback((songs: SongResult[], options?: { suppressToast?: boolean }) => {
+-        if (songs.length === 0) {
++        if (songs.length === 0 || routeExternalPlayback({ type: 'enqueue', songs })) {
+             return { changed: false, deduplicated: false, affectedCount: 0, baseQueue: [], affectedSongs: [], addBehavior: queueAddBehavior };
+         }
+ 
+@@ -258,10 +260,6 @@ export function usePlaybackQueueController({
      }, [activePlaybackContext, currentSong, mainPlaybackSnapshotRef, persistLastPlaybackCache, playQueue, queueAddBehavior, setPlayQueue, setStatusMsg, t]);
  
      const addOnlineSongToQueue = useCallback((song: SongResult) => {
-+        if (routeExternalPlayback({ type: 'select', song })) return;
-         if (isSongUnavailable(song)) {
-             return;
-         }
-@@ -449,6 +451,8 @@ export function usePlaybackQueueController({
+-        if (isSongUnavailable(song)) {
+-            return;
+-        }
+-
+         appendOnlineSongsToMainQueue([song]);
+     }, [appendOnlineSongsToMainQueue]);
+ 
+@@ -449,13 +447,16 @@ export function usePlaybackQueueController({
          // The hook is async, so a later playSong may finish its hook first; this call then drops
          // out instead of replacing the song the user picked last.
          // An automix advance skips the hook (see `isAutomixAdvance`).
-+        if (routeExternalPlayback({ type: 'select', song: requestedSong }, options.externalPlaybackToken)) return;
-+        const externalRevision = externalPlaybackRevision();
++        if (!options.request && routeExternalPlayback({ type: 'play', song: requestedSong })) return;
++        const request = options.request ?? beginPlaybackRequest();
++        if (!request.isCurrent()) return;
          const playSongCallId = ++playSongCallIdRef.current;
          const allowedSong = !options.isAutomixAdvance && hasBeforePlayHook()
              ? await runBeforePlayHook(requestedSong)
-@@ -456,6 +460,8 @@ export function usePlaybackQueueController({
-         if (!allowedSong || playSongCallIdRef.current !== playSongCallId) {
-             return;
-         }
-+        if (externalPlaybackRevision() !== externalRevision) return;
-+        if (options.externalPlaybackToken && allowedSong !== requestedSong) throw new Error('房间歌曲不能被其他插件替换');
+             : requestedSong;
+-        if (!allowedSong || playSongCallIdRef.current !== playSongCallId) {
+-            return;
+-        }
++        if (!allowedSong) { request.finish('cancelled'); return; }
++        if (!request.isCurrent() || playSongCallIdRef.current !== playSongCallId) return;
++        if (request.external && !isSamePlaybackSong(allowedSong, requestedSong)) { request.finish('cancelled'); return; }
          const song = allowedSong;
          interruptStagePlaybackForMainTransition();
  
-@@ -474,7 +480,9 @@ export function usePlaybackQueueController({
+@@ -474,11 +475,13 @@ export function usePlaybackQueueController({
          }
  
          const playbackRequestId = ++playbackRequestIdRef.current;
 -        const isLatestPlaybackRequest = () => playbackRequestIdRef.current === playbackRequestId;
 +        const isLatestPlaybackRequest = () => playbackRequestIdRef.current === playbackRequestId
-+            && externalPlaybackRevision() === externalRevision
-+            && (!options.externalPlaybackToken || isExternalPlaybackOwner(options.externalPlaybackToken));
++            && request.isCurrent();
          const isLocal = isLocalPlaybackSong(song);
          const isNavidrome = isNavidromePlaybackSong(song);
          let prefetched: ReturnType<typeof getPrefetchedData> = null;
-@@ -487,6 +495,7 @@ export function usePlaybackQueueController({
+         let preloadedOnlineAudioResult: Awaited<ReturnType<typeof loadOnlineSongAudioSource>> | null = null;
++        let handOffAudio = () => {};
+         const queueContext = queue.length > 0 ? queue : playQueue.length === 0 ? [song] : playQueue;
+         const newQueue = getPlayableOnlineQueue(queueContext);
+         const skipCount = options.unavailableSkipCount ?? 0;
+@@ -487,6 +490,7 @@ export function usePlaybackQueueController({
          // prompt or a countdown, so they are not the blend's advance even when this call was.
          const deferredPlayOptions: PlaybackNavigationOptions = { ...options, isAutomixAdvance: undefined };
  
-+        if (options.externalPlaybackToken && isSongUnavailable(song)) throw new Error('当前账号无法完整播放这首房间歌曲');
++        if (request.external && isSongUnavailable(song)) { request.finish('unavailable'); return; }
          if (!isLocal && !isNavidrome && isSongUnavailable(song)) {
              if (await handleMarkedUnavailableSong(song, queueContext, isFmCall, deferredPlayOptions)) {
                  return;
-@@ -558,6 +567,7 @@ export function usePlaybackQueueController({
+@@ -497,6 +501,7 @@ export function usePlaybackQueueController({
+             const localData = localSongs.find(ls => ls.id === song.localRef.songId) ?? null;
+ 
+             if (!localData) {
++                request.finish('unavailable');
+                 setStatusMsg({ type: 'error', text: t('status.localFilePlaybackError') });
+                 return;
              }
+@@ -510,7 +515,7 @@ export function usePlaybackQueueController({
+                 .filter((queuedSong): queuedSong is LocalSong => Boolean(queuedSong));
+             await onPlayLocalSong(resolvedLocalData, localQueue, {
+                 shouldNavigateToPlayer,
+-                unifiedQueue: newQueue,
++                unifiedQueue: newQueue, request, autoplay: options.autoplay,
+             });
+             return;
+         }
+@@ -518,6 +523,7 @@ export function usePlaybackQueueController({
+         if (isNavidrome) {
+             const navidromeSong = resolveNavidromePlaybackCarrier(song);
+             if (!navidromeSong) {
++                request.finish('unavailable');
+                 setStatusMsg({ type: 'error', text: t('status.playbackError') });
+                 return;
+             }
+@@ -527,7 +533,7 @@ export function usePlaybackQueueController({
+                 .filter((queuedSong): queuedSong is NavidromeSong => Boolean(queuedSong));
+             await onPlayNavidromeSong(navidromeSong, navidromeQueue, {
+                 shouldNavigateToPlayer,
+-                unifiedQueue: newQueue,
++                unifiedQueue: newQueue, request, autoplay: options.autoplay,
+             });
+             return;
+         }
+@@ -550,14 +556,14 @@ export function usePlaybackQueueController({
+ 
+         try {
+             preloadedOnlineAudioResult = await loadOnlineSongAudioSource(song, audioQuality, prefetched);
+-            if (!isLatestPlaybackRequest()) {
+-                if (preloadedOnlineAudioResult.kind === 'ok' && preloadedOnlineAudioResult.blobUrl) {
+-                    URL.revokeObjectURL(preloadedOnlineAudioResult.blobUrl);
+-                }
+-                return;
++            if (preloadedOnlineAudioResult.kind === 'ok' && preloadedOnlineAudioResult.blobUrl) {
++                const url = preloadedOnlineAudioResult.blobUrl;
++                handOffAudio = request.onCancel(() => URL.revokeObjectURL(url));
+             }
++            if (!isLatestPlaybackRequest()) return;
  
              if (preloadedOnlineAudioResult.kind === 'unavailable') {
-+                if (options.externalPlaybackToken) throw new Error('当前账号无法播放这首房间歌曲');
++                if (request.external) { request.finish('unavailable'); return; }
                  const nextSong = getNextPlayableQueueSong(queueContext, song);
                  const canSkip = Boolean(nextSong) && skipCount < MAX_UNAVAILABLE_AUTO_SKIP_COUNT;
  
-@@ -577,13 +587,15 @@ export function usePlaybackQueueController({
+@@ -577,24 +583,29 @@ export function usePlaybackQueueController({
                  return;
              }
          } catch (error) {
 +            if (!isLatestPlaybackRequest()) return;
-+            if (options.externalPlaybackToken) throw error;
++            if (request.external) throw error;
++            request.finish('failed');
              console.error('[App] Failed to fetch song URL:', error);
              setStatusMsg({ type: 'error', text: t('status.playbackError') });
              setIsLyricsLoading(false);
@@ -133,28 +807,34 @@ index 5a5f273..33b14e2 100644
          }
  
 -        shouldAutoPlayRef.current = true;
-+        shouldAutoPlayRef.current = options.autoplay !== false;
          const songKey = getPlaybackSongKey(song);
          const resolvedSong = preloadedOnlineAudioResult?.kind === 'ok'
              ? applyOnlineAudioSourceMetadata(song, preloadedOnlineAudioResult.replayGain)
-@@ -595,6 +607,7 @@ export function usePlaybackQueueController({
+             : song;
+         const resolvedQueue = replacePlaybackSongInQueue(newQueue, resolvedSong);
++
++        const onlineLyricsState = await loadOnlineLyricsState(song);
++        if (!isLatestPlaybackRequest()) return;
++        shouldAutoPlayRef.current = options.autoplay !== false;
+         currentSongRef.current = songKey;
+         pendingResumeTimeRef.current = null;
+         lastAudioRecoverySourceRef.current = null;
          currentOnlineAudioUrlFetchedAtRef.current = null;
  
-         const onlineLyricsState = await loadOnlineLyricsState(song);
-+        if (!isLatestPlaybackRequest()) return;
+-        const onlineLyricsState = await loadOnlineLyricsState(song);
  
          setLyrics(null);
          setCurrentLineIndex(-1);
-@@ -615,7 +628,7 @@ export function usePlaybackQueueController({
+@@ -615,7 +626,7 @@ export function usePlaybackQueueController({
              setPlayQueue(resolvedQueue);
          }
  
 -        void persistLastPlaybackCache({ ...resolvedSong, onlineLyricsState: onlineLyricsState ?? undefined }, resolvedQueue);
-+        if (!options.externalPlaybackToken) void persistLastPlaybackCache({ ...resolvedSong, onlineLyricsState: onlineLyricsState ?? undefined }, resolvedQueue);
++        if (!request.external) void persistLastPlaybackCache({ ...resolvedSong, onlineLyricsState: onlineLyricsState ?? undefined }, resolvedQueue);
  
          if (shouldNavigateToPlayer) {
              navigateToPlaybackView();
-@@ -623,7 +636,7 @@ export function usePlaybackQueueController({
+@@ -623,7 +634,7 @@ export function usePlaybackQueueController({
          setPlayerState(PlayerState.IDLE);
  
          const cachedCoverUrl = await getCachedSongCoverUrl(song);
@@ -163,21 +843,46 @@ index 5a5f273..33b14e2 100644
          if (cachedCoverUrl) {
              setCachedCoverUrl(cachedCoverUrl);
          } else if (prefetched?.coverUrl) {
-@@ -650,10 +663,11 @@ export function usePlaybackQueueController({
+@@ -638,6 +649,7 @@ export function usePlaybackQueueController({
+             return;
+         }
+ 
++        handOffAudio();
+         if (audioResult.blobUrl) {
+             blobUrlRef.current = audioResult.blobUrl;
+             currentOnlineAudioUrlFetchedAtRef.current = null;
+@@ -650,37 +662,43 @@ export function usePlaybackQueueController({
              currentOnlineAudioUrlFetchedAtRef.current = null;
          }
          setAudioSrc(audioResult.audioSrc);
-+        options.onAudioReady?.();
++        request.finish('source-committed');
  
          try {
              await loadOnlineSongLyrics(song, prefetched, userId, {
 -                isCurrent: () => currentSongRef.current === songKey,
+-                onLyrics: resolvedLyrics => setLyrics(resolvedLyrics),
 +                isCurrent: () => currentSongRef.current === songKey && isLatestPlaybackRequest(),
-                 onLyrics: resolvedLyrics => setLyrics(resolvedLyrics),
++                onLyrics: resolvedLyrics => { if (request.isCurrent()) setLyrics(resolvedLyrics); },
                  onPureMusicChange: isPureMusic => {
++                    if (!request.isCurrent()) return;
                      setCurrentSong(prev => {
-@@ -673,14 +687,16 @@ export function usePlaybackQueueController({
-                 onDone: () => setIsLyricsLoading(false),
+                         if (!prev || !isSamePlaybackSong(prev, song)) return prev;
+                         return { ...prev, isPureMusic };
+                     });
+                 },
+                 onStateChange: state => {
++                    if (!request.isCurrent()) return;
+                     setCurrentSong(prev => {
+                         if (!prev || !isSamePlaybackSong(prev, song)) return prev;
+                         return { ...prev, onlineLyricsState: state ?? undefined };
+                     });
+                 },
+                 onAutoMatchStart: () => {
++                    if (!request.isCurrent()) return;
+                     setStatusMsg({ type: 'info', text: t('status.matchingBestLyrics') });
+                 },
+-                onDone: () => setIsLyricsLoading(false),
++                onDone: () => { if (request.isCurrent()) setIsLyricsLoading(false); },
              });
          } catch (error) {
 +            if (!isLatestPlaybackRequest()) return;
@@ -194,15 +899,24 @@ index 5a5f273..33b14e2 100644
          } catch (error) {
              console.warn('Theme load error', error);
          }
-@@ -843,6 +859,7 @@ export function usePlaybackQueueController({
+@@ -801,7 +819,7 @@ export function usePlaybackQueueController({
+     }, [localLibraryCatalog, localSongs, searchDeps, t]);
+ 
+     const handleSearchResultPlay = useCallback((track: UnifiedSong) => {
+-        if (!isSongUnavailable(track)) {
++        if (hasExternalPlayback() || !isSongUnavailable(track)) {
+             handleQueueAddAndPlay(track);
+         }
+     }, [handleQueueAddAndPlay]);
+@@ -843,6 +861,7 @@ export function usePlaybackQueueController({
      ]);
  
      const handleNextTrack = useCallback(async (options?: NextTrackOptions) => {
-+        if (routeExternalPlayback({ type: options?.allowStopOnMissing || options?.isAutomixAdvance ? 'ended' : 'next' })) return;
++        if (routeExternalPlayback({ type: options?.reason ?? (options?.isAutomixAdvance ? 'ended' : 'next') })) return;
          if (isNowPlayingStageActive) return;
  
          const stopAtQueueEnd = () => {
-@@ -916,6 +933,7 @@ export function usePlaybackQueueController({
+@@ -916,6 +935,7 @@ export function usePlaybackQueueController({
      }, [audioRef, currentSong, endHeldTransition, getDisplaySong, isFmMode, isNowPlayingStageActive, loopMode, playQueue, playSong, setPlayQueue, setPlayerState, shouldNavigateToPlayerOnTrackChange]);
  
      const handlePrevTrack = useCallback(() => {
@@ -210,111 +924,591 @@ index 5a5f273..33b14e2 100644
          if (isNowPlayingStageActive) return;
          if (!currentSong || playQueue.length === 0) return;
  
+@@ -965,6 +985,7 @@ export function usePlaybackQueueController({
+                 allowStopOnMissing: true,
+                 shouldNavigateToPlayer: false,
+                 unavailableSkipCount: nextSkipCount,
++                reason: 'playback-error',
+                 // The track that failed is the one on the active deck, which mid-blend is NOT the
+                 // one on screen. Skipping from the displayed track would step onto the broken one.
+                 fromSong: currentSong ?? undefined,
+@@ -1057,8 +1078,11 @@ export function usePlaybackQueueController({
+     }, [buildReloadQueueDiffDraft]);
+ 
+     const handleStageExternalPlayRequest = useCallback(async (request: { requestId: string; songId: number; appendToQueue?: boolean; }) => {
++        const isCurrentBoundary = captureExternalPlaybackBoundary();
+         try {
++            if (hasExternalPlayback()) throw new Error('external-playback-active');
+             const song = await omni.getSongDetail('netease', request.songId);
++            if (!isCurrentBoundary() || hasExternalPlayback()) throw new Error('external-playback-active');
+             if (!song) {
+                 throw new Error(`Song ${request.songId} was not found.`);
+             }
+@@ -1141,6 +1165,7 @@ export function usePlaybackQueueController({
+     }, []);
+ 
+     const handleStagePlayerQueueRequest = useCallback(async (request: StagePlayerQueueRequest) => {
++        const isCurrentBoundary = captureExternalPlaybackBoundary();
+         const complete = async (ok: boolean, error?: unknown, result?: any, snapshot?: StagePlayerSnapshot) => {
+             await window.electron?.completeStagePlayerQueueRequest?.({
+                 requestId: request.requestId,
+@@ -1152,7 +1177,7 @@ export function usePlaybackQueueController({
+         };
+ 
+         try {
+-            if (activePlaybackContext !== 'main' || isNowPlayingStageActive) {
++            if (hasExternalPlayback() || activePlaybackContext !== 'main' || isNowPlayingStageActive) {
+                 throw new Error('Queue editing is not supported in the current playback context.');
+             }
+ 
+@@ -1164,6 +1189,7 @@ export function usePlaybackQueueController({
+ 
+             if (request.action === 'append' || request.action === 'insert-next') {
+                 const songs = await loadStageQueueSongs(request);
++                if (!isCurrentBoundary() || hasExternalPlayback()) throw new Error('external-playback-active');
+                 const { nextQueue: newQueue, affectedSongs, changed } = applyQueueAddBehavior({
+                     queue: baseQueue,
+                     songs,
+@@ -1259,6 +1285,7 @@ export function usePlaybackQueueController({
+     }, [handleStagePlayerQueueRequest]);
+ 
+     const shuffleQueue = useCallback(() => {
++        if (hasExternalPlayback()) { setStatusMsg({ type: 'info', text: t('status.externalPlaybackActive') }); return; }
+         if (isNowPlayingStageActive) return;
+         if (!playQueue || playQueue.length <= 1) return;
+ 
+@@ -1289,6 +1316,7 @@ export function usePlaybackQueueController({
+     }, [audioQuality, currentSong, isNowPlayingStageActive, playQueue, setPlayQueue, setStatusMsg, t, userId]);
+ 
+     const clearQueue = useCallback(() => {
++        if (hasExternalPlayback()) { setStatusMsg({ type: 'info', text: t('status.externalPlaybackActive') }); return; }
+         if (isNowPlayingStageActive) return;
+         if (!playQueue || playQueue.length === 0) return;
+ 
+diff --git a/src/hooks/useStagePlaybackController.ts b/src/hooks/useStagePlaybackController.ts
+index 9622b07..fb9ed27 100644
+--- a/src/hooks/useStagePlaybackController.ts
++++ b/src/hooks/useStagePlaybackController.ts
+@@ -1,3 +1,5 @@
++import { hasExternalPlayback } from '../services/externalPlaybackSession';
++import { beginPlaybackRequest, invalidatePlaybackRequest } from '../services/playbackRequest';
+ import { useCallback, useEffect, useRef, useState } from 'react';
+ import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from 'react';
+ import type { MotionValue } from 'framer-motion';
+@@ -208,6 +210,7 @@ export function useStagePlaybackController({
+     }), [audioRef, audioSrc, cachedCoverUrl, currentLineIndex, currentSong, currentTime, duration, isFmMode, lyrics, playQueue, playerState]);
+ 
+     const applyPlaybackSnapshot = useCallback((snapshot: PlaybackSnapshot | null) => {
++        if (hasExternalPlayback()) return;
+         pendingResumeTimeRef.current = snapshot ? Math.max(0, snapshot.currentTime) : null;
+         shouldAutoPlayRef.current = snapshot?.playerState === PlayerState.PLAYING;
+         lastAudioRecoverySourceRef.current = null;
+@@ -536,6 +539,8 @@ export function useStagePlaybackController({
+     }, []);
+ 
+     const loadStageSessionIntoPlayback = useCallback(async (session: StageMediaSession | null, options: LoadPlaybackOptions = {}) => {
++        const request = beginPlaybackRequest();
++        if (!request.isCurrent()) return;
+         if (!session) {
+             currentSongRef.current = null;
+             resetStageLyricsClock();
+@@ -559,10 +564,12 @@ export function useStagePlaybackController({
+                 console.warn('[Stage] Failed to parse stage lyrics', error);
+             }
+         }
++        if (!request.isCurrent()) return;
+         setCurrentSong(stageSong);
+         setLyrics(parsedLyrics);
+         setCachedCoverUrl(session.coverArtUrl || session.coverUrl || null);
+         setAudioSrc(session.audioSrc);
++        request.finish('source-committed');
+         setPlayQueue([]);
+         setIsFmMode(false);
+         pendingResumeTimeRef.current = typeof options.resumeTime === 'number'
+@@ -597,6 +604,8 @@ export function useStagePlaybackController({
+         session: StageLyricsSession | null,
+         options: LoadPlaybackOptions = {},
+     ) => {
++        const request = beginPlaybackRequest();
++        if (!request.isCurrent()) return;
+         if (!session) {
+             currentSongRef.current = null;
+             resetStageLyricsClock();
+@@ -611,6 +620,7 @@ export function useStagePlaybackController({
+             console.warn('[Stage] Failed to parse stage lyrics session', error);
+         }
+ 
++        if (!request.isCurrent()) return;
+         if (!hasRenderableLyrics(parsedLyrics)) {
+             resetStageLyricsClock();
+             clearPlaybackSurface();
+@@ -635,6 +645,7 @@ export function useStagePlaybackController({
+         setIsFmMode(false);
+         setIsLyricsLoading(false);
+         setLyrics(parsedLyrics);
++        request.finish('source-committed');
+         currentTime.set(initialTime);
+         setCurrentLineIndex(nextLineIndex);
+         setDuration(endTimeSec);
+@@ -668,6 +679,8 @@ export function useStagePlaybackController({
+         lyricPayload: NowPlayingLyricPayload | null,
+         requestId: number,
+     ) => {
++        const request = beginPlaybackRequest();
++        if (!request.isCurrent()) return;
+         const durationSec = Math.max(0, (track?.durationMs ?? lyricPayload?.durationMs ?? 0) / 1000);
+         if (isDev) {
+             console.log('[NowPlaying][App] loadNowPlayingIntoPlayback', {
+@@ -691,7 +704,7 @@ export function useStagePlaybackController({
+             }
+         }
+ 
+-        if (nowPlayingContentLoadRequestIdRef.current !== requestId) {
++        if (!request.isCurrent() || nowPlayingContentLoadRequestIdRef.current !== requestId) {
+             return;
+         }
+ 
+@@ -722,6 +735,7 @@ export function useStagePlaybackController({
+         setIsFmMode(false);
+         setIsLyricsLoading(false);
+         setLyrics(renderableLyrics);
++        request.finish('source-committed');
+         setDuration(resolvedDurationSec);
+ 
+         const displayTimeSec = clampNowPlayingTimeSec(getNowPlayingDisplayTime(), resolvedDurationSec);
+@@ -755,6 +769,7 @@ export function useStagePlaybackController({
+     ]);
+ 
+     const restoreStagePlaybackHandoff = useCallback(async (handoff: WindowPlaybackHandoff) => {
++        if (hasExternalPlayback()) return;
+         const nextStageStatus = handoff.stage.status;
+         const stageSnapshot = handoff.stage.playback ?? handoff.activePlayback;
+         mainPlaybackSnapshotRef.current = handoff.mainPlayback;
+@@ -869,10 +884,15 @@ export function useStagePlaybackController({
+     }, []);
+ 
+     const openStagePlayer = useCallback(async () => {
++        if (hasExternalPlayback()) {
++            setStatusMsg({ type: 'info', text: t('status.externalPlaybackActive') });
++            return;
++        }
+         if ((stageSource === 'now-playing' || stageSource === 'playercap') && activePlaybackContext === 'stage') {
+             navigateToPlayer();
+             return;
+         }
++        invalidatePlaybackRequest();
+ 
+         if (activePlaybackContext === 'main') {
+             mainPlaybackSnapshotRef.current = buildPlaybackSnapshot();
+@@ -958,9 +978,8 @@ export function useStagePlaybackController({
+     ]);
+ 
+     const leaveStagePlayback = useCallback(() => {
+-        if (activePlaybackContext !== 'stage') {
+-            return;
+-        }
++        if (hasExternalPlayback() || activePlaybackContext !== 'stage') return;
++        invalidatePlaybackRequest();
+ 
+         if (stageSource === 'now-playing' || stageSource === 'playercap') {
+             stagePlaybackSnapshotRef.current = null;
+@@ -975,6 +994,7 @@ export function useStagePlaybackController({
+     }, [activePlaybackContext, applyPlaybackSnapshot, buildPlaybackSnapshot, clearMainPlaybackContext, setActivePlaybackContext, stageSource]);
+ 
+     const interruptStagePlaybackForMainTransition = useCallback(() => {
++        if (hasExternalPlayback()) return null;
+         if (activePlaybackContext !== 'stage') {
+             return null;
+         }
+@@ -1286,7 +1306,7 @@ export function useStagePlaybackController({
+     }, [activePlaybackContext, stageSource]);
+ 
+     useEffect(() => {
+-        if (!isNowPlayingStageActive) {
++        if (hasExternalPlayback() || !isNowPlayingStageActive) {
+             return;
+         }
+ 
+@@ -1296,7 +1316,7 @@ export function useStagePlaybackController({
+ 
+     // PlayerCap → main playback pane (passive mirror). Lyrics are already LyricData (no parsing); cover/duration/track update with each event, audio is left empty so <audio> does not hijack the clock.
+     useEffect(() => {
+-        if (stageSource !== 'playercap' || activePlaybackContext !== 'stage') {
++        if (hasExternalPlayback() || stageSource !== 'playercap' || activePlaybackContext !== 'stage') {
+             return;
+         }
+         const track = playerCapState.track;
+@@ -1356,7 +1376,7 @@ export function useStagePlaybackController({
+     ]);
+ 
+     useEffect(() => {
+-        if (!isPlayerCapStageActive) {
++        if (hasExternalPlayback() || !isPlayerCapStageActive) {
+             return;
+         }
+         const nextPlayerState = playerCapState.playerState === 'playing' ? PlayerState.PLAYING : PlayerState.PAUSED;
+diff --git a/src/i18n/locales/en.ts b/src/i18n/locales/en.ts
+index 4e7f042..046daca 100644
+--- a/src/i18n/locales/en.ts
++++ b/src/i18n/locales/en.ts
+@@ -118,6 +118,7 @@ export default {
+     "aiThemeGeneratedCustomPreferred": "AI theme generated, but custom theme is still preferred",
+   },
+   "status": {
++    "externalPlaybackActive": "An external playback session is active. Use its controls or leave the session first.",
+     "playerChromeAlwaysHidden": "UI will remain hidden",
+     "playerChromeAlwaysVisible": "UI will remain visible",
+     "playerChromeAutoHide": "UI will auto-hide",
+diff --git a/src/i18n/locales/in.ts b/src/i18n/locales/in.ts
+index 4b498a4..3102f68 100644
+--- a/src/i18n/locales/in.ts
++++ b/src/i18n/locales/in.ts
+@@ -117,6 +117,7 @@ export default {
+     "aiThemeGeneratedCustomPreferred": "Tema AI dibuat, tapi tema kustom tetap diutamakan"
+   },
+   "status": {
++    "externalPlaybackActive": "Sesi pemutaran eksternal sedang aktif. Gunakan kontrol sesi atau keluar dari sesi terlebih dahulu.",
+     "playerChromeAlwaysHidden": "Antarmuka akan tetap tersembunyi",
+     "playerChromeAlwaysVisible": "Antarmuka akan tetap terlihat",
+     "playerChromeAutoHide": "Antarmuka akan otomatis tersembunyi",
+diff --git a/src/i18n/locales/zh-CN.ts b/src/i18n/locales/zh-CN.ts
+index 78b89fa..bb2ed92 100644
+--- a/src/i18n/locales/zh-CN.ts
++++ b/src/i18n/locales/zh-CN.ts
+@@ -118,6 +118,7 @@ export default {
+     "aiThemeGeneratedCustomPreferred": "AI 主题已生成，但当前仍优先使用自定义主题",
+   },
+   "status": {
++    "externalPlaybackActive": "外部播放会话正在运行，请使用该会话的控制界面，或先退出会话。",
+     "playerChromeAlwaysHidden": "UI 将始终隐藏",
+     "playerChromeAlwaysVisible": "UI 将始终显示",
+     "playerChromeAutoHide": "UI 将自动隐藏",
+diff --git a/src/mods/folium/api.ts b/src/mods/folium/api.ts
+index 0f77499..6d6af45 100644
+--- a/src/mods/folium/api.ts
++++ b/src/mods/folium/api.ts
+@@ -195,8 +195,10 @@ export const createFoliumClientApi = (mod: ModRuntimeInfo, options: FoliumClient
+     const experimental = gatedNamespace(
+         'experimental',
+         options.experimental ?? {},
+-        (name) => optedIn.has(name),
+-        (name) => `experimental-not-declared:${name} (add it to "experimental" in mod.json)`,
++        (name) => optedIn.has(name) && (name !== 'playback.sessions' || context === 'main'),
++        (name) => name === 'playback.sessions' && context !== 'main'
++            ? 'playback.sessions-unavailable-in-export-context'
++            : `experimental-not-declared:${name} (add it to "experimental" in mod.json)`,
+     );
+ 
+     const internals = gatedNamespace(
+@@ -233,7 +235,7 @@ export const createFoliumClientApi = (mod: ModRuntimeInfo, options: FoliumClient
+         rpc,
+         lyrics: FOLIUM_LYRICS_HELPERS,
+         theme: FOLIUM_THEME_HELPERS,
+-        experimental,
++        experimental: experimental as FoliumClientApi['experimental'],
+         internals,
+     });
+ };
+diff --git a/src/mods/folium/clientLoader.ts b/src/mods/folium/clientLoader.ts
+index 2def988..b662195 100644
+--- a/src/mods/folium/clientLoader.ts
++++ b/src/mods/folium/clientLoader.ts
+@@ -1,3 +1,4 @@
++import { disposeFoliumServices } from './lifecycle';
+ import type { ModRuntimeInfo } from '../types';
+ import { isModsBridgeAvailable, listMods } from '../ipc';
+ import type { FoliumClientModule, FoliumContextKind, FoliumDisposer } from './contract';
+@@ -60,6 +61,7 @@ const teardown = async (modId: string) => {
+             reportFoliumIssue(modId, 'client dispose', error);
+         }
+     }
++    disposeFoliumServices(modId);
+     const { listFoliumHostRegistries } = await loadApi();
+     listFoliumHostRegistries().forEach((registry) => registry.unregisterAll(modId));
+     removeFoliumEventHandlers(modId);
+@@ -86,6 +88,7 @@ const activate = async (mod: ModRuntimeInfo, url: string, context: FoliumContext
+             record.dispose = result;
+         }
+     } catch (error) {
++        await teardown(mod.id);
+         reportFoliumIssue(mod.id, 'client activate', error);
+     }
+ };
+diff --git a/src/mods/folium/contract.ts b/src/mods/folium/contract.ts
+index 2bb7355..f878b72 100644
+--- a/src/mods/folium/contract.ts
++++ b/src/mods/folium/contract.ts
+@@ -833,6 +833,51 @@ export interface FoliumEvents {
+     ): FoliumDisposer;
+ }
+ 
++/** EXPERIMENTAL (`playback.sessions`): user intent while a mod owns the player. */
++export type FoliumPlaybackSessionIntent =
++    | { type: 'play'; song: FoliumSong }
++    | { type: 'enqueue'; songs: readonly FoliumSong[] }
++    | { type: 'next' | 'previous' | 'ended' | 'playback-error' }
++    | { type: 'seek'; seconds: number; resume: boolean };
++
++/** Source assignment, not an assertion that decoding or audible playback succeeded. */
++export interface FoliumPlaybackStartResult {
++    /** Whether the source committed, the request ended early, or the source was unavailable. */
++    status: 'source-committed' | 'cancelled' | 'superseded' | 'unavailable' | 'failed';
++}
++
++/** An exclusive session, released automatically on mod disable or failed activation. */
++export interface FoliumPlaybackSession {
++    /** Load a host-ref song without autoplay. Resolves at source assignment, cancellation or failure. */
++    play(song: FoliumSong): Promise<FoliumPlaybackStartResult>;
++    /** Set local audio time in seconds, preserving the current pause state. */
++    seek(seconds: number): void;
++    /** Idempotent. Restore the previous queue stopped; clear current audio, song and lyrics. */
++    release(): void;
++}
++
++/** EXPERIMENTAL: requires manifest `playback.sessions` and permission `playback.control`. Main window only. */
++export interface FoliumPlaybackSessions {
++    /** Experimental service contract version. */
++    readonly version: 1;
++    /** Resolve an online provider's opaque media ID through Omni, returning a host song ref. */
++    resolveSong(provider: string, id: string): Promise<FoliumSong>;
++    /** FM, Stage, video recording, active transitions and another session are rejected before changing playback. */
++    acquire(options: {
++        onIntent: (intent: FoliumPlaybackSessionIntent) => void | Promise<void>;
++        /** Explicit restoration policy: queue restored, current source cleared, no automatic playback. */
++        restore: 'queue-stopped';
++    }): FoliumPlaybackSession;
++}
++
++/** Typed experimental surfaces; reading an undeclared name throws. */
++export interface FoliumExperimentalServices {
++    /** Opt-in external playback ownership. */
++    readonly 'playback.sessions': FoliumPlaybackSessions;
++    /** Other experimental registries retain their existing contracts. */
++    readonly [name: string]: unknown;
++}
++
+ // ---------------------------------------------------------------- Services
+ 
+ /**
+@@ -1167,7 +1212,7 @@ export interface FoliumClientApi {
+     /** Folium 1.3. */
+     readonly theme: FoliumThemeHelpers;
+     /** Unfrozen surfaces; each requires the matching manifest `experimental` opt-in. */
+-    readonly experimental: Readonly<Record<string, unknown>>;
++    readonly experimental: Readonly<FoliumExperimentalServices>;
+     /**
+      * Host internals with no compatibility promise. Only available when the
+      * manifest pins host versions with `"folia"`; otherwise accessing it throws.
+diff --git a/src/mods/folium/experimental.ts b/src/mods/folium/experimental.ts
+index ff2caaa..02237f1 100644
+--- a/src/mods/folium/experimental.ts
++++ b/src/mods/folium/experimental.ts
+@@ -1,3 +1,4 @@
++import { createFoliumPlaybackSessions } from './externalPlayback';
+ import type { SongResult } from '@/types';
+ import type { PonderTargetDefinition, PonderTargetId } from '@/types/ponder';
+ import { registerPonderTarget, unregisterPonderTarget } from '@/components/ponder/ponderRegistry';
+@@ -20,6 +21,7 @@ import { addPonderText, localizePonderTarget, ponderTextNamespace, removePonderT
+ // The unfrozen surfaces, each behind a manifest opt-in (`experimental`):
+ //   - omni.providers: register an online music source (registries/omniProviders);
+ //   - omni.hooks:     rewrite lyrics / swap audio URLs Omni resolved;
++//   - playback.sessions: own source selection and queue intent with host-managed teardown.
+ //   - ponder.targets: add Ponder (in-app tutorial) targets for the mod's own UI.
+ // Loaded lazily and only in the main window, so the export bundle never pulls
+ // in the provider registry. These can change in any folium minor.
+@@ -90,6 +92,7 @@ installOmniResultHooks({
+ 
+ /** The `folium.experimental` object for one mod (only the names it opted into are reachable). */
+ export const createFoliumExperimental = (mod: ModRuntimeInfo): Record<string, unknown> => ({
++    ...(mod.experimental?.includes('playback.sessions') ? { 'playback.sessions': createFoliumPlaybackSessions(mod) } : {}),
+     'omni.providers': Object.freeze({
+         register: (def: FoliumOmniProviderDef) => omniProvidersRegistry.register(mod.id, def),
+     }),
 diff --git a/src/mods/folium/externalPlayback.ts b/src/mods/folium/externalPlayback.ts
 new file mode 100644
-index 0000000..69d214d
+index 0000000..b45b91a
 --- /dev/null
 +++ b/src/mods/folium/externalPlayback.ts
-@@ -0,0 +1,67 @@
+@@ -0,0 +1,144 @@
 +import { omni } from '@/services/onlineMusic/omni';
 +import { usePlaybackStore } from '@/stores/usePlaybackStore';
 +import { currentTime } from '@/stores/motionSignals';
 +import { PlayerState, type SongResult } from '@/types';
-+import type { FoliumSong } from './contract';
-+import { resolveFoliumSongRef, toFoliumSong } from './dto';
++import type { PlaybackRequest } from '@/types/externalPlayback';
++import { beginPlaybackRequest } from '@/services/playbackRequest';
 +import {
-+    acquireExternalPlayback, isExternalPlaybackOwner, releaseExternalPlayback,
-+    runExternalPlaybackCommand, type ExternalPlaybackIntent,
++    acquireExternalPlayback,
++    isExternalPlaybackOwner,
++    releaseExternalPlayback,
++    releaseExternalPlaybackForMod,
++    releaseAllExternalPlayback,
 +} from '@/services/externalPlaybackSession';
++import type { ModRuntimeInfo } from '../types';
++import type { FoliumPlaybackSession, FoliumPlaybackSessions, FoliumPlaybackSessionIntent } from './contract';
++import { resolveFoliumSongRef, toFoliumSong } from './dto';
++import { reportFoliumIssue } from './status';
++import { registerFoliumServiceDisposer } from './lifecycle';
 +
 +// src/mods/folium/externalPlayback.ts
-+// Versioned, opt-in internal bridge for a server-owned play queue. No provider credentials escape here.
-+type Actions = {
-+    play: (song: SongResult, token: symbol) => Promise<void>;
-+    pause: () => void;
-+    seek: (seconds: number) => void;
-+};
++interface Actions {
++    play(song: SongResult, request: PlaybackRequest): Promise<void> | void;
++    stop(): void;
++    canAcquire?(): boolean;
++    seek(seconds: number): void;
++}
 +let actions: Actions | null = null;
-+export const registerExternalPlaybackActions = (value: Actions | null) => { actions = value; };
++export const registerExternalPlaybackActions = (value: Actions | null) => {
++    if (!value) releaseAllExternalPlayback();
++    actions = value;
++};
 +
-+export const externalPlaybackBridge = Object.freeze({
-+    version: 1,
-+    async resolveSong(provider: string, id: string): Promise<FoliumSong> {
-+        if (provider !== 'netease' || !/^[1-9]\d{0,23}$/.test(id)) throw new Error('歌曲来源或 ID 无效');
-+        const song = await omni.getSongDetail('netease', id);
-+        if (!song) throw new Error('未找到这首网易云歌曲');
-+        return toFoliumSong(song)!;
-+    },
-+    acquire(dispatch: (intent: Omit<ExternalPlaybackIntent, 'song'> & { song?: FoliumSong }) => void) {
-+        if (!actions) throw new Error('播放器尚未就绪');
-+        const state = usePlaybackStore.getState();
-+        if (state.activePlaybackContext === 'stage' || state.transitionDisplay) {
-+            throw new Error('请先结束 Stage 播放或等待歌曲过渡完成');
-+        }
-+        const queue = state.playQueue;
-+        const token = acquireExternalPlayback(intent => dispatch(
-+            intent.type === 'select' ? { type: 'select', song: toFoliumSong(intent.song)! } : intent,
-+        ));
-+        actions.pause();
-+        state.setPlayQueue([]);
-+        state.setIsFmMode(false);
-+        return Object.freeze({
-+            async play(song: FoliumSong) {
-+                if (!isExternalPlaybackOwner(token)) return false;
-+                const resolved = resolveFoliumSongRef(song.ref);
-+                if (!resolved || toFoliumSong(resolved)?.source !== 'netease') throw new Error('歌曲引用已失效，请重新同步');
-+                await actions!.play(resolved, token);
-+                return isExternalPlaybackOwner(token);
-+            },
-+            seek(seconds: number) {
-+                if (!Number.isFinite(seconds) || seconds < 0) throw new Error('播放进度无效');
-+                runExternalPlaybackCommand(token, () => actions!.seek(seconds));
-+            },
-+            release() {
-+                if (!isExternalPlaybackOwner(token)) return;
-+                actions?.pause();
++export function createFoliumPlaybackSessions(mod: ModRuntimeInfo): FoliumPlaybackSessions {
++    let active = true;
++    const requireAccess = () => {
++        if (!active) throw new Error('mod-service-disposed');
++        if (!mod.experimental?.includes('playback.sessions'))
++            throw new Error('experimental-not-declared:playback.sessions');
++        if (!mod.permissions.includes('playback.control')) throw new Error('permission-denied:playback.control');
++    };
++    registerFoliumServiceDisposer(mod.id, () => {
++        active = false;
++        releaseExternalPlaybackForMod(mod.id);
++    });
++    return Object.freeze<FoliumPlaybackSessions>({
++        version: 1,
++        async resolveSong(provider, id) {
++            requireAccess();
++            if (typeof provider !== 'string' || !provider || typeof id !== 'string' || !id || id.length > 2048)
++                throw new Error('invalid-song-reference');
++            const song = await omni.getSongDetail(provider, id);
++            requireAccess();
++            if (!song) throw new Error('song-unavailable');
++            return toFoliumSong(song)!;
++        },
++        acquire({ onIntent, restore }) {
++            requireAccess();
++            if (restore !== 'queue-stopped' || typeof onIntent !== 'function')
++                throw new Error('invalid-playback-session-options');
++            if (!actions) throw new Error('playback-unavailable');
++            const host = actions;
++            const state = usePlaybackStore.getState();
++            if (
++                state.activePlaybackContext !== 'main' ||
++                state.transitionDisplay ||
++                state.isFmMode ||
++                host.canAcquire?.() === false
++            ) {
++                throw new Error('external-playback-context-unavailable');
++            }
++            const queue = [...state.playQueue];
++            const report = (error: unknown) => reportFoliumIssue(mod.id, 'playback session', error);
++            const token = acquireExternalPlayback({
++                modId: mod.id,
++                report,
++                dispatch: (intent) => {
++                    const dto: FoliumPlaybackSessionIntent =
++                        intent.type === 'play'
++                            ? { type: 'play', song: toFoliumSong(intent.song)! }
++                            : intent.type === 'enqueue'
++                              ? { type: 'enqueue', songs: intent.songs.map((song) => toFoliumSong(song)!) }
++                              : intent;
++                    return onIntent(dto);
++                },
++                cleanup: () => {
++                    try {
++                        host.stop();
++                    } finally {
++                        usePlaybackStore.setState({
++                            playQueue: queue,
++                            currentSong: null,
++                            audioSrc: null,
++                            lyrics: null,
++                            activeLocalLyricsSource: null,
++                            cachedCoverUrl: null,
++                            duration: 0,
++                            playerState: PlayerState.IDLE,
++                            currentLineIndex: -1,
++                            isFmMode: false,
++                        });
++                        currentTime.set(0);
++                    }
++                },
++            });
++            try {
++                host.stop();
++                state.setPlayQueue([]);
++            } catch (error) {
 +                releaseExternalPlayback(token);
-+                // Restore the user's queue without starting music after leaving/disabling a mod.
-+                usePlaybackStore.setState({ playQueue: queue, currentSong: null, audioSrc: null,
-+                    lyrics: null, cachedCoverUrl: null, duration: 0, playerState: PlayerState.IDLE,
-+                    currentLineIndex: -1, isFmMode: false });
-+                currentTime.set(0);
-+            },
-+        });
-+    },
-+});
++                throw error;
++            }
++            return Object.freeze<FoliumPlaybackSession>({
++                play(song) {
++                    if (!active || !isExternalPlaybackOwner(token))
++                        return Promise.resolve({ status: 'cancelled' as const });
++                    const resolved = resolveFoliumSongRef(song.ref);
++                    if (!resolved) return Promise.resolve({ status: 'unavailable' as const });
++                    const request = beginPlaybackRequest(token);
++                    try {
++                        Promise.resolve(host.play(resolved, request))
++                            .catch((error) => {
++                                if (request.isCurrent()) {
++                                    report(error);
++                                    request.finish('failed');
++                                }
++                            })
++                            .finally(() => request.finish('cancelled'));
++                    } catch (error) {
++                        report(error);
++                        request.finish('failed');
++                    }
++                    return request.result;
++                },
++                seek(seconds) {
++                    requireAccess();
++                    if (!isExternalPlaybackOwner(token)) throw new Error('playback-session-released');
++                    if (!Number.isFinite(seconds) || seconds < 0) throw new Error('invalid-playback-position');
++                    host.seek(seconds);
++                },
++                release: () => releaseExternalPlayback(token),
++            });
++        },
++    });
++}
 diff --git a/src/mods/folium/hostActions.ts b/src/mods/folium/hostActions.ts
-index d2137b1..3ae2b45 100644
+index d2137b1..925694e 100644
 --- a/src/mods/folium/hostActions.ts
 +++ b/src/mods/folium/hostActions.ts
-@@ -1,4 +1,5 @@
+@@ -1,4 +1,6 @@
++import type { PlaybackRequest } from '@/types/externalPlayback';
  import { useEffect, useRef } from 'react';
 +import { registerExternalPlaybackActions } from './externalPlayback';
  import type { SongResult } from '@/types';
  import { PlayerState } from '@/types';
  import {
-@@ -29,7 +30,7 @@ export interface FoliumAppActions {
+@@ -29,7 +31,8 @@ export interface FoliumAppActions {
      seekToLyricTime: (lyricSeconds: number) => void;
      next: () => void;
      previous: () => void;
 -    playSong: (song: SongResult) => void | Promise<void>;
-+    playSong: (song: SongResult, externalToken?: symbol) => void | Promise<void>;
++    playSong: (song: SongResult, request?: PlaybackRequest) => void | Promise<void>;
++    sessionTransport: { stop(): void; seek(seconds: number): void; canAcquire?(): boolean };
      enqueue: (song: SongResult) => void;
      navigateToPlayer: () => void;
      navigateToHome: () => void;
-@@ -61,6 +62,11 @@ export const useFoliumHostActions = (actions: FoliumAppActions) => {
+@@ -61,6 +64,12 @@ export const useFoliumHostActions = (actions: FoliumAppActions) => {
      ).disabled;
  
      useEffect(() => {
 +        registerExternalPlaybackActions({
-+            play: async (song, token) => { await actionsRef.current.playSong(song, token); },
-+            pause: () => actionsRef.current.pause(),
-+            seek: (seconds) => actionsRef.current.seek(seconds),
++            play: async (song, request) => { await actionsRef.current.playSong(song, request); },
++            stop: () => actionsRef.current.sessionTransport.stop(),
++            canAcquire: () => actionsRef.current.sessionTransport.canAcquire?.() !== false,
++            seek: (seconds) => actionsRef.current.sessionTransport.seek(seconds),
 +        });
          registerFoliumHostActions({
              getPlaybackState: () => {
                  const state = usePlaybackStore.getState();
-@@ -113,7 +119,7 @@ export const useFoliumHostActions = (actions: FoliumAppActions) => {
+@@ -113,7 +122,7 @@ export const useFoliumHostActions = (actions: FoliumAppActions) => {
              navigate: (target) => (target === 'player' ? actionsRef.current.navigateToPlayer() : actionsRef.current.navigateToHome()),
              openVolume: () => actionsRef.current.openVolume(),
          });
@@ -323,141 +1517,964 @@ index d2137b1..3ae2b45 100644
      }, []);
  
      // playback.likeChanged follows the value getState().liked reports, whatever changed it.
-diff --git a/src/mods/folium/internals.ts b/src/mods/folium/internals.ts
-index f0a9954..67057bd 100644
---- a/src/mods/folium/internals.ts
-+++ b/src/mods/folium/internals.ts
-@@ -1,4 +1,5 @@
- import React from 'react';
-+import { externalPlaybackBridge } from './externalPlayback';
- import * as ReactDOMClient from 'react-dom/client';
- import { usePlaybackStore } from '@/stores/usePlaybackStore';
- import { useAppViewStore } from '@/stores/useAppViewStore';
-@@ -28,5 +29,6 @@ export const createFoliumInternals = (): Record<string, unknown> => ({
-         lyricSettings: useLyricSettingsStore,
-     }),
-     omni,
-+    externalPlayback: externalPlaybackBridge,
-     visualizerRegistry: VISUALIZER_REGISTRY,
- });
+diff --git a/src/mods/folium/lifecycle.ts b/src/mods/folium/lifecycle.ts
+new file mode 100644
+index 0000000..aadef47
+--- /dev/null
++++ b/src/mods/folium/lifecycle.ts
+@@ -0,0 +1,20 @@
++import { reportFoliumIssue } from './status';
++
++// src/mods/folium/lifecycle.ts
++// Services participate in the same owner-based cleanup as registries and event handlers.
++const disposers = new Map<string, Set<() => void>>();
++export function registerFoliumServiceDisposer(modId: string, dispose: () => void) {
++    if (!disposers.has(modId)) disposers.set(modId, new Set());
++    disposers.get(modId)!.add(dispose);
++}
++export function disposeFoliumServices(modId: string) {
++    const owned = disposers.get(modId);
++    disposers.delete(modId);
++    for (const dispose of owned ?? []) {
++        try {
++            dispose();
++        } catch (error) {
++            reportFoliumIssue(modId, 'service dispose', error);
++        }
++    }
++}
 diff --git a/src/services/externalPlaybackSession.ts b/src/services/externalPlaybackSession.ts
 new file mode 100644
-index 0000000..659d2b1
+index 0000000..64c9c90
 --- /dev/null
 +++ b/src/services/externalPlaybackSession.ts
-@@ -0,0 +1,51 @@
-+import type { SongResult } from '../types';
+@@ -0,0 +1,95 @@
++import type { ExternalPlaybackIntent } from '../types/externalPlayback';
++import { configurePlaybackRequestGuard, invalidatePlaybackRequest } from './playbackRequest';
 +
 +// src/services/externalPlaybackSession.ts
-+// One owner at a time. User commands are routed separately from server snapshots.
-+export type ExternalPlaybackIntent =
-+    | { type: 'select'; song: SongResult }
-+    | { type: 'next' | 'previous' | 'ended' }
-+    | { type: 'seek'; seconds: number };
-+
-+let owner: { token: symbol; dispatch: (intent: ExternalPlaybackIntent) => void } | null = null;
++// Owns control routing, not provider logic or UI. Cleanup always releases the owner, even on errors.
++interface Owner {
++    token: symbol;
++    modId: string;
++    dispatch(intent: ExternalPlaybackIntent): void | Promise<void>;
++    cleanup(): void;
++    report(error: unknown): void;
++}
++const report = (target: Owner, error: unknown) => {
++    try {
++        target.report(error);
++    } catch (reportError) {
++        console.warn('[Playback] session error reporter failed', reportError);
++    }
++};
++let owner: Owner | null = null;
 +let revision = 0;
-+let bypass: symbol | undefined;
++configurePlaybackRequestGuard((token) => (token ? owner?.token === token : owner === null));
++export const captureExternalPlaybackBoundary = () => {
++    const started = revision;
++    return () => started === revision;
++};
 +const listeners = new Set<() => void>();
++const notify = () =>
++    listeners.forEach((fn) => {
++        try {
++            fn();
++        } catch (error) {
++            console.warn('[Playback] session subscriber failed', error);
++        }
++    });
 +export const subscribeExternalPlayback = (fn: () => void) => {
 +    listeners.add(fn);
-+    return () => { listeners.delete(fn); };
++    return () => {
++        listeners.delete(fn);
++    };
 +};
 +export const hasExternalPlayback = () => owner !== null;
-+export const externalPlaybackRevision = () => revision;
 +export const isExternalPlaybackOwner = (token: symbol) => owner?.token === token;
 +
-+export function acquireExternalPlayback(dispatch: (intent: ExternalPlaybackIntent) => void) {
-+    if (owner) throw new Error('另一个插件正在接管播放，请先结束其播放会话');
++export function acquireExternalPlayback(options: Omit<Owner, 'token'>) {
++    if (owner) throw new Error('external-playback-busy');
++    invalidatePlaybackRequest();
 +    const token = Symbol('external-playback');
-+    owner = { token, dispatch };
++    owner = { ...options, token };
 +    revision++;
-+    listeners.forEach(fn => fn());
++    notify();
 +    return token;
 +}
 +
 +export function releaseExternalPlayback(token: symbol) {
-+    if (!isExternalPlaybackOwner(token)) return;
++    if (!owner || owner.token !== token) return;
++    const previous = owner;
 +    owner = null;
 +    revision++;
-+    listeners.forEach(fn => fn());
++    invalidatePlaybackRequest();
++    try {
++        previous.cleanup();
++    } catch (error) {
++        report(previous, error);
++    } finally {
++        notify();
++    }
 +}
 +
-+/** Returns true even if the owner fails: external playback must never fall through to a local skip. */
-+export function routeExternalPlayback(intent: ExternalPlaybackIntent, token?: symbol) {
-+    if (token && !isExternalPlaybackOwner(token)) return true;
-+    if (!owner || owner.token === token || owner.token === bypass) return false;
-+    try { owner.dispatch(intent); } catch { /* The plugin presents its own error state. */ }
++export function releaseExternalPlaybackForMod(modId: string) {
++    if (owner?.modId === modId) releaseExternalPlayback(owner.token);
++}
++export function releaseAllExternalPlayback() {
++    if (owner) releaseExternalPlayback(owner.token);
++}
++
++/** A failing owner is reported and released; the rejected command never falls through locally. */
++export function routeExternalPlayback(intent: ExternalPlaybackIntent) {
++    if (!owner) return false;
++    const target = owner;
++    const fail = (error: unknown) => {
++        if (owner !== target) return;
++        try {
++            report(target, error);
++        } finally {
++            releaseExternalPlayback(target.token);
++        }
++    };
++    try {
++        Promise.resolve(target.dispatch(intent)).catch(fail);
++    } catch (error) {
++        fail(error);
++    }
 +    return true;
 +}
+diff --git a/src/services/playbackRequest.ts b/src/services/playbackRequest.ts
+new file mode 100644
+index 0000000..f9c45fe
+--- /dev/null
++++ b/src/services/playbackRequest.ts
+@@ -0,0 +1,83 @@
++import type { PlaybackRequest, PlaybackStartResult } from '../types/externalPlayback';
 +
-+export function runExternalPlaybackCommand<T>(token: symbol, fn: () => T): T {
-+    if (!isExternalPlaybackOwner(token)) throw new Error('播放会话已结束');
-+    const previous = bypass;
-+    bypass = token;
-+    try { return fn(); } finally { bypass = previous; }
++// src/services/playbackRequest.ts
++// A single generation covers online, local, Navidrome and Stage source commits.
++let allowRequest: (token?: symbol) => boolean = () => true;
++export const configurePlaybackRequestGuard = (guard: typeof allowRequest) => {
++    allowRequest = guard;
++};
++
++let current: { request: PlaybackRequest; cancel(reason: 'cancelled' | 'superseded'): void } | null = null;
++
++export const invalidatePlaybackRequest = (reason: 'cancelled' | 'superseded' = 'cancelled') => {
++    const previous = current;
++    current = null;
++    previous?.cancel(reason);
++};
++
++export function beginPlaybackRequest(token?: symbol): PlaybackRequest {
++    if (!allowRequest(token)) {
++        const controller = new AbortController();
++        controller.abort('cancelled');
++        return {
++            external: Boolean(token),
++            signal: controller.signal,
++            result: Promise.resolve({ status: 'cancelled' }),
++            isCurrent: () => false,
++            finish: () => {},
++            onCancel: (cleanup) => {
++                cleanup();
++                return () => {};
++            },
++        };
++    }
++    const external = Boolean(token);
++    invalidatePlaybackRequest('superseded');
++    const controller = new AbortController();
++    const cleanups = new Set<() => void>();
++    let settled = false;
++    let resolve!: (result: PlaybackStartResult) => void;
++    const result = new Promise<PlaybackStartResult>((done) => {
++        resolve = done;
++    });
++    const settle = (status: PlaybackStartResult['status']) => {
++        if (settled) return;
++        settled = true;
++        resolve({ status });
++    };
++    const cancel = (reason: 'cancelled' | 'superseded') => {
++        controller.abort(reason);
++        settle(reason);
++        for (const cleanup of cleanups) {
++            try {
++                cleanup();
++            } catch (error) {
++                console.warn('[Playback] resource cleanup failed', error);
++            }
++        }
++        cleanups.clear();
++    };
++    const request: PlaybackRequest = {
++        external,
++        signal: controller.signal,
++        result,
++        isCurrent: () => current?.request === request && !controller.signal.aborted,
++        finish: (status) => {
++            if (!request.isCurrent() || settled) return;
++            settle(status);
++            if (status !== 'source-committed') invalidatePlaybackRequest();
++        },
++        onCancel: (cleanup) => {
++            if (!request.isCurrent()) {
++                cleanup();
++                return () => {};
++            }
++            cleanups.add(cleanup);
++            return () => {
++                cleanups.delete(cleanup);
++            };
++        },
++    };
++    current = { request, cancel };
++    return request;
 +}
 diff --git a/src/types/appPlayback.ts b/src/types/appPlayback.ts
-index 592018a..77eec33 100644
+index 592018a..949c00e 100644
 --- a/src/types/appPlayback.ts
 +++ b/src/types/appPlayback.ts
-@@ -14,6 +14,11 @@ import type { MediaId } from './onlineMusic';
+@@ -1,3 +1,4 @@
++import type { PlaybackRequest } from './externalPlayback';
+ import type {
+     LyricData,
+     NowPlayingLyricPayload,
+@@ -14,6 +15,9 @@ import type { MediaId } from './onlineMusic';
  
  // Shared playback-specific types extracted from App.tsx.
  export type PlaybackNavigationOptions = {
-+    /** Internal server-owned playback lease. */
-+    externalPlaybackToken?: symbol;
++    /** Shared cancellation and source-commit acknowledgement across playback providers. */
++    request?: PlaybackRequest;
 +    autoplay?: boolean;
-+    /** Signals source commit before independent lyric/theme work finishes. */
-+    onAudioReady?: () => void;
      shouldNavigateToPlayer?: boolean;
      unavailableSkipCount?: number;
      unifiedQueue?: SongResult[];
+@@ -26,6 +30,7 @@ export type PlaybackNavigationOptions = {
+ };
+ 
+ export type NextTrackOptions = PlaybackNavigationOptions & {
++    reason?: 'ended' | 'playback-error';
+     allowStopOnMissing?: boolean;
+     /**
+      * The track to step from, when it is deliberately NOT the one the listener can see.
+diff --git a/src/types/externalPlayback.ts b/src/types/externalPlayback.ts
+new file mode 100644
+index 0000000..437e837
+--- /dev/null
++++ b/src/types/externalPlayback.ts
+@@ -0,0 +1,22 @@
++import type { SongResult } from '../types';
++
++// src/types/externalPlayback.ts
++export type ExternalPlaybackIntent =
++    | { type: 'play'; song: SongResult }
++    | { type: 'enqueue'; songs: readonly SongResult[] }
++    | { type: 'next' | 'previous' | 'ended' | 'playback-error' }
++    | { type: 'seek'; seconds: number; resume: boolean };
++
++export type PlaybackStartResult = {
++    status: 'source-committed' | 'cancelled' | 'superseded' | 'unavailable' | 'failed';
++};
++
++export interface PlaybackRequest {
++    readonly external: boolean;
++    readonly signal: AbortSignal;
++    readonly result: Promise<PlaybackStartResult>;
++    isCurrent(): boolean;
++    finish(status: PlaybackStartResult['status']): void;
++    /** Register an uncommitted resource; remove the callback when ownership passes to the player. */
++    onCancel(cleanup: () => void): () => void;
++}
+diff --git a/test/unit/mod-system/externalPlaybackRouting.test.ts b/test/unit/mod-system/externalPlaybackRouting.test.ts
+new file mode 100644
+index 0000000..2367994
+--- /dev/null
++++ b/test/unit/mod-system/externalPlaybackRouting.test.ts
+@@ -0,0 +1,272 @@
++// @vitest-environment jsdom
++import { afterEach, beforeEach, expect, it, vi } from 'vitest';
++vi.hoisted(() => {
++    const values = new Map<string, string>();
++    Object.defineProperty(globalThis, 'localStorage', {
++        configurable: true,
++        value: {
++            getItem: (key: string) => values.get(key) ?? null,
++            setItem: (key: string, value: string) => values.set(key, String(value)),
++            removeItem: (key: string) => values.delete(key),
++            clear: () => values.clear(),
++        },
++    });
++});
++vi.mock('@/services/localMusicService', async (original) => ({
++    ...(await original<typeof import('@/services/localMusicService')>()),
++    getAudioFromLocalSong: vi.fn(),
++}));
++vi.mock('@/services/db', async (original) => ({
++    ...(await original<typeof import('@/services/db')>()),
++    getFromCacheWithMigration: vi.fn(),
++}));
++vi.mock('@/services/navidromeService', async (original) => {
++    const actual = await original<typeof import('@/services/navidromeService')>();
++    return {
++        ...actual,
++        getNavidromeConfig: () => ({ server: 'https://example.invalid', username: 'test' }),
++        navidromeApi: {
++            ...actual.navidromeApi,
++            getStreamUrl: () => 'https://example.invalid/song',
++            getSong: async () => ({}),
++        },
++    };
++});
++vi.mock('@/utils/keyboardTargets', () => ({ hasBlockingWindow: () => false, isTextEntryTarget: () => false }));
++import React, { act } from 'react';
++import { createRoot, type Root } from 'react-dom/client';
++import { acquireExternalPlayback, releaseAllExternalPlayback } from '@/services/externalPlaybackSession';
++import { invalidatePlaybackRequest } from '@/services/playbackRequest';
++import { usePlaybackStore } from '@/stores/usePlaybackStore';
++import { useAppViewStore } from '@/stores/useAppViewStore';
++import { currentTime } from '@/stores/motionSignals';
++import { useLibraryPlaybackController } from '@/hooks/useLibraryPlaybackController';
++import { usePlaybackInteractionBridge } from '@/hooks/usePlaybackInteractionBridge';
++import { getAudioFromLocalSong } from '@/services/localMusicService';
++import { getFromCacheWithMigration } from '@/services/db';
++import { createQueueMutations } from '@/components/app/player-panel/createQueueMutations';
++import { createSessionTransport } from '@/components/app/playback/createSessionTransport';
++import { PlayerState, type LocalSong, type SongResult } from '@/types';
++import type { NavidromeSong } from '@/types/navidrome';
++
++// test/unit/mod-system/externalPlaybackRouting.test.ts
++(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
++const initial = usePlaybackStore.getState();
++const ref = <T>(value: T) => ({ current: value });
++let root: Root | undefined;
++const own = (dispatch = vi.fn()) =>
++    acquireExternalPlayback({ modId: 'test', dispatch, cleanup: vi.fn(), report: vi.fn() });
++const song = { id: 99, name: 'Room', artists: [], album: { id: 1, name: '' }, durationMs: 100000 } as SongResult;
++function mount(component: React.FC) {
++    const box = document.createElement('div');
++    document.body.append(box);
++    root = createRoot(box);
++    act(() => {
++        root!.render(React.createElement(component));
++    });
++}
++const params = () => ({
++    likedSongIds: new Set<number>(),
++    setLyrics: vi.fn(),
++    setIsLyricsLoading: vi.fn(),
++    setLikedSongIds: vi.fn(),
++    navigateToPlaybackView: vi.fn(),
++    persistLastPlaybackCache: vi.fn(async () => {}),
++    restoreCachedThemeForSong: vi.fn(async () => {}),
++    interruptStagePlaybackForMainTransition: () => null,
++    blobUrlRef: ref<string | null>(null),
++    shouldAutoPlayRef: ref(false),
++    currentSongRef: ref<string | number | null>(null),
++    currentOnlineAudioUrlFetchedAtRef: ref<number | null>(null),
++});
++beforeEach(() => {
++    vi.clearAllMocks();
++    usePlaybackStore.setState(initial, true);
++    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
++});
++afterEach(() => {
++    act(() => {
++        root?.unmount();
++    });
++    root = undefined;
++    releaseAllExternalPlayback();
++    invalidatePlaybackRequest();
++    document.body.replaceChildren();
++});
++
++it('routes arrow-key seek with pause-preserving semantics instead of changing the element', () => {
++    const dispatch = vi.fn();
++    own(dispatch);
++    usePlaybackStore.setState({
++        currentSong: song,
++        audioSrc: 'room-source',
++        playerState: PlayerState.PAUSED,
++        duration: 100,
++    });
++    useAppViewStore.setState({ view: 'player', isPanelOpen: false });
++    currentTime.set(10);
++    const audio = { currentTime: 10 } as HTMLAudioElement;
++    mount(() => {
++        usePlaybackInteractionBridge({
++            stageActiveEntryKind: null,
++            isNowPlayingStageActive: false,
++            audioRef: ref(audio),
++            stageLyricsClockRef: ref({ startTimeSec: 0, endTimeSec: 0, baseTimeSec: 0, startedAtMs: null }),
++            cyclePlayerChromeVisibilityMode: vi.fn(),
++            handleNextTrack: vi.fn(),
++            handlePrevTrack: vi.fn(),
++            navigateBackFromPlayer: vi.fn(),
++            pausePlayback: vi.fn(),
++            resumePlayback: vi.fn(async () => {}),
++            syncStageLyricsClock: vi.fn(),
++        });
++        return null;
++    });
++    act(() => {
++        window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowRight', bubbles: true }));
++    });
++    expect(audio.currentTime).toBe(10);
++    expect(dispatch).toHaveBeenCalledWith({ type: 'seek', seconds: 15, resume: false });
++});
++
++it('drops local audio arriving after acquisition and revokes its uncommitted blob', async () => {
++    const input = params();
++    let library!: ReturnType<typeof useLibraryPlaybackController>;
++    mount(() => {
++        library = useLibraryPlaybackController(input);
++        return null;
++    });
++    let resolve!: (value: string) => void;
++    vi.mocked(getAudioFromLocalSong).mockReturnValueOnce(
++        new Promise((done) => {
++            resolve = done;
++        }),
++    );
++    let pending!: Promise<void>;
++    act(() => {
++        pending = library.onPlayLocalSong({ id: 'local' } as LocalSong);
++    });
++    own();
++    act(() => {
++        usePlaybackStore.setState({ currentSong: song, audioSrc: 'room-source' });
++    });
++    await act(async () => {
++        resolve('blob:old-local');
++        await pending;
++    });
++    expect(usePlaybackStore.getState().audioSrc).toBe('room-source');
++    expect(input.shouldAutoPlayRef.current).toBe(false);
++    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:old-local');
++    expect(input.persistLastPlaybackCache).not.toHaveBeenCalled();
++});
++
++it('drops a Navidrome load after acquisition even when its cached lyrics arrive later', async () => {
++    const input = params();
++    let library!: ReturnType<typeof useLibraryPlaybackController>;
++    mount(() => {
++        library = useLibraryPlaybackController(input);
++        return null;
++    });
++    let resolve!: (value: unknown) => void;
++    vi.mocked(getFromCacheWithMigration).mockReturnValueOnce(
++        new Promise((done) => {
++            resolve = done;
++        }),
++    );
++    let pending!: Promise<void>;
++    act(() => {
++        pending = library.onPlayNavidromeSong({
++            id: 'nav',
++            name: 'Nav',
++            isNavidrome: true,
++            navidromeData: {
++                id: 'nav',
++                streamUrl: 'https://example.invalid/song',
++                albumId: 'a',
++                artistId: 'r',
++                path: '/song.mp3',
++                suffix: 'mp3',
++            },
++        } as NavidromeSong);
++    });
++    own();
++    act(() => {
++        usePlaybackStore.setState({ currentSong: song, audioSrc: 'room-source' });
++    });
++    await act(async () => {
++        resolve({ lyricsSource: 'online', matchedLyrics: { lines: [] } });
++        await pending;
++    });
++    expect(usePlaybackStore.getState().audioSrc).toBe('room-source');
++    expect(input.shouldAutoPlayRef.current).toBe(false);
++    expect(input.persistLastPlaybackCache).not.toHaveBeenCalled();
++});
++
++it('routes bulk Navidrome enqueue and blocks personal queue edits while owned', () => {
++    const dispatch = vi.fn();
++    own(dispatch);
++    usePlaybackStore.setState({ playQueue: [song] });
++    const persist = vi.fn(async () => {});
++    const mutations = createQueueMutations({
++        currentSong: song,
++        playQueue: [song],
++        persistLastPlaybackCache: persist,
++        t: (key) => key,
++        queueAddBehavior: 'append',
++    });
++    mutations.addNavidromeSongsToQueue([
++        {
++            id: 'nav',
++            name: 'Nav',
++            isNavidrome: true,
++            artists: [],
++            album: { id: 'a', name: '' },
++            durationMs: 1000,
++            navidromeData: {
++                id: 'nav',
++                streamUrl: 'https://example.invalid/song',
++                albumId: 'a',
++                artistId: 'r',
++                path: '/song.mp3',
++                suffix: 'mp3',
++            },
++        } as NavidromeSong,
++    ]);
++    expect(dispatch.mock.calls[0][0].type).toBe('enqueue');
++    expect(dispatch.mock.calls[0][0].songs).toHaveLength(1);
++    mutations.removeQueueSong(0);
++    expect(mutations.applyQueueBatchOperation('remove', [0])).toBe(false);
++    expect(usePlaybackStore.getState().playQueue).toEqual([song]);
++    expect(persist).not.toHaveBeenCalled();
++});
++
++it('lease transport seek preserves pause and stop disarms autoplay even if pause throws', () => {
++    const audio = {
++        currentTime: 4,
++        duration: 100,
++        readyState: 1,
++        paused: true,
++        pause: vi.fn(() => {
++            throw Error('pause');
++        }),
++        removeAttribute: vi.fn(),
++        load: vi.fn(),
++        play: vi.fn(),
++    };
++    const refs = {
++        audioRef: ref(audio as unknown as HTMLAudioElement),
++        shouldAutoPlay: ref(true),
++        currentSongRef: ref<string | number | null>('99'),
++        blobUrlRef: ref<string | null>(null),
++        pendingResumeTimeRef: ref<number | null>(7),
++    };
++    const transport = createSessionTransport(refs);
++    transport.seek(12);
++    expect(audio.currentTime).toBe(12);
++    expect(audio.play).not.toHaveBeenCalled();
++    expect(() => transport.stop()).toThrow('pause');
++    expect(refs.shouldAutoPlay.current).toBe(false);
++    expect(refs.currentSongRef.current).toBeNull();
++    expect(refs.pendingResumeTimeRef.current).toBeNull();
++    expect(usePlaybackStore.getState().audioSrc).toBeNull();
++});
 diff --git a/test/unit/mod-system/externalPlaybackSession.test.ts b/test/unit/mod-system/externalPlaybackSession.test.ts
 new file mode 100644
-index 0000000..d1dc12b
+index 0000000..0920282
 --- /dev/null
 +++ b/test/unit/mod-system/externalPlaybackSession.test.ts
-@@ -0,0 +1,42 @@
+@@ -0,0 +1,136 @@
 +import { afterEach, describe, expect, it, vi } from 'vitest';
 +import {
-+    acquireExternalPlayback, releaseExternalPlayback, routeExternalPlayback, runExternalPlaybackCommand,
-+    hasExternalPlayback, externalPlaybackRevision, subscribeExternalPlayback,
++    acquireExternalPlayback,
++    releaseAllExternalPlayback,
++    releaseExternalPlayback,
++    releaseExternalPlaybackForMod,
++    routeExternalPlayback,
++    hasExternalPlayback,
++    captureExternalPlaybackBoundary,
++    subscribeExternalPlayback,
 +} from '@/services/externalPlaybackSession';
++import { beginPlaybackRequest, invalidatePlaybackRequest } from '@/services/playbackRequest';
 +
 +// test/unit/mod-system/externalPlaybackSession.test.ts
-+let token: symbol | undefined;
-+afterEach(() => { if (token) releaseExternalPlayback(token); token = undefined; });
-+describe('server-owned playback', () => {
-+    it('keeps native next and natural end separate and never falls through when the owner throws', () => {
-+        const dispatch = vi.fn(() => { throw new Error('offline'); });
-+        token = acquireExternalPlayback(dispatch);
-+        expect(routeExternalPlayback({ type: 'next' })).toBe(true);
-+        expect(routeExternalPlayback({ type: 'ended' })).toBe(true);
-+        expect(dispatch.mock.calls.map(call => (call as unknown as [{ type: string }])[0].type)).toEqual(['next', 'ended']);
-+    });
-+    it('only allows the current lease to seek locally and rejects a stale lease after release', () => {
++const acquire = (overrides: Partial<Parameters<typeof acquireExternalPlayback>[0]> = {}) =>
++    acquireExternalPlayback({ modId: 'test', dispatch: vi.fn(), cleanup: vi.fn(), report: vi.fn(), ...overrides });
++afterEach(() => {
++    releaseAllExternalPlayback();
++    invalidatePlaybackRequest();
++});
++
++describe('external playback ownership', () => {
++    it('separates natural end, next and queue intent and prevents a second owner', () => {
 +        const dispatch = vi.fn();
-+        token = acquireExternalPlayback(dispatch);
-+        expect(runExternalPlaybackCommand(token, () => routeExternalPlayback({ type: 'seek', seconds: 42 }))).toBe(false);
-+        expect(dispatch).not.toHaveBeenCalled();
-+        const stale = token;
-+        releaseExternalPlayback(token);
-+        expect(routeExternalPlayback({ type: 'select', song: {} as never }, stale)).toBe(true);
-+        expect(() => runExternalPlaybackCommand(stale, () => {})).toThrow('会话已结束');
++        acquire({ dispatch });
++        expect(() => acquire()).toThrow('external-playback-busy');
++        routeExternalPlayback({ type: 'next' });
++        routeExternalPlayback({ type: 'ended' });
++        routeExternalPlayback({ type: 'enqueue', songs: [] });
++        expect(dispatch.mock.calls.map(([event]) => event.type)).toEqual(['next', 'ended', 'enqueue']);
 +    });
-+    it('invalidates in-flight local loads and notifies the app when loop and automix must change', () => {
-+        const before = externalPlaybackRevision();
-+        const changed = vi.fn();
-+        const stop = subscribeExternalPlayback(changed);
-+        token = acquireExternalPlayback(() => {});
-+        expect(hasExternalPlayback()).toBe(true);
-+        expect(externalPlaybackRevision()).not.toBe(before);
-+        expect(() => acquireExternalPlayback(() => {})).toThrow('另一个插件');
-+        releaseExternalPlayback(token);
++    it('reports and releases a throwing/rejecting owner without executing a local command', async () => {
++        const cleanup = vi.fn(),
++            report = vi.fn();
++        acquire({
++            dispatch: () => {
++                throw Error('broken');
++            },
++            cleanup,
++            report,
++        });
++        expect(routeExternalPlayback({ type: 'next' })).toBe(true);
 +        expect(hasExternalPlayback()).toBe(false);
-+        expect(changed).toHaveBeenCalledTimes(2);
++        expect(cleanup).toHaveBeenCalledOnce();
++        expect(report).toHaveBeenCalledOnce();
++        acquire({
++            dispatch: async () => {
++                throw Error('async broken');
++            },
++            cleanup,
++            report,
++        });
++        routeExternalPlayback({ type: 'next' });
++        await Promise.resolve();
++        expect(hasExternalPlayback()).toBe(false);
++        expect(report).toHaveBeenCalledTimes(2);
++    });
++    it('always releases on cleanup failure and only disposes the correct mod', () => {
++        const report = vi.fn();
++        acquire({
++            cleanup: () => {
++                throw Error('stop failed');
++            },
++            report,
++        });
++        releaseExternalPlaybackForMod('another');
++        expect(hasExternalPlayback()).toBe(true);
++        releaseExternalPlaybackForMod('test');
++        expect(hasExternalPlayback()).toBe(false);
++        expect(report).toHaveBeenCalledOnce();
 +        expect(routeExternalPlayback({ type: 'next' })).toBe(false);
++    });
++    it('invalidates work across an acquire/release round trip and notifies only transitions', () => {
++        const changed = vi.fn(),
++            stop = subscribeExternalPlayback(changed);
++        const current = captureExternalPlaybackBoundary();
++        const token = acquire();
++        expect(current()).toBe(false);
++        releaseExternalPlayback(token);
++        releaseExternalPlayback(token);
++        expect(current()).toBe(false);
++        expect(changed).toHaveBeenCalledTimes(2);
 +        stop();
 +    });
 +});
++
++describe('shared playback requests', () => {
++    it('cancels pending normal loads on acquire and lease loads on release, cleaning resources', async () => {
++        const normal = beginPlaybackRequest(),
++            cleanup = vi.fn();
++        normal.onCancel(cleanup);
++        const token = acquire();
++        expect(await normal.result).toEqual({ status: 'cancelled' });
++        expect(cleanup).toHaveBeenCalledOnce();
++        expect(normal.isCurrent()).toBe(false);
++        const own = beginPlaybackRequest(token);
++        releaseExternalPlayback(token);
++        expect(await own.result).toEqual({ status: 'cancelled' });
++    });
++    it('does not let a normal or expired-lease load supersede the current owner', async () => {
++        const token = acquire(),
++            own = beginPlaybackRequest(token);
++        const rogue = beginPlaybackRequest();
++        expect(await rogue.result).toEqual({ status: 'cancelled' });
++        expect(own.isCurrent()).toBe(true);
++        releaseExternalPlayback(token);
++        const local = beginPlaybackRequest();
++        expect(await beginPlaybackRequest(token).result).toEqual({ status: 'cancelled' });
++        expect(local.isCurrent()).toBe(true);
++    });
++    it('supersedes earlier loads, preserves committed resources and acknowledges only once', async () => {
++        const a = beginPlaybackRequest(),
++            cleanup = vi.fn();
++        const handoff = a.onCancel(cleanup);
++        handoff();
++        a.finish('source-committed');
++        a.finish('cancelled');
++        expect(await a.result).toEqual({ status: 'source-committed' });
++        const b = beginPlaybackRequest();
++        expect(a.isCurrent()).toBe(false);
++        expect(cleanup).not.toHaveBeenCalled();
++        beginPlaybackRequest();
++        expect(await b.result).toEqual({ status: 'superseded' });
++    });
++    it('cleans late resources immediately and exposes unavailable/failed outcomes', async () => {
++        const request = beginPlaybackRequest();
++        request.finish('unavailable');
++        const cleanup = vi.fn();
++        request.onCancel(cleanup);
++        expect(cleanup).toHaveBeenCalledOnce();
++        expect(await request.result).toEqual({ status: 'unavailable' });
++        const failed = beginPlaybackRequest();
++        failed.finish('failed');
++        expect(await failed.result).toEqual({ status: 'failed' });
++    });
++});
+diff --git a/test/unit/mod-system/foliumHostActions.test.ts b/test/unit/mod-system/foliumHostActions.test.ts
+index 40fc189..8ad5512 100644
+--- a/test/unit/mod-system/foliumHostActions.test.ts
++++ b/test/unit/mod-system/foliumHostActions.test.ts
+@@ -40,6 +40,7 @@ const mod: ModRuntimeInfo = {
+ const song = (id: number) => ({ id, name: `song ${id}` }) as unknown as SongResult;
+ 
+ const appActions = (overrides: Partial<FoliumAppActions> = {}): FoliumAppActions => ({
++    sessionTransport: { stop: vi.fn(), seek: vi.fn() },
+     play: vi.fn(), pause: vi.fn(), toggle: vi.fn(), seek: vi.fn(), seekToLyricTime: vi.fn(),
+     next: vi.fn(), previous: vi.fn(), playSong: vi.fn(), enqueue: vi.fn(),
+     navigateToPlayer: vi.fn(), navigateToHome: vi.fn(),
+diff --git a/test/unit/mod-system/foliumPlaybackSessions.test.ts b/test/unit/mod-system/foliumPlaybackSessions.test.ts
+new file mode 100644
+index 0000000..72d1a6f
+--- /dev/null
++++ b/test/unit/mod-system/foliumPlaybackSessions.test.ts
+@@ -0,0 +1,240 @@
++// @vitest-environment jsdom
++import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
++vi.hoisted(() => {
++    const values = new Map<string, string>();
++    Object.defineProperty(globalThis, 'localStorage', {
++        configurable: true,
++        value: {
++            getItem: (key: string) => values.get(key) ?? null,
++            setItem: (key: string, value: string) => values.set(key, String(value)),
++            removeItem: (key: string) => values.delete(key),
++            clear: () => values.clear(),
++        },
++    });
++});
++vi.mock('@/services/onlineMusic/omni', () => ({ omni: { getSongDetail: vi.fn() } }));
++import { omni } from '@/services/onlineMusic/omni';
++import { createFoliumPlaybackSessions, registerExternalPlaybackActions } from '@/mods/folium/externalPlayback';
++import { useFoliumStatusStore, clearFoliumIssues } from '@/mods/folium/status';
++import { disposeFoliumServices } from '@/mods/folium/lifecycle';
++import { createFoliumClientApi } from '@/mods/folium/api';
++import { createFoliumExperimental } from '@/mods/folium/experimental';
++import { reconcileFoliumClients } from '@/mods/folium/clientLoader';
++import { usePlaybackStore } from '@/stores/usePlaybackStore';
++import {
++    hasExternalPlayback,
++    releaseAllExternalPlayback,
++    routeExternalPlayback,
++} from '@/services/externalPlaybackSession';
++import { toFoliumSong } from '@/mods/folium/dto';
++import type { FoliumPlaybackSessionIntent } from '@/mods/folium/contract';
++import type { PlaybackRequest } from '@/types/externalPlayback';
++import type { SongResult } from '@/types';
++import type { UnifiedSong } from '@/types';
++import type { ModRuntimeInfo } from '@/mods/types';
++
++// test/unit/mod-system/foliumPlaybackSessions.test.ts
++const mod = (overrides: Partial<ModRuntimeInfo> = {}): ModRuntimeInfo => ({
++    id: 'session-test',
++    name: 'Test',
++    version: '1.0.0',
++    author: null,
++    description: null,
++    permissions: ['playback.control'],
++    experimental: ['playback.sessions'],
++    enabled: true,
++    status: 'loaded',
++    error: null,
++    trustStale: false,
++    signature: { status: 'unsigned', reason: null, keyId: null, keyLabel: null, signedAt: null },
++    devSource: false,
++    embedOrigins: [],
++    folia: null,
++    hasMain: false,
++    clientUrl: null,
++    ...overrides,
++});
++const original = usePlaybackStore.getState();
++const song = (providerId = 'netease', id = '99') =>
++    ({
++        id,
++        name: 'Test',
++        artists: [],
++        album: { id: 'album', name: '' },
++        durationMs: 100000,
++        sourceRef: { kind: 'online', providerId, mediaId: id },
++    }) as UnifiedSong;
++const options = (onIntent: (event: FoliumPlaybackSessionIntent) => void | Promise<void> = vi.fn()) => ({
++    onIntent,
++    restore: 'queue-stopped' as const,
++});
++const host = {
++    play: vi.fn(async (_song: SongResult, request: PlaybackRequest) => {
++        request.finish('source-committed');
++    }),
++    stop: vi.fn(),
++    seek: vi.fn(),
++};
++beforeEach(() => {
++    vi.clearAllMocks();
++    usePlaybackStore.setState(original, true);
++    registerExternalPlaybackActions(host);
++});
++afterEach(async () => {
++    await reconcileFoliumClients([], 'main');
++    for (const id of ['session-test', 'other']) disposeFoliumServices(id);
++    releaseAllExternalPlayback();
++    registerExternalPlaybackActions(null);
++});
++
++describe('experimental playback.sessions', () => {
++    it('reports source failure to the mod and returns failed without releasing its queue ownership', async () => {
++        clearFoliumIssues('session-test');
++        host.play.mockRejectedValueOnce(new Error('source load failed'));
++        const lease = createFoliumPlaybackSessions(mod()).acquire(options());
++        expect(await lease.play(toFoliumSong(song())!)).toEqual({ status: 'failed' });
++        expect(useFoliumStatusStore.getState().issues['session-test']).toEqual([
++            expect.objectContaining({ where: 'playback session', message: 'source load failed' }),
++        ]);
++        expect(hasExternalPlayback()).toBe(true);
++    });
++
++    it('is unavailable in the export context even when experimental services are supplied', () => {
++        const allowed = mod();
++        const api = createFoliumClientApi(allowed, {
++            context: 'export',
++            internals: null,
++            experimental: createFoliumExperimental(allowed),
++        });
++        expect(() => api.experimental['playback.sessions']).toThrow('unavailable-in-export-context');
++        expect(host.stop).not.toHaveBeenCalled();
++    });
++    it('uses the live host acquisition guard to reject recording without changing playback', () => {
++        let recording = true;
++        registerExternalPlaybackActions({ ...host, canAcquire: () => !recording });
++        const service = createFoliumPlaybackSessions(mod());
++        expect(() => service.acquire(options())).toThrow('external-playback-context-unavailable');
++        expect(host.stop).not.toHaveBeenCalled();
++        recording = false;
++        service.acquire(options()).release();
++        expect(hasExternalPlayback()).toBe(false);
++    });
++    it('requires opt-in and playback.control, without requiring internals or a pinned host', () => {
++        expect(() => createFoliumPlaybackSessions(mod({ experimental: [] })).acquire(options())).toThrow(
++            'experimental-not-declared',
++        );
++        const denied = mod({ permissions: [] });
++        const deniedApi = createFoliumClientApi(denied, {
++            context: 'main',
++            internals: null,
++            experimental: createFoliumExperimental(denied),
++        });
++        expect(() => deniedApi.experimental['playback.sessions'].acquire(options())).toThrow(
++            'permission-denied:playback.control',
++        );
++        const allowed = mod();
++        const api = createFoliumClientApi(allowed, {
++            context: 'main',
++            internals: null,
++            experimental: createFoliumExperimental(allowed),
++        });
++        const lease = api.experimental['playback.sessions'].acquire(options());
++        expect(hasExternalPlayback()).toBe(true);
++        lease.release();
++    });
++    it('resolves opaque IDs through the explicitly selected Omni provider and plays their host refs', async () => {
++        const service = createFoliumPlaybackSessions(mod());
++        vi.mocked(omni.getSongDetail).mockResolvedValue(song('qq', 'opaque-mid'));
++        const dto = await service.resolveSong('qq', 'opaque-mid');
++        expect(omni.getSongDetail).toHaveBeenCalledWith('qq', 'opaque-mid');
++        const lease = service.acquire(options());
++        expect(await lease.play(dto)).toEqual({ status: 'source-committed' });
++        expect(host.play.mock.calls[0][0].sourceRef).toMatchObject({ providerId: 'qq' });
++    });
++    it('preserves the discriminated seek payload and distinct enqueue/play intents', () => {
++        const received: FoliumPlaybackSessionIntent[] = [];
++        createFoliumPlaybackSessions(mod()).acquire(
++            options((intent) => {
++                received.push(intent);
++            }),
++        );
++        routeExternalPlayback({ type: 'seek', seconds: 22, resume: false });
++        routeExternalPlayback({ type: 'enqueue', songs: [song()] });
++        routeExternalPlayback({ type: 'play', song: song() });
++        const intent = received[0];
++        if (intent.type !== 'seek') throw Error('Expected seek');
++        const seconds: number = intent.seconds;
++        expect(seconds).toBe(22);
++        expect(intent.resume).toBe(false);
++        expect(received.map((event) => event.type)).toEqual(['seek', 'enqueue', 'play']);
++    });
++    it('reports cancelled host work instead of claiming that an empty load committed a source', async () => {
++        host.play.mockImplementationOnce(async () => {});
++        const lease = createFoliumPlaybackSessions(mod()).acquire(options());
++        expect(await lease.play(toFoliumSong(song())!)).toEqual({ status: 'cancelled' });
++    });
++    it('cancels pending play on teardown and makes retained service handles unusable', async () => {
++        host.play.mockImplementationOnce(() => new Promise(() => {}));
++        const service = createFoliumPlaybackSessions(mod()),
++            lease = service.acquire(options());
++        const pending = lease.play(toFoliumSong(song())!);
++        disposeFoliumServices('session-test');
++        expect(await pending).toEqual({ status: 'cancelled' });
++        expect(hasExternalPlayback()).toBe(false);
++        expect(() => service.acquire(options())).toThrow('mod-service-disposed');
++        expect(await lease.play(toFoliumSong(song())!)).toEqual({ status: 'cancelled' });
++    });
++    it('releases on host teardown, and even stop errors cannot strand the owner or original queue', () => {
++        const queue = [song()];
++        usePlaybackStore.setState({ playQueue: queue });
++        createFoliumPlaybackSessions(mod()).acquire(options());
++        host.stop.mockImplementationOnce(() => {
++            throw Error('failed stop');
++        });
++        registerExternalPlaybackActions(null);
++        expect(hasExternalPlayback()).toBe(false);
++        expect(usePlaybackStore.getState().playQueue).toEqual(queue);
++        expect(usePlaybackStore.getState().currentSong).toBeNull();
++    });
++    it('rejects FM and Stage before mutating their queues or context', () => {
++        const queue = [song()];
++        usePlaybackStore.setState({ playQueue: queue, isFmMode: true });
++        const service = createFoliumPlaybackSessions(mod());
++        expect(() => service.acquire(options())).toThrow('external-playback-context-unavailable');
++        expect(usePlaybackStore.getState().isFmMode).toBe(true);
++        expect(usePlaybackStore.getState().playQueue).toBe(queue);
++        usePlaybackStore.setState({ isFmMode: false, activePlaybackContext: 'stage' });
++        expect(() => service.acquire(options())).toThrow('external-playback-context-unavailable');
++        expect(host.stop).not.toHaveBeenCalled();
++        expect(hasExternalPlayback()).toBe(false);
++    });
++    it('rolls back an acquisition that fails while stopping the host', () => {
++        const queue = [song()];
++        usePlaybackStore.setState({ playQueue: queue });
++        host.stop.mockImplementationOnce(() => {
++            throw Error('stop failed');
++        });
++        expect(() => createFoliumPlaybackSessions(mod()).acquire(options())).toThrow('stop failed');
++        expect(hasExternalPlayback()).toBe(false);
++        expect(usePlaybackStore.getState().playQueue).toEqual(queue);
++    });
++    it('cleans a lease acquired before a client activation throws', async () => {
++        const source = `export default api => { api.experimental['playback.sessions'].acquire({restore:'queue-stopped',onIntent(){}}); throw Error('activation failed'); };`;
++        await reconcileFoliumClients(
++            [mod({ clientUrl: `data:text/javascript,${encodeURIComponent(source)}` })],
++            'main',
++        );
++        expect(host.stop).toHaveBeenCalledTimes(2);
++        expect(hasExternalPlayback()).toBe(false);
++    });
++    it('cleans a lease even when the client disposer throws', async () => {
++        const source = `export default api => { api.experimental['playback.sessions'].acquire({restore:'queue-stopped',onIntent(){}}); return () => { throw Error('dispose failed'); }; };`;
++        await reconcileFoliumClients(
++            [mod({ clientUrl: `data:text/javascript,${encodeURIComponent(source)}` })],
++            'main',
++        );
++        expect(hasExternalPlayback()).toBe(true);
++        await reconcileFoliumClients([], 'main');
++        expect(hasExternalPlayback()).toBe(false);
++    });
++});
+diff --git a/test/unit/mod-system/manifest.test.ts b/test/unit/mod-system/manifest.test.ts
+index 264a659..62236e2 100644
+--- a/test/unit/mod-system/manifest.test.ts
++++ b/test/unit/mod-system/manifest.test.ts
+@@ -147,6 +147,7 @@ describe('validateManifest Folium entries and opt-ins', () => {
+ 
+     it('only accepts known experimental opt-ins', () => {
+         expect(validateManifest({ ...validManifest, experimental: ['omni.providers'] }).ok).toBe(true);
++        expect(validateManifest({ ...validManifest, experimental: ['playback.sessions'], permissions: ['playback.control'] }).ok).toBe(true);
+         expect(validateManifest({ ...validManifest, experimental: ['mixins'] }).ok).toBe(false);
+     });
+ 

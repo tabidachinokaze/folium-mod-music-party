@@ -35,7 +35,16 @@ export class RoomPlayer {
   }
   start(onIntent: (event: Intent) => void) {
     if (this.lease) return
-    this.lease = this.bridge.acquire(onIntent)
+    try {
+      this.lease = this.bridge.acquire({ onIntent, restore: 'queue-stopped' })
+    } catch (error: any) {
+      const messages: Record<string, string> = {
+        'external-playback-context-unavailable':
+          '请先退出私人 FM/Stage，结束视频录制或等待混音过渡结束，再加入房间',
+        'external-playback-busy': '其他模组正在控制播放，请先结束其会话',
+      }
+      throw new Error(messages[error.message] || error.message)
+    }
     this.listening = true
     this.loaded = this.desired = this.endedKey = ''
   }
@@ -104,7 +113,15 @@ export class RoomPlayer {
     const task = (async () => {
       const song = await this.bridge.resolveSong('netease', next.song!.songId)
       if (epoch !== this.epoch) return
-      if (!(await lease.play(song)) || epoch !== this.epoch) return
+      const result = await lease.play(song)
+      if (epoch !== this.epoch || result.status === 'cancelled' || result.status === 'superseded')
+        return
+      if (result.status !== 'source-committed')
+        throw new Error(
+          result.status === 'unavailable'
+            ? '当前歌曲不可用，请等待下一首或重新同步'
+            : '房间歌曲加载失败，请重新同步',
+        )
       // Folia loads metadata separately from its lyric fetch. Wait without advancing the room.
       const deadline = this.now() + 20000
       while (epoch === this.epoch) {

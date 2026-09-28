@@ -1,5 +1,5 @@
 import { vi } from 'vitest'
-import type { Folium, HostSong, Intent, PlaybackState } from '../src/client/host'
+import type { Folium, HostSong, Intent, PlaybackState, PlaybackResult } from '../src/client/host'
 import type { RoomPlayback } from '@party/shared/types'
 
 // tests/fixtures.ts
@@ -9,6 +9,7 @@ export const song = (id = '1'): HostSong => ({
   ref: `song-${id}`,
   title: `歌曲 ${id}`,
   artist: '歌手',
+  album: null,
 })
 export function snapshot(id = '1', version = 1, sampledAt = 1000): RoomPlayback {
   return {
@@ -29,7 +30,7 @@ export function rawSnapshot() {
     multiRoomInfoDTO: { chatRoomId: '888' },
     roomPlaySongInfo: {
       playSong: { songId: '1', songBizId: '101', songRcmdUid: '9' },
-      version: 1,
+      version: 1 as const,
       playedTime: 20000,
       songDuration: 180000,
       nextSongs: [],
@@ -43,11 +44,11 @@ export function fakeHost() {
   const emit = (event: string, data: any) => events.get(event)?.forEach((fn) => fn(data))
   let dispatch = (_event: Intent) => {}
   const lease = {
-    play: vi.fn(async (song: HostSong) => {
+    play: vi.fn(async (song: HostSong): Promise<PlaybackResult> => {
       state.song = song
       state.duration = 180
       state.position = 0
-      return true
+      return { status: 'source-committed' as const }
     }),
     seek: vi.fn((seconds: number) => {
       state.position = seconds
@@ -55,16 +56,17 @@ export function fakeHost() {
     release: vi.fn(),
   }
   const bridge = {
-    version: 1,
+    version: 1 as const,
     resolveSong: vi.fn(async (_: string, id: string) => song(id)),
-    acquire: vi.fn((fn: (event: Intent) => void) => {
-      dispatch = fn
+    acquire: vi.fn(({ onIntent }: { onIntent: (event: Intent) => void }) => {
+      dispatch = onIntent
       return lease
     }),
   }
   const folium: Folium = {
     env: { context: 'main' },
-    internals: { externalPlayback: bridge, omni: {} },
+    internals: { omni: {} },
+    experimental: { 'playback.sessions': bridge },
     rpc: { call: vi.fn() },
     playback: {
       getState: () => ({ ...state }),

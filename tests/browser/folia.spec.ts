@@ -26,6 +26,17 @@ test('actual Folium registration and host audio: restore, native next, local pau
       clearAudioCache: async () => {},
       getAudioCacheStats: async () => ({ size: 0, count: 0 }),
       isWindowMaximized: async () => false,
+      onRemoteControlCommand: (callback: any) => {
+        ;(window as any).partyRemote = callback
+        return () => {}
+      },
+      onStagePlayerControlRequest: (callback: any) => {
+        ;(window as any).partyStageControl = callback
+        return () => {}
+      },
+      completeStagePlayerControlRequest: async (result: any) => {
+        ;(window as any).partyStageReply = result
+      },
       mods: {
         listMods: async () => ({ mods: [] }),
         onModsStateChanged: () => () => {},
@@ -59,11 +70,13 @@ test('actual Folium registration and host audio: restore, native next, local pau
       { createFoliumClientApi },
       { createFoliumInternals },
       { installFoliumHostEvents },
+      { createFoliumExperimental },
       { default: activate },
     ] = await Promise.all([
       load('/src/mods/folium/api.ts'),
       load('/src/mods/folium/internals.ts'),
       load('/src/mods/folium/hostEvents.ts'),
+      load('/src/mods/folium/experimental.ts'),
       load('http://127.0.0.1:4176/client.mjs'),
     ])
     installFoliumHostEvents()
@@ -73,9 +86,17 @@ test('actual Folium registration and host audio: restore, native next, local pau
         name: 'Music Party',
         permissions: ['playback.control'],
         folia: '=0.7.9',
-        experimental: [],
+        experimental: ['playback.sessions'],
       },
-      { context: 'main', internals: createFoliumInternals() },
+      {
+        context: 'main',
+        internals: createFoliumInternals(),
+        experimental: createFoliumExperimental({
+          id: 'music-party',
+          permissions: ['playback.control'],
+          experimental: ['playback.sessions'],
+        }),
+      },
     )
     ;(window as any).partyHost = { api, dispose: activate(api) }
     api.ui.navigate('player')
@@ -107,6 +128,21 @@ test('actual Folium registration and host audio: restore, native next, local pau
       { timeout: 20000 },
     )
     .toBeGreaterThan(0)
+  await page.evaluate(() => (window as any).partyRemote({ type: 'seek', time: 25 }))
+  await expect
+    .poll(() => page.evaluate(() => (window as any).partyHost.api.playback.getState().position))
+    .toBeLessThan(15)
+  await page.evaluate(() =>
+    (window as any).partyStageControl({
+      requestId: 'seek-test',
+      action: 'seek',
+      positionMs: 25000,
+    }),
+  )
+  await expect.poll(() => page.evaluate(() => (window as any).partyStageReply?.ok)).toBe(true)
+  await expect
+    .poll(() => page.evaluate(() => (window as any).partyHost.api.playback.getState().position))
+    .toBeLessThan(15)
   await page.screenshot({ path: 'test-results/folia-room.png', fullPage: true })
   await page.evaluate(() => (window as any).partyHost.api.playback.next())
   await expect

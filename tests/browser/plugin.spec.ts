@@ -66,7 +66,9 @@ test('safe message rendering, failed draft retention, sticker dismiss and privat
 })
 test('missing host bridge is visible and does not join rooms', async ({ page, request }) => {
   await page.goto('/?unpatched')
-  await expect(page.getByText('此 Folia 尚未安装播放适配接口 v1。', { exact: false })).toBeVisible()
+  await expect(
+    page.getByText('此 Folia 尚未提供 playback.sessions 接口。', { exact: false }),
+  ).toBeVisible()
   await page.getByRole('button', { name: '连接网易云账号', exact: true }).click()
   await expect(page.getByRole('button', { name: '恢复当前房间', exact: true })).not.toBeVisible()
   expect((await (await request.get('/test/state')).json()).calls).toEqual([])

@@ -18,3 +18,9 @@
 - 迁移后重新通过 3 个独立浏览器流程；真实 Folia 音频/歌词集成沿用上面的已通过结果，本轮未重复运行。
 - Folia fork 类型检查通过，更新通道、登录诊断、播放适配及相邻 Folium 行为共 26 个测试通过。稳定版、Limo、Cielo 的更新发现地址均确认指向 `tabidachinokaze/folia-major`。
 - 适配接口已包含于 fork 提交 `5ca27f7`，更新地址切换包含于 `b0fff4c`；使用该 fork 时不需要重复应用兼容补丁。
+
+## playback.sessions 重构分支
+
+插件已改用类型明确的 experimental API，测试宿主也使用同一契约。该分支需要 Folia `pr/folium-external-playback`，不对已发布的旧接口包进行原位更新。新增验证覆盖取消请求不等待 metadata、明确的不可用错误、批量推荐和解码错误不会变成切歌指令。
+
+重构完成后验证：宿主类型检查通过，全量单测 4003 项通过、1 项跳过；插件类型检查、19 个逻辑测试和 4 个浏览器流程通过。真实 Folia 页面额外验证了遥控窗口与 Stage API 的 seek 不会绕过接管。

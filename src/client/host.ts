@@ -1,37 +1,28 @@
+import type {
+  FoliumSong,
+  FoliumPlaybackSessionIntent,
+  FoliumPlaybackStartResult,
+  FoliumPlaybackSession,
+  FoliumPlaybackSessions,
+} from '../../vendor/folium/contract'
 import type { Method, Reply } from '@party/shared/types'
 
 // src/client/host.ts
-export interface HostSong {
-  id: string | null
-  source: string | null
-  ref: string | null
-  title: string
-  artist: string
-}
+export type HostSong = FoliumSong
 export interface PlaybackState {
   song: HostSong | null
   state: 'playing' | 'paused' | 'stopped'
   position: number
   duration: number
 }
-export type Intent = {
-  type: 'select' | 'next' | 'previous' | 'ended' | 'seek'
-  song?: HostSong
-  seconds?: number
-}
-export interface Lease {
-  play(song: HostSong): Promise<boolean>
-  seek(seconds: number): void
-  release(): void
-}
-export interface ExternalPlayback {
-  version: number
-  resolveSong(provider: string, id: string): Promise<HostSong>
-  acquire(fn: (event: Intent) => void): Lease
-}
+export type Intent = FoliumPlaybackSessionIntent
+export type PlaybackResult = FoliumPlaybackStartResult
+export type Lease = FoliumPlaybackSession
+export type ExternalPlayback = FoliumPlaybackSessions
 export interface Folium {
   env: { context: string }
-  internals: { externalPlayback?: ExternalPlayback; omni: any }
+  internals: { omni: any }
+  experimental: { 'playback.sessions'?: ExternalPlayback }
   rpc: { call<T = any>(name: string, ...args: unknown[]): Promise<T> }
   events: { on(name: string, fn: (event: any) => void): () => void }
   playback: { getState(): PlaybackState; play(): void; pause(): void }
@@ -45,7 +36,7 @@ export interface Folium {
 }
 export function getPlaybackBridge(folium: Folium): ExternalPlayback | null {
   try {
-    const bridge = folium.internals.externalPlayback
+    const bridge = folium.experimental['playback.sessions']
     return bridge?.version === 1 ? bridge : null
   } catch {
     return null

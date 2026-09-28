@@ -21,8 +21,8 @@ const register = (name) => ({
 })
 const folium = {
   env: { context: 'main' },
-  internals: {
-    externalPlayback: new URL(location.href).searchParams.has('unpatched')
+  experimental: {
+    'playback.sessions': new URL(location.href).searchParams.has('unpatched')
       ? undefined
       : {
           version: 1,
@@ -33,14 +33,14 @@ const folium = {
             title: id === '1' ? '晚风与海' : `下一站 · ${id}`,
             artist: '岛屿来信',
           }),
-          acquire(fn) {
-            intent = fn
+          acquire({ onIntent }) {
+            intent = onIntent
             return {
               play: async (song) => {
                 state.song = song
                 state.duration = 30
                 emit('playback.songChanged', { song })
-                return true
+                return { status: 'source-committed' }
               },
               seek: (seconds) => {
                 state.position = seconds
@@ -52,6 +52,8 @@ const folium = {
             }
           },
         },
+  },
+  internals: {
     omni: {
       searchProviderSongs: async () => ({
         items: [{ id: 20, name: '山海之间', artists: [{ name: '晚风' }] }],

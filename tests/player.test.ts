@@ -89,7 +89,7 @@ describe('room playback', () => {
     host.lease.play.mockImplementationOnce(
       () =>
         new Promise((resolve) => {
-          ready = () => resolve(true)
+          ready = () => resolve({ status: 'source-committed' })
         }),
     )
     vi.mocked(host.folium.playback.play).mockClear()
@@ -120,6 +120,29 @@ describe('room playback', () => {
     expect(host.folium.playback.play).not.toHaveBeenCalled()
     await player.apply(snapshot())
     expect(host.folium.playback.play).toHaveBeenCalledTimes(1)
+    player.dispose()
+  })
+  it('does not wait for metadata or resume after a cancelled source request', async () => {
+    const host = fakeHost(),
+      report = vi.fn()
+    host.lease.play.mockResolvedValueOnce({ status: 'cancelled' })
+    const player = new RoomPlayer(host.folium, host.bridge, () => 2000, report)
+    player.start(() => {})
+    await player.apply(snapshot())
+    expect(host.folium.playback.play).not.toHaveBeenCalled()
+    expect(host.lease.seek).not.toHaveBeenCalled()
+    expect(report).not.toHaveBeenCalled()
+    player.dispose()
+  })
+  it('reports an unavailable source without a metadata timeout', async () => {
+    const host = fakeHost(),
+      report = vi.fn()
+    host.lease.play.mockResolvedValueOnce({ status: 'unavailable' })
+    const player = new RoomPlayer(host.folium, host.bridge, () => 2000, report)
+    player.start(() => {})
+    await player.apply(snapshot())
+    expect(report).toHaveBeenCalledWith(expect.stringContaining('不可用'))
+    expect(host.folium.playback.play).not.toHaveBeenCalled()
     player.dispose()
   })
 })

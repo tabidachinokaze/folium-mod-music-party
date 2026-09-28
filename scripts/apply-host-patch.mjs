@@ -18,4 +18,4 @@ try {
   )
 }
 execFileSync('git', ['apply', patch], { cwd, stdio: 'inherit' })
-console.log('已应用 externalPlayback v1。请在 Folia 目录安装依赖并运行/构建桌面版。')
+console.log('已应用 playback.sessions 接口重构。请在 Folia 目录安装依赖并运行/构建桌面版。')

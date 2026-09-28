@@ -377,12 +377,25 @@ export class PartyController {
       void this.run(() => this.operate('multiNext'))
       return
     }
-    if (event.song?.source !== 'netease' || !event.song.id) {
+    if (event.type === 'playback-error') {
+      this.folium.playback.pause()
+      this.patch({ error: '当前房间歌曲播放失败，请重新同步或请求下一首。' })
+      return
+    }
+    const songs = event.type === 'enqueue' ? event.songs : event.type === 'play' ? [event.song] : []
+    if (!songs.length) return
+    if (songs.some((song) => song.source !== 'netease' || !song.id)) {
       this.patch({ error: '多人房间只能推荐网易云歌曲，请先退出房间再播放其他来源。' })
       return
     }
-    void this.run(() => this.recommend(event.song!.id!))
+    void this.run(async () => {
+      const roomId = this.requireRoom().roomId
+      for (const song of songs) await this.connection.call('multiAdd', { roomId, songId: song.id })
+      this.patch({ notice: `已推荐 ${songs.length} 首歌曲到房间` })
+      await this.refreshQueue()
+    })
   }
+
   detach() {
     this.epoch++
     this.timers.forEach(clearTimeout)

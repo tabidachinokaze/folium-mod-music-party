@@ -27,6 +27,31 @@ function setup() {
   }
 }
 describe('official multiplayer controller', () => {
+  it('forwards all explicitly enqueued songs and never treats audio failure as a room skip', async () => {
+    const { controller, host, api } = setup()
+    await controller.connect()
+    await controller.enter('restore')
+    api.call.mockClear()
+    host.intent({
+      type: 'enqueue',
+      songs: ['12', '13'].map((id) => ({
+        id,
+        source: 'netease',
+        ref: id,
+        title: '',
+        artist: '',
+        album: null,
+      })),
+    })
+    await vi.waitFor(() =>
+      expect(api.call.mock.calls.filter(([method]) => method === 'multiAdd')).toHaveLength(2),
+    )
+    expect(api.call).toHaveBeenCalledWith('multiAdd', { roomId: 'official_room', songId: '13' })
+    host.intent({ type: 'playback-error' })
+    expect(api.call.mock.calls.some(([method]) => method === 'multiNext')).toBe(false)
+    expect(controller.state.error).toContain('播放失败')
+    controller.dispose()
+  })
   it('restores a room; a natural end polls status while an explicit next requests SWITCH', async () => {
     vi.useFakeTimers()
     const { controller, host, api } = setup()
@@ -48,15 +73,15 @@ describe('official multiplayer controller', () => {
     await controller.enter('restore')
     api.call.mockClear()
     host.intent({
-      type: 'select',
-      song: { id: '12', source: 'kugou', ref: null, title: '', artist: '' },
+      type: 'play',
+      song: { id: '12', source: 'kugou', ref: null, title: '', artist: '', album: null },
     })
     expect(api.call).not.toHaveBeenCalled()
-    host.intent({ type: 'seek', seconds: 70 })
+    host.intent({ type: 'seek', seconds: 70, resume: false })
     expect(api.call).not.toHaveBeenCalled()
     host.intent({
-      type: 'select',
-      song: { id: '12', source: 'netease', ref: 'song-12', title: '', artist: '' },
+      type: 'play',
+      song: { id: '12', source: 'netease', ref: 'song-12', title: '', artist: '', album: null },
     })
     await vi.waitFor(() =>
       expect(api.call).toHaveBeenCalledWith('multiAdd', { roomId: 'official_room', songId: '12' }),
@@ -65,7 +90,14 @@ describe('official multiplayer controller', () => {
   })
   it('does not create a second room; reports server-side failure without pretending success', async () => {
     const { controller, host, api } = setup()
-    host.state.song = { id: '1', source: 'netease', ref: '1', title: '歌曲', artist: '' }
+    host.state.song = {
+      id: '1',
+      source: 'netease',
+      ref: '1',
+      title: '歌曲',
+      artist: '',
+      album: null,
+    }
     await controller.connect()
     await controller.run(() => controller.enter('create'))
     expect(controller.state.room).toBeNull()
