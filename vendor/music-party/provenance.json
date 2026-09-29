@@ -18,6 +18,7 @@
     "shared/stickers.ts": "f8b09971ca17f91f32cb81cbfcb3080b63784dd0c80f64ab6d61cef99ecb9e93",
     "shared/desktop.ts": "3acc8381046b38c4f4d017fbd8482d72e12281c89e9ef0590c677daea7ca5426",
     "shared/updates.ts": "c3ff9b0f0e9ec289883e0d2546316d29896523a32b8489bdea4f8b1e661a6b76",
-    "renderer/src/room-transition.ts": "7b60138fdcc40e10881ea188d1d2a858dec3a38cea4ea8b82a68ccb0027aa26a"
+    "renderer/src/room-transition.ts": "7b60138fdcc40e10881ea188d1d2a858dec3a38cea4ea8b82a68ccb0027aa26a",
+    "main/media-send.ts": "a7350e2ba580da146eef18182409bfd4dcde71ca093ea4fa32b9464a177b5e16"
   }
 }

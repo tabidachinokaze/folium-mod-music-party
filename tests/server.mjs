@@ -19,9 +19,11 @@ let handlers = new Map(),
   unread = 1,
   likes = 0,
   operations = [],
-  promoted = null
+  promoted = null,
+  privatePages = false,
+  deletedStickers = new Set()
 const self = { userId: 9, nickname: '晚风' },
-  peer = { userId: 10, nickname: '小岛' }
+  peer = { userId: 10, nickname: '小岛', avatarUrl: 'https://p1.music.126.net/fixture/avatar.jpg' }
 function reset() {
   dispose.forEach((fn) => fn())
   handlers = new Map()
@@ -40,6 +42,8 @@ function reset() {
   likes = 0
   operations = []
   promoted = null
+  privatePages = false
+  deletedStickers = new Set()
 }
 reset()
 const rawSong = (id) => ({
@@ -119,6 +123,10 @@ const server = createServer(async (req, res) => {
       reset()
       return json({ ok: true })
     }
+    if (url.pathname === '/test/private-pages') {
+      privatePages = true
+      return json({ ok: true })
+    }
     if (url.pathname === '/test/state')
       return json({ calls, current, version, joined, likes, operations })
     if (url.pathname === '/test/empty') {
@@ -143,7 +151,7 @@ const server = createServer(async (req, res) => {
     if (url.pathname === '/' || url.pathname === '/index.html') {
       res.setHeader('Content-Type', 'text/html')
       return res.end(
-        '<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>Music Party test host</title><style>body{margin:0;background:#181c21;color:#e9eceb}#panel{width:430px;height:900px;margin:24px auto;border:1px solid #ffffff18;border-radius:20px;overflow:hidden}</style><div id="panel"></div><script type="module" src="/harness.mjs"></script></html>',
+        '<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>Music Party test host</title><style>body{margin:0;background:#181c21;color:#e9eceb}#private-home{height:calc(100vh - 45px);--folium-bg:#181c21;--folium-primary:#e9eceb;--folium-accent:#a3e7c2}#panel{width:430px;height:900px;margin:24px auto;border:1px solid #ffffff18;border-radius:20px;overflow:hidden}</style><div id="panel"></div><script type="module" src="/harness.mjs"></script></html>',
       )
     }
     if (url.pathname === '/cover.svg') {
@@ -193,22 +201,42 @@ const server = createServer(async (req, res) => {
       })
     if (url.pathname === '/cloudsearch')
       return json({ code: 200, result: { songs: [rawSong('20')], songCount: 1 } })
-    if (url.pathname === '/msg/private')
+    if (url.pathname === '/msg/private') {
+      calls.push(`contacts:${args.offset || 0}`)
+      const offset = Number(args.offset || 0)
       return json({
         code: 200,
-        msgs: [
-          {
-            fromUser: peer,
-            toUser: self,
-            lastMsg: '{"msg":"一起听歌吧"}',
-            lastMsgTime: 1790600000000,
-            newMsgCount: unread,
-          },
-        ],
-        more: false,
+        msgs: Array.from({ length: privatePages ? 20 : 1 }, (_, i) => ({
+          fromUser:
+            offset + i
+              ? { ...peer, userId: 10 + offset + i, nickname: `听友 ${offset + i}` }
+              : peer,
+          toUser: self,
+          lastMsg: '{"msg":"一起听歌吧"}',
+          lastMsgTime: 1790600000000 - i,
+          newMsgCount: offset + i ? 0 : unread,
+        })),
+        more: privatePages && offset === 0,
       })
-    if (url.pathname === '/msg/private/history')
-      return json({ code: 200, msgs: [privateMessage()], more: false })
+    }
+    if (url.pathname === '/msg/private/history') {
+      calls.push(`history:${args.uid}:${args.before || 0}`)
+      if (!privatePages) return json({ code: 200, msgs: [privateMessage()], more: false })
+      const before = Number(args.before || 1790600000001)
+      const msgs = Array.from({ length: 25 }, (_, i) => ({
+        ...privateMessage(),
+        id: before - i - 1,
+        time: before - i - 1,
+        fromUser: { ...peer, userId: Number(args.uid) },
+        msg: JSON.stringify({ msg: `消息 ${before - i - 1}`, type: 1 }),
+      }))
+      if (!args.before)
+        msgs[0].msg = JSON.stringify({
+          msg: '图片',
+          pics: [{ url: 'https://p1.music.126.net/fixture/photo.jpg' }],
+        })
+      return json({ code: 200, msgs, more: !args.before })
+    }
     if (url.pathname === '/send/text') {
       calls.push('privateSend')
       return json({ code: 200, data: true })
@@ -300,6 +328,12 @@ const server = createServer(async (req, res) => {
         unread = 0
         return json({ code: 200, data: true })
       }
+      if (uri.endsWith('/emoji/cancel')) {
+        const ids = JSON.parse(args.data.emojiIds)
+        ids.forEach((id) => deletedStickers.add(String(id)))
+        calls.push('stickerDelete')
+        return json({ code: 200, data: { result: true } })
+      }
       if (uri.endsWith('/emoji/groups'))
         return json({
           code: 200,
@@ -309,17 +343,19 @@ const server = createServer(async (req, res) => {
         return json({
           code: 200,
           data: {
-            emojis: [
-              {
-                emojiId: '1',
-                emojiGroupId: '1',
-                emojiImgUrl: 'https://p1.music.126.net/fixture/1.jpg',
-                emojiName: '开心',
-                width: 100,
-                height: 100,
-                format: 'jpg',
-              },
-            ],
+            emojis: deletedStickers.has('1')
+              ? []
+              : [
+                  {
+                    emojiId: '1',
+                    emojiGroupId: '1',
+                    emojiImgUrl: 'https://p1.music.126.net/fixture/1.jpg',
+                    emojiName: '开心',
+                    width: 100,
+                    height: 100,
+                    format: 'jpg',
+                  },
+                ],
             page: { more: false },
           },
         })

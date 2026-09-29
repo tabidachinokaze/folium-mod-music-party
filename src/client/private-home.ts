@@ -5,51 +5,44 @@ import { mountPrivate } from './private-view'
 
 // src/client/private-home.ts
 export function mountPrivateHome(container: HTMLElement, controller: PartyController) {
-  const host = el('div')
+  const host = el('div', 'mp-private-host')
+  host.style.cssText = 'height:100%;min-height:0;overflow:hidden'
   container.append(host)
   const root = host.attachShadow({ mode: 'open' }),
     css = el('style')
   css.textContent = styles
   const page = el('div', 'mp mp-private-home'),
     header = el('header', 'mp-header')
-  const account = el('span', 'mp-muted')
-  const connect = button(
-    '连接网易云账号',
-    () => void controller.run(() => controller.connect()),
-    'mp-command',
-  )
-  header.append(el('h2', '', '私信'), account, connect)
-  const error = el('div', 'mp-error'),
-    notice = el('div', 'mp-notice'),
-    body = el('section', 'mp-private-layout')
-  error.setAttribute('role', 'alert')
-  notice.setAttribute('role', 'status')
+  const feedback = el('div', 'mp-private-feedback')
+  feedback.hidden = true
+  const report = (text: string, error = false) => {
+    feedback.textContent = text
+    feedback.hidden = !text
+    feedback.setAttribute('role', error ? 'alert' : 'status')
+    feedback.classList.toggle('mp-error', error)
+  }
+  const connect = button('连接网易云账号', () => {
+    void controller.connect().catch((error) => report(error.message, true))
+  })
+  const body = el('section', 'mp-private-layout')
   body.setAttribute('aria-label', '私信会话')
-  page.append(header, error, notice, body)
+  const view = mountPrivate(body, controller, report)
+  header.append(el('h2', '', '私信'), connect, view.refreshButton)
+  page.append(header, feedback, body)
   root.append(css, page)
-  const view = mountPrivate(body, controller)
   let accountUid: string | null = null
-  function render() {
-    const state = controller.state
-    error.textContent = state.error
-    error.hidden = !state.error
-    notice.textContent = state.notice
-    notice.hidden = !state.notice
-    body.hidden = !state.account
-    account.textContent = state.account ? state.account.nickname : '复用 Folia 中已登录的网易云账号'
-    connect.hidden = Boolean(state.room)
-    connect.textContent = state.account ? '重新连接账号' : '连接网易云账号'
-    root.querySelectorAll<HTMLButtonElement>('.mp-command').forEach((button) => {
-      button.disabled = state.busy
-    })
-    if (accountUid !== (state.account?.uid ?? null)) {
+  const render = () => {
+    const uid = controller.state.account?.uid ?? null
+    body.hidden = !uid
+    connect.hidden = Boolean(uid)
+    view.refreshButton.hidden = !uid
+    if (accountUid !== uid) {
       view.reset()
-      accountUid = null
+      report('')
+      accountUid = uid
+      if (uid) view.show()
     }
-    if (state.account && !state.busy && !accountUid) {
-      accountUid = state.account.uid
-      view.show()
-    }
+    view.update()
   }
   const stop = controller.subscribe(render)
   render()

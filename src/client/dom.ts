@@ -41,9 +41,24 @@ export function messageNode(message: ChatMessage | PrivateMessage, mine: boolean
       `${nickname} · ${new Date(message.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
     ),
   )
-  if (message.text) row.append(el('p', 'mp-bubble', message.text))
-  if ('emoji' in message && message.emoji)
-    row.append(picture(message.emoji.emojiImgUrl, message.emoji.emojiName))
+  const attachments = message.attachments || []
+  const emoji = 'emoji' in message ? message.emoji : undefined
+  const text = message.text?.trim() || ''
+  // API fallback labels describe media; they are not a second text message.
+  const placeholder =
+    (attachments.length > 0 || emoji) &&
+    (/^(?:\[?(?:图片|图片消息|表情|表情包|语音|音频|视频|文件)\]?|\[分享(?:歌曲|歌单|专辑)\].*)$/.test(
+      text,
+    ) ||
+      attachments.some((item) => text === item.title || text === `[${item.title}]`) ||
+      (emoji && (text === emoji.emojiName || text === `[${emoji.emojiName}]`)) ||
+      (attachments.some((item) => item.kind === 'file') && text.startsWith('[文件] ')))
+  if (text && !placeholder) row.append(el('p', 'mp-bubble', message.text))
+  if (emoji && !attachments.some((item) => item.url === emoji.emojiImgUrl)) {
+    const image = picture(emoji.emojiImgUrl, emoji.emojiName)
+    image.style.aspectRatio = `${emoji.width} / ${emoji.height}`
+    row.append(image)
+  }
   for (const item of message.attachments || []) {
     if (item.kind === 'image' && item.url) row.append(picture(item.url, '图片消息'))
     else if ((item.kind === 'audio' || item.kind === 'video') && item.url) {
