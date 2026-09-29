@@ -699,7 +699,7 @@ export interface FoliumRegistry<Def, Handle extends FoliumRegistryHandle = Foliu
 }
 
 /**
- * All registries, as `folium.registries`. UI-only ones (commands, stageLayers, playerPanelTabs,
+ * All registries, as `folium.registries`. UI-only ones (commands, stageLayers, playerPanelTabs, homeTabs,
  * controlButtons, progressLayers, styles) accept registrations and do nothing in the export window.
  */
 export interface FoliumRegistries {
@@ -717,6 +717,8 @@ export interface FoliumRegistries {
     settingsSections: FoliumRegistry<FoliumSettingsSectionDef, FoliumSettingsSectionHandle>;
     /** Player panel tabs. */
     playerPanelTabs: FoliumRegistry<FoliumPlayerPanelTabDef>;
+    /** Full-page mod views in the home navigation capsule. */
+    homeTabs: FoliumRegistry<FoliumPlayerPanelTabDef>;
     /** Progress bar buttons. */
     controlButtons: FoliumRegistry<FoliumControlButtonDef>;
     /** Layers over the progress track. */
@@ -838,7 +840,52 @@ export type FoliumPlaybackSessionIntent =
     | { type: 'play'; song: FoliumSong }
     | { type: 'enqueue'; songs: readonly FoliumSong[] }
     | { type: 'next' | 'previous' | 'ended' | 'playback-error' }
-    | { type: 'seek'; seconds: number; resume: boolean };
+    | { type: 'seek'; seconds: number; resume: boolean }
+    | { type: 'queue-action'; entryId: string | null; actionId: string };
+
+/** A mod-owned queue action. Labels are localized by the host; each click is delivered separately. */
+export interface FoliumQueueAction {
+    /** Stable action id, returned in a queue-action intent. */
+    id: string;
+    /** Accessible button label. */
+    label: FoliumLabel;
+    /** Host icon, avoiding bundled icon/render dependencies in a mod. */
+    icon: 'refresh-cw' | 'trash-2' | 'arrow-up-to-line' | 'thumbs-up';
+    /** False by default; the mod owns permissions and pending-operation policy. */
+    disabled?: boolean;
+    /** Optional nonnegative count, such as votes. It never implies a one-time toggle. */
+    count?: number;
+}
+
+/** A queue occurrence. Its identity is separate from its media id, so repeated tracks remain distinct. */
+export interface FoliumQueueEntry {
+    /** Unique id within the session, never the list index. */
+    id: string;
+    /** Presentation metadata; duration is in seconds. An optional host ref supplies richer metadata. */
+    track: { id: string; source: string; title: string; artist: string; album?: string | null; coverUrl?: string; duration?: number; ref?: string | null };
+    /** Replaces native remove/reorder buttons for this occurrence. */
+    actions: readonly FoliumQueueAction[];
+    /** Optional row activation action. Without it, selecting the row does not start local playback. */
+    defaultAction?: string;
+}
+
+/** Authoritative queue shown by native queue, command-palette and collage surfaces. */
+export interface FoliumPlaybackQueue {
+    /** Ordered entries, including the current occurrence when one exists. */
+    entries: readonly FoliumQueueEntry[];
+    /** Current occurrence id, or null while waiting. */
+    currentId: string | null;
+    /** Replaces the native shuffle/clear toolbar while this queue is shown. */
+    actions?: readonly FoliumQueueAction[];
+    /** Toolbar action used in place of a configured shuffle button. */
+    syncActionId?: string;
+    /** Whether the session can accept a next-track request, independent of local queue length. */
+    canNext: boolean;
+    /** Total entries expected while loading; defaults to entries.length. */
+    totalCount?: number;
+    /** Queue refresh indicator. */
+    loading?: boolean;
+}
 
 /** Source assignment, not an assertion that decoding or audible playback succeeded. */
 export interface FoliumPlaybackStartResult {
@@ -848,6 +895,10 @@ export interface FoliumPlaybackStartResult {
 
 /** An exclusive session, released automatically on mod disable or failed activation. */
 export interface FoliumPlaybackSession {
+    /** Publish queue presentation and actions without fetching streams or mutating the private queue. */
+    setQueue(queue: FoliumPlaybackQueue): void;
+    /** Cancel loading and clear the current source, retaining session ownership and queue presentation. */
+    stop(): void;
     /** Load a host-ref song without autoplay. Resolves at source assignment, cancellation or failure. */
     play(song: FoliumSong): Promise<FoliumPlaybackStartResult>;
     /** Set local audio time in seconds, preserving the current pause state. */
@@ -859,7 +910,7 @@ export interface FoliumPlaybackSession {
 /** EXPERIMENTAL: requires manifest `playback.sessions` and permission `playback.control`. Main window only. */
 export interface FoliumPlaybackSessions {
     /** Experimental service contract version. */
-    readonly version: 1;
+    readonly version: 2;
     /** Resolve an online provider's opaque media ID through Omni, returning a host song ref. */
     resolveSong(provider: string, id: string): Promise<FoliumSong>;
     /** FM, Stage, video recording, active transitions and another session are rejected before changing playback. */
@@ -967,6 +1018,10 @@ export interface FoliumUiService {
     toast(message: string, options?: { type?: 'info' | 'success' | 'error'; durationMs?: number }): void;
     /** Opens the player panel, optionally on one of this mod's panel tabs (local id). */
     openPlayerPanel(tabId?: string): void;
+    /** Open a mod's home tab in the top navigation capsule. */
+    openHomeTab(tabId: string): void;
+    /** Open the native player queue. */
+    openQueue(): void;
     /** Switches to the home or player view. */
     navigate(view: 'home' | 'player'): void;
     /** Folium 1.3: opens the host volume panel (the command palette's volume command). */

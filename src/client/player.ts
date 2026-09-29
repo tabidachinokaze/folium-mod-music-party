@@ -1,11 +1,13 @@
 import { shouldAccept, targetPosition } from '@party/shared/multiplayer'
 import type { RoomPlayback } from '@party/shared/types'
-import type { ExternalPlayback, Folium, Intent, Lease } from './host'
+import type { ExternalPlayback, Folium, Intent, Lease, HostSong } from './host'
+import type { FoliumPlaybackQueue } from '../../vendor/folium/contract'
 
 // src/client/player.ts
 // Server snapshots only move the local player; they never issue a room mutation.
 export class RoomPlayer {
   private lease: Lease | null = null
+  metadata: HostSong | null = null
   private epoch = 0
   private snapshot: RoomPlayback | null = null
   private desired = ''
@@ -23,6 +25,7 @@ export class RoomPlayer {
     private bridge: ExternalPlayback,
     private now = () => performance.now(),
     private report = (_message: string) => {},
+    private metadataChanged = () => {},
   ) {
     this.stopState = folium.events.on('playback.stateChanged', ({ state }) => {
       if (!this.lease || this.suppressPause || this.aligning) return
@@ -47,6 +50,9 @@ export class RoomPlayer {
     }
     this.listening = true
     this.loaded = this.desired = this.endedKey = ''
+  }
+  setQueue(queue: FoliumPlaybackQueue) {
+    this.lease?.setQueue(queue)
   }
   ended() {
     this.endedKey = this.loaded
@@ -89,7 +95,9 @@ export class RoomPlayer {
     const key = next.song ? `${next.song.songId}:${next.song.songBizId}` : ''
     if (!key) {
       this.epoch++
-      this.pauseInternally()
+      this.lease.stop()
+      this.metadata = null
+      this.metadataChanged()
       this.loaded = this.desired = ''
       return
     }
@@ -113,6 +121,8 @@ export class RoomPlayer {
     const task = (async () => {
       const song = await this.bridge.resolveSong('netease', next.song!.songId)
       if (epoch !== this.epoch) return
+      this.metadata = song
+      this.metadataChanged()
       const result = await lease.play(song)
       if (epoch !== this.epoch || result.status === 'cancelled' || result.status === 'superseded')
         return
@@ -171,6 +181,7 @@ export class RoomPlayer {
     this.lease?.release()
     this.lease = null
     this.snapshot = null
+    this.metadata = null
     this.loaded = this.desired = ''
     this.task = null
     this.applying = false

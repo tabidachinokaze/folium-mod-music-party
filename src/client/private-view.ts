@@ -80,7 +80,7 @@ export function mountPrivate(container: HTMLElement, controller: PartyController
       await controller.connection.call('privateConversations', { offset: more ? offset : 0 }),
       uid,
     )
-    if (disposed) return
+    if (disposed || controller.state.account?.uid !== uid) return
     if (!more) {
       contacts.replaceChildren()
       offset = 0
@@ -92,6 +92,8 @@ export function mountPrivate(container: HTMLElement, controller: PartyController
         () => void controller.run(() => open(peer)),
         'mp-contact',
       )
+      pick.dataset.uid = peer.uid
+      pick.setAttribute('aria-pressed', String(selected?.uid === peer.uid))
       contacts.append(pick)
     })
     if (!contacts.childElementCount) contacts.append(el('p', 'mp-muted', '暂无私信会话'))
@@ -109,6 +111,11 @@ export function mountPrivate(container: HTMLElement, controller: PartyController
     }
     selected = peer
     title.textContent = peer.nickname
+    contacts
+      .querySelectorAll<HTMLButtonElement>('button')
+      .forEach((button) =>
+        button.setAttribute('aria-pressed', String(button.dataset.uid === peer.uid)),
+      )
     const page = parsePrivatePage(
       await controller.connection.call('privateHistory', {
         uid: peer.uid,
@@ -151,7 +158,11 @@ export function mountPrivate(container: HTMLElement, controller: PartyController
     button('刷新私信', () => void controller.run(() => (selected ? open(selected) : list()))),
     invite,
   )
-  container.append(toolbar, contacts, loadMore, title, older, history, form)
+  const sidebar = el('aside', 'mp-private-sidebar'),
+    conversation = el('div', 'mp-private-conversation')
+  sidebar.append(contacts, loadMore)
+  conversation.append(title, older, history, form)
+  container.append(toolbar, sidebar, conversation)
   return {
     show() {
       if (!contacts.childElementCount) void controller.run(() => list())
@@ -164,6 +175,10 @@ export function mountPrivate(container: HTMLElement, controller: PartyController
       history.replaceChildren()
       draft.value = ''
       sticker.node.open = false
+      title.textContent = '选择一个私信会话'
+      before = null
+      offset = 0
+      older.hidden = loadMore.hidden = true
     },
     dispose() {
       disposed = true

@@ -88,6 +88,87 @@ describe('official multiplayer controller', () => {
     )
     controller.dispose()
   })
+  it('publishes occurrences and routes own delete/top actions without treating selection as a recommendation', async () => {
+    const { controller, host, api } = setup()
+    await controller.connect()
+    await controller.enter('restore')
+    await controller.refreshQueue()
+    const entry = (biz: string, uid: string) => ({
+      songId: '2',
+      songBizId: biz,
+      songRcmdUid: uid,
+      track: {
+        id: '2',
+        name: 'Repeated song',
+        artist: 'Artist',
+        album: '',
+        cover: '',
+        duration: 30000,
+      },
+      recommender: '',
+      selfRecommended: uid === '9',
+      uped: false,
+      upCount: 0,
+      liked: false,
+      likeCount: 0,
+    })
+    controller.patch({ queue: [entry('200', '9'), entry('201', '10')] })
+    const queue = host.lease.setQueue.mock.lastCall![0]
+    expect(queue.entries.map((entry: any) => entry.id)).toEqual(['101', '200', '201'])
+    expect(queue.entries[0].actions.map((a: any) => a.id)).toEqual(['like'])
+    expect(queue.entries[1].actions.map((a: any) => a.id)).toEqual(['promote', 'remove'])
+    expect(queue.entries[2].actions.map((a: any) => a.id)).toEqual(['promote'])
+    api.call.mockClear()
+    host.intent({ type: 'queue-action', entryId: '201', actionId: 'remove' })
+    host.intent({ type: 'queue-action', entryId: '101', actionId: 'promote' })
+    expect(api.call).not.toHaveBeenCalled()
+    host.intent({ type: 'queue-action', entryId: '200', actionId: 'remove' })
+    await vi.waitFor(() =>
+      expect(api.call).toHaveBeenCalledWith('multiRemove', {
+        roomId: 'official_room',
+        songId: '2',
+        bizId: '200',
+      }),
+    )
+    controller.dispose()
+  })
+  it('sends each rapid like, including while another UI operation is busy, without refetching the entire queue', async () => {
+    const { controller, host, api } = setup()
+    await controller.connect()
+    await controller.enter('restore')
+    await controller.refreshQueue()
+    api.call.mockClear()
+    controller.patch({ busy: true })
+    for (let i = 0; i < 8; i++)
+      host.intent({ type: 'queue-action', entryId: '101', actionId: 'like' })
+    await vi.waitFor(() =>
+      expect(api.call.mock.calls.filter(([method]) => method === 'multiLike')).toHaveLength(8),
+    )
+    expect(api.call.mock.calls.filter(([method]) => method === 'multiQueue')).toHaveLength(0)
+    controller.dispose()
+  })
+  it('drops queued likes after leaving, and never retries an uncertain write', async () => {
+    const { controller, api } = setup()
+    await controller.connect()
+    await controller.enter('restore')
+    await controller.refreshQueue()
+    api.call.mockClear()
+    let finish!: () => void
+    api.call.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = () => resolve({ code: 200, data: { success: true } })
+        }),
+    )
+    const first = controller.likeCurrent(),
+      second = controller.likeCurrent()
+    await vi.waitFor(() => expect(api.call).toHaveBeenCalledTimes(1))
+    controller.detach()
+    finish()
+    await Promise.all([first, second])
+    expect(api.call).toHaveBeenCalledTimes(1)
+    controller.dispose()
+  })
   it('does not create a second room; reports server-side failure without pretending success', async () => {
     const { controller, host, api } = setup()
     host.state.song = {

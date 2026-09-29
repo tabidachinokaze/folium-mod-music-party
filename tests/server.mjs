@@ -16,7 +16,10 @@ let handlers = new Map(),
   removed = new Set(),
   calls = [],
   messages = [],
-  unread = 1
+  unread = 1,
+  likes = 0,
+  operations = [],
+  promoted = null
 const self = { userId: 9, nickname: '晚风' },
   peer = { userId: 10, nickname: '小岛' }
 function reset() {
@@ -34,6 +37,9 @@ function reset() {
   calls = []
   messages = []
   unread = 1
+  likes = 0
+  operations = []
+  promoted = null
 }
 reset()
 const rawSong = (id) => ({
@@ -63,6 +69,7 @@ const snapshot = () => ({
     songDuration: 30000,
     nextSongs: [],
     waitSongCount: 9 - removed.size,
+    playingSongZanCnt: likes,
   },
 })
 const privateMessage = () => ({
@@ -112,7 +119,8 @@ const server = createServer(async (req, res) => {
       reset()
       return json({ ok: true })
     }
-    if (url.pathname === '/test/state') return json({ calls, current, version, joined })
+    if (url.pathname === '/test/state')
+      return json({ calls, current, version, joined, likes, operations })
     if (url.pathname === '/test/empty') {
       joined = false
       return json({ ok: true })
@@ -226,7 +234,7 @@ const server = createServer(async (req, res) => {
           start = Number(page.cursor || 0)
         const rows = Array.from({ length: 9 }, (_, i) => ({
           songInfo: {
-            resourceId: String(i + 2),
+            resourceId: String(i === 8 ? 2 : i + 2),
             bizId: String(i + 200),
             title: `待播歌曲 ${i + 1}`,
             artistName: ['岛屿来信'],
@@ -234,7 +242,11 @@ const server = createServer(async (req, res) => {
           },
           rcmdUid: i % 2 ? '10' : '9',
           nickname: i % 2 ? '小岛' : '晚风',
-        })).filter((row) => !removed.has(row.songInfo.bizId))
+        }))
+          .filter((row) => !removed.has(row.songInfo.bizId))
+          .sort(
+            (a, b) => Number(b.songInfo.bizId === promoted) - Number(a.songInfo.bizId === promoted),
+          )
         return json({
           code: 200,
           data: {
@@ -245,6 +257,9 @@ const server = createServer(async (req, res) => {
       }
       if (uri.endsWith('/song/operate')) {
         calls.push(`operate:${data.operate}`)
+        operations.push(data)
+        if (data.operate === 3) likes++
+        if (data.operate === 2) promoted = data.bizId
         if (data.operate === 4) {
           current = String(Number(current) + 1)
           version++
