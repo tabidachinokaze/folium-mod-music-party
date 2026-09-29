@@ -1,6 +1,6 @@
-# Music Party Folium 0.3.0（待发布）
+# Music Party Folium 0.3.0
 
-需要配套 Folia 的 playback.sessions v2 接口。当前请使用两个仓库的 `feat/native-party-queue` 分支；已发布的 Folia 0.7.10 安装包仍是 v1。
+**请配套升级 [Folia 0.7.11](https://github.com/tabidachinokaze/folia-major/releases/tag/v0.7.11)。** 先升级宿主，再将 `folium-mod-music-party-0.3.0.zip` 拖入模组面板并重新启用。已发布的 Folia 0.7.10 安装包不兼容本插件。
 
 - 官方多人队列接入 Folia 原生播放列表、队列搜索及拼贴，移除插件待播页。
 - 同步按钮替代打乱；支持置顶和删除本人推荐，隐藏本地“下一首播放/移到队尾”。

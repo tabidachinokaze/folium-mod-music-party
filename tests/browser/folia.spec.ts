@@ -16,7 +16,7 @@ test('actual Folium registration and host audio: restore, native next, local pau
   await page.addInitScript(() => {
     localStorage.clear()
     localStorage.setItem('i18nextLng', 'zh-CN')
-    localStorage.setItem('folia_last_seen_ponder_onboarding_version', '0.7.10')
+    localStorage.setItem('folia_last_seen_ponder_onboarding_version', '0.7.11')
     localStorage.setItem('online_provider:netease:cookie', 'MUSIC_U=test-only')
     localStorage.setItem('static_mode', 'true')
     localStorage.setItem('player_loop_mode', 'one')
@@ -86,7 +86,7 @@ test('actual Folium registration and host audio: restore, native next, local pau
         id: 'music-party',
         name: 'Music Party',
         permissions: ['playback.control'],
-        folia: '>=0.7.9 <=0.7.10',
+        folia: '>=0.7.10 <=0.7.11',
         experimental: ['playback.sessions'],
       },
       {
@@ -100,6 +100,23 @@ test('actual Folium registration and host audio: restore, native next, local pau
       },
     )
     ;(window as any).partyHost = { api, dispose: activate(api) }
+  })
+  // The splash can disappear before React's host-action effect has registered the UI services.
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          try {
+            return Boolean((window as any).partyHost.api.playback.getState())
+          } catch {
+            return false
+          }
+        }),
+      { timeout: 30000 },
+    )
+    .toBe(true)
+  await page.evaluate(() => {
+    const { api } = (window as any).partyHost
     api.ui.navigate('player')
     api.ui.openPlayerPanel('room')
   })
