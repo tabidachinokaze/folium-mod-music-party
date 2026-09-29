@@ -9,6 +9,7 @@ test('actual Folium registration and host audio: restore, native next, local pau
   request,
 }) => {
   test.setTimeout(120000)
+  page.setDefaultTimeout(15000)
   await request.get('/test/reset')
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
@@ -144,20 +145,147 @@ test('actual Folium registration and host audio: restore, native next, local pau
     .poll(() => page.evaluate(() => (window as any).partyHost.api.playback.getState().position))
     .toBeLessThan(15)
   await page.screenshot({ path: 'test-results/folia-room.png', fullPage: true })
-  await page.evaluate(() => (window as any).partyHost.api.playback.next())
+  await page.evaluate(() => (window as any).partyHost.api.ui.openQueue())
+  await expect(page.getByRole('button', { name: '同步队列', exact: true })).toBeVisible()
+  await expect(page.getByRole('tab', { name: '待播', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '打乱队列', exact: true })).toHaveCount(0)
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const { useExternalQueueStore } = await import(
+          /* @vite-ignore */ '/src/services/externalPlaybackQueue.ts' as string
+        )
+        return useExternalQueueStore.getState().view?.queue.length
+      }),
+    )
+    .toBe(10)
+  const repeated = await page.evaluate(async () => {
+    const { useExternalQueueStore } = await import(
+      /* @vite-ignore */ '/src/services/externalPlaybackQueue.ts' as string
+    )
+    return useExternalQueueStore
+      .getState()
+      .view.queue.filter((song: any) => song.id === '2')
+      .map((song: any) => song.externalQueueEntryKey)
+  })
+  expect(new Set(repeated).size).toBe(2)
+  const like = page.getByRole('button', { name: '为这首歌点赞', exact: true })
+  await like.locator('xpath=../../..').hover()
+  for (let i = 0; i < 5; i++) await like.click()
+  await expect.poll(async () => (await (await request.get('/test/state')).json()).likes).toBe(5)
+  const remove = page.getByRole('button', { name: '删除我的推荐', exact: true }).first()
+  await remove.locator('xpath=../../..').hover()
+  await remove.click()
+  await expect
+    .poll(async () =>
+      (await (await request.get('/test/state')).json()).operations
+        .filter((op: any) => op.operate === 7)
+        .map((op: any) => op.bizId),
+    )
+    .toEqual(['200'])
+  const promote = page.getByRole('button', { name: '置顶', exact: true }).nth(1)
+  await promote.locator('xpath=../../..').hover()
+  await promote.click()
+  await expect
+    .poll(async () =>
+      (await (await request.get('/test/state')).json()).operations
+        .filter((op: any) => op.operate === 2)
+        .map((op: any) => op.bizId),
+    )
+    .toEqual(['202'])
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const { useExternalQueueStore } = await import(
+          /* @vite-ignore */ '/src/services/externalPlaybackQueue.ts' as string
+        )
+        return useExternalQueueStore
+          .getState()
+          .view.queue[1].externalQueueEntryKey.split(':')
+          .at(-1)
+      }),
+    )
+    .toBe('202')
+  await page.screenshot({ path: 'test-results/folia-native-queue.png', fullPage: true })
+  await page.locator('[data-ponder=player-bar]').hover()
+  await page.getByRole('button', { name: '下一首', exact: true }).first().click()
   await expect
     .poll(() => page.evaluate(() => (window as any).partyHost.api.playback.getState().song?.id), {
       timeout: 20000,
     })
     .toBe('2')
+  await page.keyboard.press('Control+ArrowRight')
+  await expect.poll(async () => (await (await request.get('/test/state')).json()).current).toBe('3')
+  await expect(page.getByRole('button', { name: '同步队列', exact: true })).toBeEnabled()
+  await page.evaluate(async () => {
+    const { openCommandPaletteCommand } = await import(
+      /* @vite-ignore */ '/src/stores/useAppViewStore.ts' as string
+    )
+    openCommandPaletteCommand('playback-next')
+  })
+  await page.getByRole('combobox').press('Enter')
+  await expect.poll(async () => (await (await request.get('/test/state')).json()).current).toBe('4')
+  await page.keyboard.press('Escape')
+  await expect
+    .poll(() => page.evaluate(() => (window as any).partyHost.api.playback.getState().song?.id))
+    .toBe('4')
   await page.evaluate(() => (window as any).partyHost.api.playback.pause())
   await expect
     .poll(() => page.evaluate(() => (window as any).partyHost.api.playback.getState().state))
     .toBe('paused')
+  await page.evaluate(() => (window as any).partyHost.api.ui.openPlayerPanel('room'))
   await page.getByRole('button', { name: '重新同步', exact: true }).click()
   expect(await page.evaluate(() => (window as any).partyHost.api.playback.getState().state)).toBe(
     'paused',
   )
+  await page.evaluate(async () => {
+    const { openCommandPaletteCommand } = await import(
+      /* @vite-ignore */ '/src/stores/useAppViewStore.ts' as string
+    )
+    openCommandPaletteCommand('queue')
+  })
+  const palette = page.getByTestId('command-palette-queue-view')
+  await expect(palette).toBeVisible()
+  await expect(palette.getByRole('button', { name: '同步队列', exact: true })).toBeVisible()
+  await expect(palette.getByRole('button', { name: '下一首播放', exact: true })).toHaveCount(0)
+  await expect(palette.getByRole('button', { name: '移到队尾', exact: true })).toHaveCount(0)
+  await page.getByRole('combobox').fill('待播歌曲 9')
+  await expect(palette.getByText('待播歌曲 9', { exact: true })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Escape')
+  await page.evaluate(() => (window as any).partyHost.api.ui.navigate('home'))
+  await page.getByRole('button', { name: '私信', exact: true }).click()
+  await page.getByRole('button', { name: '小岛 · 1 未读', exact: true }).click()
+  await expect(page.getByText('一起听这首吧', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: '小岛', exact: true })).toBeVisible()
+  await page.getByRole('textbox', { name: '私信内容' }).pressSequentially(':n')
+  await page.getByRole('textbox', { name: '私信内容' }).press('Control+ArrowRight')
+  expect((await (await request.get('/test/state')).json()).current).toBe('4')
+  await page.screenshot({ path: 'test-results/folia-private-home.png', fullPage: true })
+  await page.getByTestId('home-lattice-pill').click()
+  await expect(page.locator('.lattice-root')).toBeVisible()
+  await expect(
+    page.locator('.lattice-poster').filter({ hasText: '待播歌曲 9' }).first(),
+  ).toBeVisible()
+  // The infinite collage repeats tiles spatially; keyboard focus selects one occurrence.
+  const currentPoster = page.locator('.lattice-poster.is-current').first()
+  await currentPoster.focus()
+  await currentPoster.press('Enter')
+  await expect(
+    page
+      .locator('.lattice-poster.is-expanded')
+      .getByRole('button', { name: '为这首歌点赞', exact: true }),
+  ).toBeVisible()
+  await page
+    .locator('.lattice-poster.is-expanded')
+    .getByRole('button', { name: '为这首歌点赞', exact: true })
+    .click()
+  await expect.poll(async () => (await (await request.get('/test/state')).json()).likes).toBe(6)
+  await page.screenshot({ path: 'test-results/folia-lattice.png', fullPage: true })
+  await page.evaluate(() => {
+    ;(window as any).partyHost.api.ui.navigate('player')
+    ;(window as any).partyHost.api.ui.openPlayerPanel('room')
+  })
   await page.getByRole('button', { name: '退出房间', exact: true }).click()
   await expect
     .poll(() => page.evaluate(() => (window as any).partyHost.api.playback.getState().song))

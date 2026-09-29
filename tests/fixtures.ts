@@ -1,3 +1,4 @@
+import type { FoliumPlaybackQueue } from '../vendor/folium/contract'
 import { vi } from 'vitest'
 import type { Folium, HostSong, Intent, PlaybackState, PlaybackResult } from '../src/client/host'
 import type { RoomPlayback } from '@party/shared/types'
@@ -44,6 +45,11 @@ export function fakeHost() {
   const emit = (event: string, data: any) => events.get(event)?.forEach((fn) => fn(data))
   let dispatch = (_event: Intent) => {}
   const lease = {
+    setQueue: vi.fn((_queue: FoliumPlaybackQueue) => {}),
+    stop: vi.fn(() => {
+      state.song = null
+      state.state = 'stopped'
+    }),
     play: vi.fn(async (song: HostSong): Promise<PlaybackResult> => {
       state.song = song
       state.duration = 180
@@ -56,7 +62,7 @@ export function fakeHost() {
     release: vi.fn(),
   }
   const bridge = {
-    version: 1 as const,
+    version: 2 as const,
     resolveSong: vi.fn(async (_: string, id: string) => song(id)),
     acquire: vi.fn(({ onIntent }: { onIntent: (event: Intent) => void }) => {
       dispatch = onIntent
@@ -88,7 +94,14 @@ export function fakeHost() {
         }
       },
     },
-    ui: { navigate: vi.fn(), openPlayerPanel: vi.fn(), toast: vi.fn(), icon: vi.fn() },
+    ui: {
+      navigate: vi.fn(),
+      openPlayerPanel: vi.fn(),
+      openHomeTab: vi.fn(),
+      openQueue: vi.fn(),
+      toast: vi.fn(),
+      icon: vi.fn(),
+    },
     registries: {},
   }
   return { folium, state, bridge, lease, emit, intent: (intent: Intent) => dispatch(intent) }

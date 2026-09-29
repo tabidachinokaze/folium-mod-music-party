@@ -6,53 +6,54 @@ Music Party for Folia · [插件仓库](https://github.com/tabidachinokaze/foliu
 
 ## 兼容性：请先看这里
 
-**正式配套：Folia 0.7.10 + 本插件 0.2.0。** 播放接管使用 `folium.experimental['playback.sessions']`，请同时升级宿主和插件。
+**当前开发版：插件 0.3.0 + Folia `feat/native-party-queue` 分支。尚未发布。** 新版需要 `folium.experimental['playback.sessions'].version === 2`，请同时更新宿主和插件源码。
 
-| 宿主                             | 插件  | 状态                      |
-| -------------------------------- | ----- | ------------------------- |
-| 已发布的 Folia 0.7.10            | 0.2.0 | 推荐配套                  |
-| 已发布的 Folia 0.7.9             | 0.1.0 | 旧接口配套                |
-| 已发布的 Folia 0.7.9             | 0.2.0 | 不兼容，缺少新 capability |
-| 手动应用新接口补丁的开发版 0.7.9 | 0.2.0 | 开发兼容                  |
+| 宿主                                                     | 插件  | 状态                  |
+| -------------------------------------------------------- | ----- | --------------------- |
+| Folia `feat/native-party-queue`（版本元数据仍为 0.7.10） | 0.3.0 | 当前开发配套，接口 v2 |
+| 已发布 Folia 0.7.10 安装包                               | 0.2.0 | 既有稳定配套，接口 v1 |
+| 已发布 Folia 0.7.10 安装包                               | 0.3.0 | 不兼容，需更新宿主    |
+| 已发布 Folia 0.7.9                                       | 0.1.0 | 旧接口配套            |
 
-manifest 声明 `experimental: ["playback.sessions"]` 与 `playback.control`，宿主范围限于已验证的 0.7.9–0.7.10；版本号落在范围内仍必须提供该 capability。插件更新使用相同 ID，安装新版 ZIP 后需要重新启用。
+manifest 声明 `experimental: ["playback.sessions"]` 与 `playback.control`。版本号相同不代表接口相同，插件会检查接口版本并显示升级提示。插件更新使用相同 ID，安装新版 ZIP 后需要重新启用。
 
-## 安装
+## 安装开发版
 
-1. 安装 [Folia 0.7.10](https://github.com/tabidachinokaze/folia-major/releases/tag/v0.7.10)，或从主分支源码运行：
+1. 使用配套宿主分支：
 
    ```bash
-   git clone git@github.com:tabidachinokaze/folia-major.git
+   git clone --branch feat/native-party-queue git@github.com:tabidachinokaze/folia-major.git
    cd folia-major
    npm ci
    npm run dev:electron
    ```
 
-2. 下载 [插件 0.2.0 ZIP](https://github.com/tabidachinokaze/folium-mod-music-party/releases/tag/v0.2.0)，或从主分支独立构建：
+2. 从插件同名分支构建：
 
    ```bash
-   git clone git@github.com:tabidachinokaze/folium-mod-music-party.git
+   git clone --branch feat/native-party-queue git@github.com:tabidachinokaze/folium-mod-music-party.git
    cd folium-mod-music-party
    npm ci
    npm run build
    ```
 
-3. 在 Folia 的「设置 → 实验室」开启模组系统，将 `dist/folium-mod-music-party-0.2.0.zip` 拖入模组面板，启用 **Music Party**。在 Folia 登录网易云后，通过播放栏的双人图标，或命令面板的「打开网易云多人一起听」打开插件。
-4. 点击「连接网易云账号」，然后选择「恢复当前房间」、粘贴官方多人邀请链接，或先播放一首网易云歌曲再创建房间。
+3. 在 Folia 的「设置 → 实验室」开启模组系统，将 `dist/folium-mod-music-party-0.3.0.zip` 拖入模组面板并启用。在 Folia 登录网易云后，点击播放栏的一起听图标或执行「打开网易云多人一起听」。
+4. 连接账号，再恢复房间、粘贴官方邀请链接，或播放网易云歌曲后创建房间。私信可以直接从首页顶部胶囊进入，无需先加入房间。
 
-运行时直接使用 Folia 自带的本地网易云 API，不需要 Docker，也不需要另开 Music Party 客户端。插件不会另存 Cookie；账号切换后需要重新连接。构建所需的协议代码已随仓库提供，不依赖旁边的 Music Party 源码目录。
+开发分支已包含宿主接口，无需再次打补丁。若从本 fork 的已发布 0.7.10 源码（基线 `76e1dfe`）适配，可执行 `node scripts/apply-host-patch.mjs /path/to/folia-major`，再重新构建桌面版。补丁不能修改已安装应用的 ASAR，也不适用于上游原版 0.7.9。
 
-如果选择手动适配上游原版 0.7.9，可对基线 `481805873a0b04ca6277dd21c0968ab1e1c4ab02` 执行 `node scripts/apply-host-patch.mjs /path/to/folia-major`，然后重新构建桌面版。**Folia 0.7.10 已包含新接口，不要重复应用**；脚本不能直接修改已安装应用的 ASAR。
+运行时使用 Folia 自带的本地网易云 API，不需要 Docker 或独立 Music Party 客户端。插件不会另存 Cookie；账号切换后需要重新连接。协议代码随仓库提供，构建不依赖旁边的源码目录。
 
 ## 已实现
 
 - 官方多人房间创建、链接加入、恢复、退出，成员与同步状态。
 - 房间歌曲经 Omni 查询并进入 Folia 的正常音频和歌词管线；按服务器时间对齐进度。
-- 点选网易云歌曲转为推歌，搜索推荐、完整分页待播队列、删除自己的推荐、置顶、房间点赞。
-- 原播放栏「下一首」发起官方切歌请求。自然结束只查询服务端下一条歌曲，不发送切歌操作。
+- 点选网易云歌曲转为推歌。房间完整队列接管原生播放列表、命令面板搜索和队列拼贴；移除插件内重复的待播页。
+- 房间队列以同步按钮替代打乱，隐藏下一首播放/移到队尾。待播条目支持置顶、删除自己的推荐；只有当前播放条目显示点赞，可连续多次点赞。重复歌曲按官方推荐条目 ID 区分。
+- 原播放栏、拼贴、「下一首」命令和 Ctrl/Cmd+右方向键均发起官方切歌请求。自然结束只查询服务端下一条歌曲，不发送切歌操作。
 - 本机暂停跨远端切歌保持暂停，恢复时重新对齐；一起听期间暂停本地循环和混音，退出/禁用后恢复个人队列及原有循环、混音设置。
 - 房间文字聊天、图片/音视频等历史消息展示、官方自定义表情读取与发送。
-- 私信会话与分页历史、文字发送、表情发送、官方邀请卡片解析与加入、向所选会话发送一起听邀请。私信只在会话可见且窗口获焦时标为已读。
+- 首页顶部胶囊提供私信入口；会话与分页历史、文字发送、表情发送、官方邀请卡片解析与加入、向所选会话发送一起听邀请。私信只在会话可见且窗口获焦时标为已读。
 - 播放栏入口、命令入口、独立房间面板、过渡动画、减少动态效果偏好、点击表情浮层外关闭。
 
 用户在界面点击发送/邀请时才发送消息。停用插件只停止本地同步、释放播放控制，不自动退出服务端房间；需要退出时点击「退出房间」。退出后个人队列恢复但不会自动开始播放。
@@ -79,7 +80,7 @@ npm run test:ui
 
 `build` 将 `vendor/music-party/src` 中的多人协议、校验、队列和消息解析一起打进插件，产物不依赖源码目录。来源提交及文件指纹见 `vendor/music-party/provenance.json` 和 [NOTICES.md](NOTICES.md)。`src/main` 只允许固定房间/消息操作；普通歌曲搜索与播放走宿主 Omni。`src/client/host.ts` 集中封装 Folia 账号与内部接口适配。
 
-`host-patch/folia-0.7.9.patch` 增加 experimental playback.sessions 播放会话接口，并在现有选歌、下一首、上一首、进度调整处区分用户意图和服务端播放。租约释放及切换时失效的异步请求不能重新启动歌曲；未启用插件时保持原有路径。
+`host-patch/folia-0.7.10.patch` 将 experimental playback.sessions 升级到 v2，增加原生队列投影、条目操作、同步和独立下一首可用状态，并提供通用首页模组入口。租约释放及切换时失效的异步请求不能重新启动歌曲；未启用插件时保持原有路径。
 
 自动化验证使用本地模拟网易云服务，不发送真实私信或房间消息。真实账号跨端联调需使用安装后的适配版 Folia 验收，不能用模拟测试替代。
 
@@ -97,3 +98,6 @@ Folia 本体从 [fork 的 GitHub Releases](https://github.com/tabidachinokaze/fo
 - `play()` 明确返回音源提交、取消、被替代、不可用或失败；插件只在音源提交并取得 metadata 后对齐进度并播放，取消不再进入 20 秒等待。
 - 会话由宿主管理清理，插件也会主动释放。私人 FM、Stage、视频录制和混音过渡中不获取会话，给出可操作的提示；退出后恢复原队列并停止播放。
 - 聊天/私信/房间协议继续留在插件。网易云来源校验也留在插件；宿主接口支持其他 Omni provider。
+
+- v2 新增 `session.setQueue` 与 `session.stop`；队列展示与音频缓存身份分离，点赞/心跳不会重建拼贴。`queue-action` 的权限和官方协议仍由插件处理。
+- 私信使用 `registries.homeTabs` / `ui.openHomeTab`；原生队列使用 `ui.openQueue`。停用插件会自动清除首页入口和房间队列。

@@ -29,6 +29,8 @@ export interface Folium {
   ui: {
     navigate(view: 'home' | 'player'): void
     openPlayerPanel(id?: string): void
+    openHomeTab(id: string): void
+    openQueue(): void
     toast(message: string, options?: { type: string }): void
     icon(name: string, options?: any): SVGElement
   }
@@ -37,7 +39,7 @@ export interface Folium {
 export function getPlaybackBridge(folium: Folium): ExternalPlayback | null {
   try {
     const bridge = folium.experimental['playback.sessions']
-    return bridge?.version === 1 ? bridge : null
+    return bridge?.version === 2 ? bridge : null
   } catch {
     return null
   }

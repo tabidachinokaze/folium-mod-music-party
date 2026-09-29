@@ -1,0 +1,1842 @@
+diff --git a/docs/folium/api.md b/docs/folium/api.md
+index 2e880c4..ca2c857 100644
+--- a/docs/folium/api.md
++++ b/docs/folium/api.md
+@@ -13,7 +13,7 @@
+ - **客户端入口**：[FoliumContextKind](#foliumcontextkind) · [FoliumHostInfo](#foliumhostinfo) · [FoliumStorage](#foliumstorage) · [FoliumRpc](#foliumrpc) · [FoliumLogger](#foliumlogger) · [FoliumClientApi](#foliumclientapi) · [FoliumClientModule](#foliumclientmodule)
+ - **注册表与条目**：[FoliumVisualizerDef](#foliumvisualizerdef) · [FoliumTuningDef](#foliumtuningdef) · [FoliumCommandContext](#foliumcommandcontext) · [FoliumCommandDef](#foliumcommanddef) · [FoliumBackgroundContext](#foliumbackgroundcontext) · [FoliumBackgroundDef](#foliumbackgrounddef) · [FoliumStageSlot](#foliumstageslot) · [FoliumStageLayerDef](#foliumstagelayerdef) · [FoliumSettingsSectionDef](#foliumsettingssectiondef) · [FoliumPlayerPanelTabDef](#foliumplayerpaneltabdef) · [FoliumProgressContext](#foliumprogresscontext) · [FoliumControlSlot](#foliumcontrolslot) · [FoliumControlButtonDef](#foliumcontrolbuttondef) · [FoliumProgressLayerDef](#foliumprogresslayerdef) · [FoliumStyleDef](#foliumstyledef) · [FoliumRegistryHandle](#foliumregistryhandle) · [FoliumSettingsSectionHandle](#foliumsettingssectionhandle) · [FoliumRegistry](#foliumregistry) · [FoliumRegistries](#foliumregistries)
+ - **宿主容器与上下文**：[FoliumMount](#foliummount) · [FoliumPanelContext](#foliumpanelcontext) · [FoliumSettingsPanelContext](#foliumsettingspanelcontext) · [FoliumClock](#foliumclock) · [FoliumSurface](#foliumsurface) · [FoliumAudioBands](#foliumaudiobands) · [FoliumAudio](#foliumaudio) · [FoliumDisplay](#foliumdisplay) · [FoliumStageContext](#foliumstagecontext)
+-- **事件**：[FoliumEventPriority](#foliumeventpriority) · [FoliumNotificationEvents](#foliumnotificationevents) · [FoliumLyricsTransformEvent](#foliumlyricstransformevent) · [FoliumBeforePlayEvent](#foliumbeforeplayevent) · [FoliumOmniLyricsEvent](#foliumomnilyricsevent) · [FoliumOmniAudioEvent](#foliumomniaudioevent) · [FoliumHookEvents](#foliumhookevents) · [FoliumEventMap](#foliumeventmap) · [FoliumEvents](#foliumevents) · [FoliumPlaybackSessionIntent](#foliumplaybacksessionintent) · [FoliumPlaybackStartResult](#foliumplaybackstartresult) · [FoliumPlaybackSession](#foliumplaybacksession) · [FoliumPlaybackSessions](#foliumplaybacksessions) · [FoliumExperimentalServices](#foliumexperimentalservices)
++- **事件**：[FoliumEventPriority](#foliumeventpriority) · [FoliumNotificationEvents](#foliumnotificationevents) · [FoliumLyricsTransformEvent](#foliumlyricstransformevent) · [FoliumBeforePlayEvent](#foliumbeforeplayevent) · [FoliumOmniLyricsEvent](#foliumomnilyricsevent) · [FoliumOmniAudioEvent](#foliumomniaudioevent) · [FoliumHookEvents](#foliumhookevents) · [FoliumEventMap](#foliumeventmap) · [FoliumEvents](#foliumevents) · [FoliumPlaybackSessionIntent](#foliumplaybacksessionintent) · [FoliumQueueAction](#foliumqueueaction) · [FoliumQueueEntry](#foliumqueueentry) · [FoliumPlaybackQueue](#foliumplaybackqueue) · [FoliumPlaybackStartResult](#foliumplaybackstartresult) · [FoliumPlaybackSession](#foliumplaybacksession) · [FoliumPlaybackSessions](#foliumplaybacksessions) · [FoliumExperimentalServices](#foliumexperimentalservices)
+ - **服务**：[FoliumPlaybackService](#foliumplaybackservice) · [FoliumFileHandle](#foliumfilehandle) · [FoliumIconOptions](#foliumiconoptions) · [FoliumUiService](#foliumuiservice) · [FoliumFetchInit](#foliumfetchinit) · [FoliumFetchResponse](#foliumfetchresponse) · [FoliumNetService](#foliumnetservice)
+ - **共享工具**：[FoliumWordSegment](#foliumwordsegment) · [FoliumWordColorRange](#foliumwordcolorrange) · [FoliumLyricsHelpers](#foliumlyricshelpers) · [FoliumThemeHelpers](#foliumthemehelpers)
+ - **参数 schema**：[FoliumParamType](#foliumparamtype) · [FoliumParamOption](#foliumparamoption) · [FoliumParam](#foliumparam) · [FoliumParamValues](#foliumparamvalues) · [FoliumParamAccess](#foliumparamaccess)
+@@ -354,7 +354,7 @@ interface FoliumRegistry<Def, Handle extends FoliumRegistryHandle = FoliumRegist
+ 
+ ### FoliumRegistries
+ 
+-All registries, as `folium.registries`. UI-only ones (commands, stageLayers, playerPanelTabs,
++All registries, as `folium.registries`. UI-only ones (commands, stageLayers, playerPanelTabs, homeTabs,
+ controlButtons, progressLayers, styles) accept registrations and do nothing in the export window.
+ 
+ | 成员 | 类型 | 说明 |
+@@ -366,6 +366,7 @@ controlButtons, progressLayers, styles) accept registrations and do nothing in t
+ | `stageLayers` | `FoliumRegistry<FoliumStageLayerDef>` | Player page layers (`ui.stage`). |
+ | `settingsSections` | `FoliumRegistry<FoliumSettingsSectionDef, FoliumSettingsSectionHandle>` | The mod's own settings. |
+ | `playerPanelTabs` | `FoliumRegistry<FoliumPlayerPanelTabDef>` | Player panel tabs. |
++| `homeTabs` | `FoliumRegistry<FoliumPlayerPanelTabDef>` | Full-page mod views in the home navigation capsule. |
+ | `controlButtons` | `FoliumRegistry<FoliumControlButtonDef>` | Progress bar buttons. |
+ | `progressLayers` | `FoliumRegistry<FoliumProgressLayerDef>` | Layers over the progress track. |
+ | `styles` | `FoliumRegistry<FoliumStyleDef>` | Mod CSS for public parts. |
+@@ -645,11 +646,54 @@ The event bus, as `folium.events`.
+ EXPERIMENTAL (`playback.sessions`): user intent while a mod owns the player.
+ 
+ ```ts
+-type FoliumPlaybackSessionIntent = | { type: 'play'; song: FoliumSong } | { type: 'enqueue'; songs: readonly FoliumSong[] } | { type: 'next' | 'previous' | 'ended' | 'playback-error' } | { type: 'seek'; seconds: number; resume: boolean }
++type FoliumPlaybackSessionIntent = | { type: 'play'; song: FoliumSong } | { type: 'enqueue'; songs: readonly FoliumSong[] } | { type: 'next' | 'previous' | 'ended' | 'playback-error' } | { type: 'seek'; seconds: number; resume: boolean } | { type: 'queue-action'; entryId: string | null; actionId: string }
+ ```
+ 
+ 相关：[FoliumSong](#foliumsong)
+ 
++### FoliumQueueAction
++
++A mod-owned queue action. Labels are localized by the host; each click is delivered separately.
++
++| 成员 | 类型 | 说明 |
++| --- | --- | --- |
++| `id` | `string` | Stable action id, returned in a queue-action intent. |
++| `label` | `FoliumLabel` | Accessible button label. |
++| `icon` | `'refresh-cw' \| 'trash-2' \| 'arrow-up-to-line' \| 'thumbs-up'` | Host icon, avoiding bundled icon/render dependencies in a mod. |
++| `disabled?` | `boolean` | False by default; the mod owns permissions and pending-operation policy. |
++| `count?` | `number` | Optional nonnegative count, such as votes. It never implies a one-time toggle. |
++
++相关：[FoliumLabel](#foliumlabel)
++
++### FoliumQueueEntry
++
++A queue occurrence. Its identity is separate from its media id, so repeated tracks remain distinct.
++
++| 成员 | 类型 | 说明 |
++| --- | --- | --- |
++| `id` | `string` | Unique id within the session, never the list index. |
++| `track` | `{ id: string; source: string; title: string; artist: string; album?: string \| null; coverUrl?: string; duration?: number; ref?: string \| null }` | Presentation metadata; duration is in seconds. An optional host ref supplies richer metadata. |
++| `actions` | `readonly FoliumQueueAction[]` | Replaces native remove/reorder buttons for this occurrence. |
++| `defaultAction?` | `string` | Optional row activation action. Without it, selecting the row does not start local playback. |
++
++相关：[FoliumQueueAction](#foliumqueueaction)
++
++### FoliumPlaybackQueue
++
++Authoritative queue shown by native queue, command-palette and collage surfaces.
++
++| 成员 | 类型 | 说明 |
++| --- | --- | --- |
++| `entries` | `readonly FoliumQueueEntry[]` | Ordered entries, including the current occurrence when one exists. |
++| `currentId` | `string \| null` | Current occurrence id, or null while waiting. |
++| `actions?` | `readonly FoliumQueueAction[]` | Replaces the native shuffle/clear toolbar while this queue is shown. |
++| `syncActionId?` | `string` | Toolbar action used in place of a configured shuffle button. |
++| `canNext` | `boolean` | Whether the session can accept a next-track request, independent of local queue length. |
++| `totalCount?` | `number` | Total entries expected while loading; defaults to entries.length. |
++| `loading?` | `boolean` | Queue refresh indicator. |
++
++相关：[FoliumQueueEntry](#foliumqueueentry) · [FoliumQueueAction](#foliumqueueaction)
++
+ ### FoliumPlaybackStartResult
+ 
+ Source assignment, not an assertion that decoding or audible playback succeeded.
+@@ -664,11 +708,13 @@ An exclusive session, released automatically on mod disable or failed activation
+ 
+ | 成员 | 类型 | 说明 |
+ | --- | --- | --- |
++| `setQueue()` | `(queue: FoliumPlaybackQueue): void` | Publish queue presentation and actions without fetching streams or mutating the private queue. |
++| `stop()` | `(): void` | Cancel loading and clear the current source, retaining session ownership and queue presentation. |
+ | `play()` | `(song: FoliumSong): Promise<FoliumPlaybackStartResult>` | Load a host-ref song without autoplay. Resolves at source assignment, cancellation or failure. |
+ | `seek()` | `(seconds: number): void` | Set local audio time in seconds, preserving the current pause state. |
+ | `release()` | `(): void` | Idempotent. Restore the previous queue stopped; clear current audio, song and lyrics. |
+ 
+-相关：[FoliumSong](#foliumsong) · [FoliumPlaybackStartResult](#foliumplaybackstartresult)
++相关：[FoliumPlaybackQueue](#foliumplaybackqueue) · [FoliumSong](#foliumsong) · [FoliumPlaybackStartResult](#foliumplaybackstartresult)
+ 
+ ### FoliumPlaybackSessions
+ 
+@@ -676,7 +722,7 @@ EXPERIMENTAL: requires manifest `playback.sessions` and permission `playback.con
+ 
+ | 成员 | 类型 | 说明 |
+ | --- | --- | --- |
+-| `readonly version` | `1` | Experimental service contract version. |
++| `readonly version` | `2` | Experimental service contract version. |
+ | `resolveSong()` | `(provider: string, id: string): Promise<FoliumSong>` | Resolve an online provider's opaque media ID through Omni, returning a host song ref. |
+ | `acquire()` | `(options: { onIntent: (intent: FoliumPlaybackSessionIntent) => void \| Promise<void>; /** Explicit restoration policy: queue restored, current source cleared, no automatic playback. */ restore: 'queue-stopped'; }): FoliumPlaybackSession` | FM, Stage, video recording, active transitions and another session are rejected before changing playback. |
+ 
+@@ -748,6 +794,8 @@ Folium 1.2: options for `folium.ui.icon`.
+ | --- | --- | --- |
+ | `toast()` | `(message: string, options?: { type?: 'info' \| 'success' \| 'error'; durationMs?: number }): void` | Shows a status message. |
+ | `openPlayerPanel()` | `(tabId?: string): void` | Opens the player panel, optionally on one of this mod's panel tabs (local id). |
++| `openHomeTab()` | `(tabId: string): void` | Open a mod's home tab in the top navigation capsule. |
++| `openQueue()` | `(): void` | Open the native player queue. |
+ | `navigate()` | `(view: 'home' \| 'player'): void` | Switches to the home or player view. |
+ | `openVolume()` | `(): void` | Folium 1.3: opens the host volume panel (the command palette's volume command). |
+ | `pickFile()` | `(options?: { accept?: 'video' \| 'audio' \| 'image' \| 'any'; persist?: boolean }): Promise<FoliumFileHandle \| null>` | Lets the user pick a local file; null when cancelled. With `persist` (Folium 1.1) the pick is remembered for this mod and the handle carries a `grantId` for restoreFile. |
+diff --git a/docs/folium/contributing.md b/docs/folium/contributing.md
+index a66bc20..1625a40 100644
+--- a/docs/folium/contributing.md
++++ b/docs/folium/contributing.md
+@@ -133,6 +133,7 @@ function mountHello(folium, container, ctx) {
+ | 给内置模式加调参项 | `registries.tunings` | — | [FoliumTuningDef](api.md#foliumtuningdef)，`k3panel` |
+ | 模组自己的设置 | `registries.settingsSections` | — | [FoliumSettingsSectionDef](api.md#foliumsettingssectiondef) |
+ | 命令（模组面板与命令面板） | `registries.commands` | — | [FoliumCommandDef](api.md#foliumcommanddef) |
++| 首页顶部导航入口 | `registries.homeTabs` | — | [FoliumPlayerPanelTabDef](api.md#foliumplayerpaneltabdef) |
+ | 播放器面板里的标签页 | `registries.playerPanelTabs` | — | [FoliumPlayerPanelTabDef](api.md#foliumplayerpaneltabdef) |
+ | 进度条旁的按钮、轨道上的标记 | `registries.controlButtons` / `progressLayers` | — | [FoliumProgressContext](api.md#foliumprogresscontext)，`sample-progress-bar` |
+ | 改宿主外观 | `registries.styles`（只针对公开 part） | — | [FoliumStyleDef](api.md#foliumstyledef)，规范里的「styles 与公开 part」 |
+diff --git a/docs/folium/playback-sessions.md b/docs/folium/playback-sessions.md
+index a3060d6..a3d43c2 100644
+--- a/docs/folium/playback-sessions.md
++++ b/docs/folium/playback-sessions.md
+@@ -15,11 +15,12 @@ Declare both capabilities in `mod.json`:
+ }
+ ```
+ 
+-The service is available only in the main renderer. It does not require `internals` or a pinned `folia` range. Older hosts that do not recognize this capability reject the manifest; mods should publish a compatible package for those hosts separately. The current service contract version is `1`; the surface remains experimental.
++The service is available only in the main renderer. It does not require `internals` or a pinned `folia` range. Older hosts that do not recognize this capability reject the manifest; mods should publish a compatible package for those hosts separately. The current service contract version is `2`; the surface remains experimental.
+ 
+ ```js
+ export default function activate(folium) {
+     const sessions = folium.experimental['playback.sessions'];
++    if (sessions.version !== 2) throw new Error('Unsupported playback session version');
+     const session = sessions.acquire({
+         restore: 'queue-stopped',
+         onIntent(intent) {
+@@ -30,6 +31,9 @@ export default function activate(folium) {
+                 case 'enqueue':
+                     // Forward all intent.songs as one user selection.
+                     break;
++                case 'queue-action':
++                    // Validate intent.entryId/actionId against the mod's latest remote snapshot.
++                    break;
+                 case 'seek':
+                     // seconds is audio time; resume preserves the originating control's policy.
+                     break;
+@@ -52,7 +56,7 @@ Only one session can own the player. Acquisition rejects FM, Stage, active video
+ 
+ `queue-stopped` is the supported restoration policy. The current source is stopped at acquisition. Release restores a copy of the previous queue, clears the current song/audio/lyrics, and keeps playback stopped. Volume and the user's loop/transition preferences remain intact. Looping and automix are temporarily disabled while a session owns the player.
+ 
+-Pause, resume and volume remain local controls. Play, enqueue, next, previous and seek intents go to the owning mod. Native personal-queue reordering/clearing and Stage queue-edit requests are unavailable while a session owns the queue; a mod presents its remote queue controls itself. Stage entry and recording the main player window are rejected until the session is released.
++Pause, resume and volume remain local controls. Play, enqueue, next, previous and seek intents go to the owning mod. Native personal-queue reordering/clearing and Stage queue-edit requests are unavailable while a session owns the queue; a mod publishes its remote queue and available actions with `session.setQueue`. Stage entry and recording the main player window are rejected until the session is released.
+ 
+ Normal release, mod disable/reload, failed activation and host teardown all release ownership and invalidate in-flight source loads. The host cleans up even if the mod's disposer throws. Retained service objects cannot reacquire ownership after disposal. A synchronous or asynchronous `onIntent` failure is reported through Folium diagnostics and releases the session; mods should catch recoverable network/business errors themselves.
+ 
+@@ -74,6 +78,16 @@ After `source-committed`, wait for the expected song and a usable duration in `f
+ 
+ Every source load participates in the same request lifecycle. Acquiring/releasing a session or starting another song prevents older online/local/Navidrome/Stage loads from committing. Uncommitted blob URLs are released on cancellation; resources already handed to Folia keep the existing deck-aware cleanup behavior.
+ 
++## Native queue and home surfaces (v2)
++
++`session.setQueue({ entries, currentId, actions, syncActionId, canNext })` publishes ordered queue occurrences to the native player panel, command-palette queue search and Lattice collage. Include the current occurrence in `entries`. Each entry has a unique session-local `id`, media metadata in `track` (duration in **seconds**), and an `actions` array. An optional `track.ref` reuses richer metadata from a resolved host song. Repeated media IDs must have distinct occurrence IDs.
++
++Toolbar actions replace native shuffle; `syncActionId` selects the toolbar action used by configured shuffle slots and the Sync queue command. Per-entry actions replace native reorder/remove buttons. Clicks produce `{ type: 'queue-action', entryId, actionId }`; toolbar actions use `entryId: null`. A count is a display value, never a one-time vote limit. The host validates actions against the latest snapshot; the mod still checks remote authorization and handles failures. Without `defaultAction`, selecting an entry consumes the click without starting local playback or emitting a new recommendation. Native batch mutations remain unavailable.
++
++Presentation never changes the private audio queue or cache identity. Unchanged tracks retain object identity across vote/heartbeat updates, keeping the collage stable. `canNext` controls navigation independently of the private queue length. `totalCount` and `loading` describe a paginated queue refresh. Release clears presentation and restores the private queue; stale occurrence actions cannot affect a new session. `session.stop()` cancels a pending load and clears audio/lyrics while retaining ownership, for a remote room with no current song.
++
++Register `folium.registries.homeTabs` using the same mount/context contract as player panel tabs. Entries appear in the home navigation capsule and are mounted only while selected. `folium.ui.openHomeTab('local-id')` navigates home and selects the calling mod's tab; unregistering it returns to the built-in home surface. `folium.ui.openQueue()` opens the native player queue. Input in a mod's shadow root does not trigger typing-sensitive playback shortcuts.
++
+ ## Validation
+ 
+-Regression coverage includes capability gates, opaque provider IDs, payload types, cancelled/superseded requests, mod activation/disposal errors, host teardown, queue restoration, FM/Stage rejection, arrow-key routing, batch enqueue, delayed local/Navidrome results and blob cleanup. See `test/unit/mod-system/*Playback*.test.ts` and the generated [API reference](api.md).
++Regression coverage includes capability gates, opaque provider IDs, payload types, cancelled/superseded requests, mod activation/disposal errors, host teardown, queue restoration, FM/Stage rejection, arrow-key routing, batch enqueue, delayed local/Navidrome results and blob cleanup. Coverage also checks duplicate occurrences, repeatable actions, stale-session rejection, stable queue identity, home-tab teardown and nested shadow input. See `test/unit/mod-system/*Playback*.test.ts` and the generated [API reference](api.md).
+diff --git a/src/components/Grid3D.tsx b/src/components/Grid3D.tsx
+index b733539..05a6b31 100644
+--- a/src/components/Grid3D.tsx
++++ b/src/components/Grid3D.tsx
+@@ -1,3 +1,5 @@
++import { FoliumHomeTabBody, useFoliumHomeTabs } from '../mods/folium/registries/homeTabs';
++import { useExternalQueuePresentation } from '../hooks/useExternalQueuePresentation';
+ import React, { useState, useEffect, useRef, useMemo } from 'react';
+ import { useTranslation } from 'react-i18next';
+ import { Search, Loader2, Settings, PanelsTopLeft } from 'lucide-react';
+@@ -174,6 +176,10 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
+         submitSearch: state.submitSearch,
+     })));
+ 
++    const homeModTab = useSearchNavigationStore(state => state.homeModTab);
++    const setHomeModTab = useSearchNavigationStore(state => state.setHomeModTab);
++    const homeModTabs = useFoliumHomeTabs();
++    const externalQueue = useExternalQueuePresentation();
+     const isOnlineTab = homeViewTab === 'playlist' || homeViewTab === 'albums' || homeViewTab === 'radio';
+     const activeProviderId = onlineProviderPlatform?.activeProviderId || 'netease';
+     const activeProviderSummary = onlineProviderPlatform?.activeProvider;
+@@ -772,7 +778,7 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
+                                     }] : []),
+                                     ...(navidromeEnabled ? [{ key: 'navidrome', label: t('navidrome.title') || 'Navidrome', disabledReason: undefined }] : []),
+                                 ].map((tab) => {
+-                                    const isActive = homeViewTab === tab.key;
++                                    const isActive = !homeModTab && homeViewTab === tab.key;
+                                     return (
+                                         <span
+                                             key={tab.key}
+@@ -800,6 +806,12 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
+                                         </span>
+                                     );
+                                 })}
++                                {homeModTabs.map(tab => <button key={tab.id} type="button" aria-label={tab.label}
++                                    aria-pressed={homeModTab === tab.id} onClick={() => setHomeModTab(tab.id)}
++                                    className={`relative inline-flex items-center justify-center px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-colors duration-300 whitespace-nowrap ${homeModTab === tab.id ? activeTabBg : navPillInactiveText}`}>
++                                    {homeModTab === tab.id && <motion.span layoutId="home-active-tab-pill-desktop" className="absolute inset-0 rounded-full bg-white shadow-sm" transition={{ type: 'spring', stiffness: 460, damping: 36, mass: 0.9 }} />}
++                                    <span className="relative z-10">{tab.label}</span>
++                                </button>)}
+                                 {stageEnabled && (
+                                     <button
+                                         onClick={() => onOpenStagePlayer?.()}
+@@ -813,7 +825,7 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
+                                     而不是标题旁的工具图标。没有在播歌曲时队列也是空的，直接不出现。
+                                     平时只占一个图标的宽度，指针悬停或键盘聚焦时才展开文字——这一排
+                                     已经有五个内容 tab，多一个常驻文字就把胶囊撑得太长。点击始终直达。 */}
+-                                {onOpenLattice && currentTrack && (
++                                {onOpenLattice && (currentTrack || externalQueue.active) && (
+                                     <button
+                                         onClick={onOpenLattice}
+                                         data-testid="home-lattice-pill"
+@@ -836,7 +848,7 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
+ 
+                     {/* Right Search Bar */}
+                     <div className="flex justify-end order-2 md:order-none">
+-                        <form onSubmit={handleSearch} className="relative w-full md:w-56 transition-all focus-within:md:w-72">
++                        <form hidden={Boolean(homeModTab)} onSubmit={handleSearch} className="relative w-full md:w-56 transition-all focus-within:md:w-72">
+                             {isSearchingActive ? (
+                                 <Loader2 className="absolute left-3 top-1/2 w-4 h-4 animate-spin opacity-40 -mt-2" />
+                             ) : (
+@@ -860,7 +872,7 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
+ 
+             {/* Desktop Canvas Surface */}
+             <div className="flex-1 min-h-0 flex flex-col items-center justify-center relative">
+-                {isOnlineTab && activeAccountView === 'resolving' ? (
++                {homeModTab ? <FoliumHomeTabBody tab={homeModTab} theme={theme} isDaylight={isDaylight} /> : isOnlineTab && activeAccountView === 'resolving' ? (
+                     <div className="flex flex-1 w-full items-center justify-center" aria-busy="true">
+                         <Loader2 className="animate-spin opacity-30" size={28} />
+                     </div>
+diff --git a/src/components/app/lattice/Lattice.tsx b/src/components/app/lattice/Lattice.tsx
+index 994ebbd..ca2ac48 100644
+--- a/src/components/app/lattice/Lattice.tsx
++++ b/src/components/app/lattice/Lattice.tsx
+@@ -1,3 +1,5 @@
++import { useExternalQueuePresentation } from '../../../hooks/useExternalQueuePresentation';
++import { ExternalQueueActions } from '../../shared/ExternalQueueActions';
+ import { useEffect, useMemo, type CSSProperties } from 'react';
+ import { ChevronLeft } from 'lucide-react';
+ import { useTranslation } from 'react-i18next';
+@@ -43,12 +45,12 @@ export default function Lattice({
+     lyrics,
+     lyricSource,
+     lyricKeywordColoringEnabled,
+-    currentSong,
++    currentSong: audioSong,
+     playerState,
+     currentTime,
+     playbackDuration,
+     canTogglePlayback,
+-    queue,
++    queue: personalQueue,
+     isDaylight,
+     onBack,
+     onOpenPlayer,
+@@ -57,6 +59,9 @@ export default function Lattice({
+     onSeek,
+ }: LatticeProps) {
+     countRender('Lattice');
++    const external = useExternalQueuePresentation();
++    const queue = external.queue ?? personalQueue;
++    const currentSong = external.active ? external.currentSong ?? null : audioSong;
+     const { t } = useTranslation();
+     const vignette = useLatticeSettingsStore(state => state.latticeVignette);
+     const lightsOn = useLatticeSettingsStore(state => state.latticeLightsOn);
+@@ -123,6 +128,7 @@ export default function Lattice({
+                 onOpenPlayer={wall.onOpenPlayer}
+                 onBack={onBack}
+             />
++            {external.active && <ExternalQueueActions className="absolute top-5 right-5 z-50" size={20} />}
+             <LatticeFocusButton isDaylight={isDaylight} />
+             <button type="button" className="lattice-back" onClick={onBack}
+                 aria-label={t('home.latticeBack')} title={t('home.latticeBack')}>
+diff --git a/src/components/app/lattice/LatticeExtraControls.tsx b/src/components/app/lattice/LatticeExtraControls.tsx
+index 681c7df..02db76c 100644
+--- a/src/components/app/lattice/LatticeExtraControls.tsx
++++ b/src/components/app/lattice/LatticeExtraControls.tsx
+@@ -1,3 +1,5 @@
++import { useExternalQueuePresentation } from '../../../hooks/useExternalQueuePresentation';
++import { ExternalQueueActions } from '../../shared/ExternalQueueActions';
+ import { useTranslation } from 'react-i18next';
+ import { usePlayerChromeSettingsStore } from '../../../stores/usePlayerChromeSettingsStore';
+ import { resolvePlayerControlSlot, type PlayerControlSlotActionId } from '../../floating-player/playerControlSlotActions';
+@@ -6,6 +8,7 @@ import { useLatticePlaybackActions } from './LatticePlaybackProvider';
+ // src/components/app/lattice/LatticeExtraControls.tsx
+ // Transport and the main bar's configured slots share their handlers, icons and availability.
+ export default function LatticeExtraControls({ disabled }: { disabled: boolean }) {
++    const external = useExternalQueuePresentation();
+     const { t } = useTranslation();
+     const context = useLatticePlaybackActions();
+     const primary = usePlayerChromeSettingsStore(state => state.playerControlSlotPrimary);
+@@ -13,10 +16,11 @@ export default function LatticeExtraControls({ disabled }: { disabled: boolean }
+     const actions: PlayerControlSlotActionId[] = ['prev', primary, secondary, 'next'];
+     return <div className="lattice-chrome-actions">
+         {actions.map((action, index) => {
++            if (external.active && action === 'shuffle') return <ExternalQueueActions key={index} size={20} />;
+             const slot = resolvePlayerControlSlot(action, context);
+             const Icon = slot.icon;
+             return <button key={index} type="button" data-action={action} className={slot.active ? 'is-active' : ''}
+-                disabled={disabled || slot.disabled} onClick={() => slot.onActivate()}
++                disabled={slot.disabled || (disabled && !(external.active && action === 'next'))} onClick={() => slot.onActivate()}
+                 aria-label={t(slot.labelKey)} title={t(slot.labelKey)}
+                 aria-pressed={action === 'loop' || action === 'like' ? slot.active : undefined}>
+                 <Icon size={20} fill={slot.filled ? 'currentColor' : 'none'} />
+diff --git a/src/components/app/lattice/LatticePlaybackControls.tsx b/src/components/app/lattice/LatticePlaybackControls.tsx
+index a9a55bd..810df7d 100644
+--- a/src/components/app/lattice/LatticePlaybackControls.tsx
++++ b/src/components/app/lattice/LatticePlaybackControls.tsx
+@@ -1,9 +1,10 @@
++import { ExternalQueueActions } from '../../shared/ExternalQueueActions';
+ import { motionValue } from 'framer-motion';
+ import { ArrowUpRight, Pause, Play } from 'lucide-react';
+ import { useTranslation } from 'react-i18next';
+ import ProgressBar from '../../ProgressBar';
+ import { PlayerState } from '../../../types';
+-import { getPlaybackSongKey } from '../../../utils/appPlaybackGuards';
++import { getQueueSongKey } from '../../../utils/appPlaybackGuards';
+ import { useLatticeTransport } from './LatticeTransportContext';
+ import type { LatticeTile } from './latticeModel';
+ import LatticeChromeTime from './LatticeChromeTime';
+@@ -36,7 +37,7 @@ export default function LatticePlaybackControls({
+     // Subscribed here rather than threaded through every poster: only this card reads transport state.
+     const { currentSong, playerState, currentTime, playbackDuration, canTogglePlayback } = useLatticeTransport();
+     const isCurrentSong = Boolean(
+-        currentSong && getPlaybackSongKey(currentSong) === getPlaybackSongKey(tile.song),
++        currentSong && getQueueSongKey(currentSong) === getQueueSongKey(tile.song),
+     );
+     const canControlCurrent = isCurrentSong && canTogglePlayback;
+     const isPlaying = canControlCurrent && playerState === PlayerState.PLAYING;
+@@ -53,7 +54,7 @@ export default function LatticePlaybackControls({
+             aria-label={t('home.latticePlaybackControls')}
+         >
+             <div className="lattice-chrome-transport">
+-                <button
++                {(!tile.song.externalQueueEntryKey || canControlCurrent) && <button
+                     type="button"
+                     className="lattice-transport-button"
+                     onClick={() => canControlCurrent ? onTogglePlayback() : onPlay(tile)}
+@@ -61,7 +62,8 @@ export default function LatticePlaybackControls({
+                     title={isPlaying ? t('player.pause') : t('player.play')}
+                 >
+                     {isPlaying ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}
+-                </button>
++                </button>}
++                {tile.song.externalQueueEntryKey && <ExternalQueueActions entryKey={tile.song.externalQueueEntryKey} size={20} />}
+                 <div className="lattice-chrome-details" inert={!revealed} aria-hidden={!revealed}>
+                     <LatticeExtraControls disabled={!canControlCurrent} />
+                 </div>
+diff --git a/src/components/app/lattice/LatticePlaybackProvider.tsx b/src/components/app/lattice/LatticePlaybackProvider.tsx
+index 4c3cb89..952ed9b 100644
+--- a/src/components/app/lattice/LatticePlaybackProvider.tsx
++++ b/src/components/app/lattice/LatticePlaybackProvider.tsx
+@@ -1,3 +1,4 @@
++import { useExternalQueuePresentation } from '../../../hooks/useExternalQueuePresentation';
+ import { createContext, lazy, Suspense, useContext, useMemo, useState, type ReactNode } from 'react';
+ import { createPortal } from 'react-dom';
+ import type { MotionValue } from 'framer-motion';
+@@ -38,6 +39,7 @@ type Props = {
+ };
+ 
+ export default function LatticePlaybackProvider({ actions, currentSong, queue, lyrics, currentTime, duration, onSeek, isDaylight, children }: Props) {
++    const external = useExternalQueuePresentation();
+     const [timelineOpen, setTimelineOpen] = useState(false);
+     const context = useMemo<PlayerControlSlotContext>(() => {
+         const neighbors = resolvePlaybackNeighbors({ playQueue: queue, currentSong, loopMode: actions.loopMode,
+@@ -47,10 +49,10 @@ export default function LatticePlaybackProvider({ actions, currentSong, queue, l
+             onToggleLoop: actions.playback.toggleLoop,
+             onPrev: actions.playback.prev,
+             onNext: actions.playback.next,
+-            canPrev: neighbors.prev.canGo && !actions.disabled,
+-            canNext: neighbors.next.canGo && !actions.disabled,
++            canPrev: !external.active && neighbors.prev.canGo && !actions.disabled,
++            canNext: external.active ? external.canNext : neighbors.next.canGo && !actions.disabled,
+             onShuffle: actions.playback.shuffleQueue,
+-            canShuffle: queue.length > 1 && !actions.playback.isFmMode && !actions.isStageActive,
++            canShuffle: !external.active && queue.length > 1 && !actions.playback.isFmMode && !actions.isStageActive,
+             onLike: () => { void actions.playback.toggleSongLike(); },
+             isLiked: actions.playback.isSongLiked,
+             likeDisabled: resolveLikeAvailability(currentSong, Boolean(actions.disabled), Boolean(actions.isStageActive)).disabled,
+@@ -59,7 +61,7 @@ export default function LatticePlaybackProvider({ actions, currentSong, queue, l
+             invokeCommandById: actions.invokeCommandById,
+             canInvokeCommandById: actions.canInvokeCommandById,
+         };
+-    }, [actions, currentSong, lyrics, queue]);
++    }, [actions, currentSong, lyrics, queue, external.active, external.canNext]);
+     return <PlaybackContext.Provider value={context}>
+         {children}
+         {timelineOpen && createPortal(<Suspense fallback={null}>
+diff --git a/src/components/app/lattice/PosterWall.tsx b/src/components/app/lattice/PosterWall.tsx
+index 6b73247..b56776c 100644
+--- a/src/components/app/lattice/PosterWall.tsx
++++ b/src/components/app/lattice/PosterWall.tsx
+@@ -21,7 +21,7 @@ import {
+     useLatticePlaybackFocus,
+ } from './useLatticePlaybackFocus';
+ import { setLatticeCurrentSongPosterVisible } from '../../../stores/useLatticeControlsStore';
+-import { getPlaybackSongKey } from '../../../utils/appPlaybackGuards';
++import { getQueueSongKey } from '../../../utils/appPlaybackGuards';
+ import { useDevicePixelRatio } from '../../../hooks/useMediaQuery';
+ import { useReducedMotionFor } from '../../../hooks/useReducedMotionFor';
+ import { EXPANSION_SPAN } from './blockTemplates';
+@@ -241,7 +241,7 @@ export default function PosterWall({
+     ), [activePoster, geometry, tiles.length]);
+ 
+     useEffect(() => {
+-        const currentSongKey = currentSong ? getPlaybackSongKey(currentSong) : null;
++        const currentSongKey = currentSong ? getQueueSongKey(currentSong) : null;
+         const isTracking = measured && Boolean(currentSongKey);
+         const rect = activePoster && activePoster.tile.id === currentSongKey
+             ? layout.get(activePoster.instance.instanceId) ?? activePoster.instance
+diff --git a/src/components/app/lattice/latticeModel.ts b/src/components/app/lattice/latticeModel.ts
+index 9aab778..3dd8b14 100644
+--- a/src/components/app/lattice/latticeModel.ts
++++ b/src/components/app/lattice/latticeModel.ts
+@@ -1,6 +1,6 @@
+ import type { SongResult } from '../../../types';
+ import { getSongArtistLabel, getSongCoverUrl } from '../../../services/onlineMusic/songMetadata';
+-import { getPlaybackSongKey } from '../../../utils/appPlaybackGuards';
++import { getQueueSongKey } from '../../../utils/appPlaybackGuards';
+ 
+ // Projects the play queue onto the wall; queue order is the only source of truth.
+ 
+@@ -17,7 +17,7 @@ export type LatticeTile = {
+     section: LatticeSection;
+ };
+ 
+-// Marks each entry relative to the playhead; the queue is already de-duplicated by the queue controller.
++// Marks entries relative to the playhead; external sessions preserve repeated media by occurrence ID.
+ export const buildLatticeTiles = ({
+     queue,
+     currentSong,
+@@ -25,10 +25,10 @@ export const buildLatticeTiles = ({
+     queue: SongResult[];
+     currentSong: SongResult | null;
+ }): LatticeTile[] => {
+-    const currentKey = currentSong ? getPlaybackSongKey(currentSong) : null;
++    const currentKey = currentSong ? getQueueSongKey(currentSong) : null;
+     const currentIndex = currentKey === null
+         ? -1
+-        : queue.findIndex(song => getPlaybackSongKey(song) === currentKey);
++        : queue.findIndex(song => getQueueSongKey(song) === currentKey);
+ 
+     return queue.map((song, index) => {
+         let section: LatticeSection = 'upcoming';
+@@ -36,7 +36,7 @@ export const buildLatticeTiles = ({
+         else if (currentIndex >= 0 && index < currentIndex) section = 'played';
+ 
+         return {
+-            id: getPlaybackSongKey(song),
++            id: getQueueSongKey(song),
+             queueIndex: index,
+             song,
+             title: song.name,
+diff --git a/src/components/app/lattice/useLatticePlaybackFocus.ts b/src/components/app/lattice/useLatticePlaybackFocus.ts
+index c22dab1..2e7c18d 100644
+--- a/src/components/app/lattice/useLatticePlaybackFocus.ts
++++ b/src/components/app/lattice/useLatticePlaybackFocus.ts
+@@ -3,7 +3,7 @@ import { useStableCallbacks } from '../../../hooks/useStableCallbacks';
+ import { useLatticeControlsStore } from '../../../stores/useLatticeControlsStore';
+ import { useLatticeSettingsStore } from '../../../stores/useLatticeSettingsStore';
+ import type { SongResult } from '../../../types';
+-import { getPlaybackSongKey } from '../../../utils/appPlaybackGuards';
++import { getQueueSongKey } from '../../../utils/appPlaybackGuards';
+ import { layoutExpandedBlock, locateNearestInstance, type LatticeGeometry, type QueueInstance, type WallMetrics } from './layout';
+ import type { LatticeTile } from './latticeModel';
+ 
+@@ -38,7 +38,7 @@ export const useLatticePlaybackFocus = ({
+     const lastFocusedSongKeyRef = useRef<string | null>(null);
+     const autoFocusOnSongChange = useLatticeSettingsStore(state => state.autoFocusOnSongChange);
+ 
+-    const currentSongKey = currentSong ? getPlaybackSongKey(currentSong) : null;
++    const currentSongKey = currentSong ? getQueueSongKey(currentSong) : null;
+     // Permanent identity, dispatching to this render's closure. The wall publishes this action to
+     // a store the palette subscribes to, so re-creating it on every queue or camera change would
+     // write to that store — and re-render App, and with it the whole wall — for nothing.
+diff --git a/src/components/app/overlays/buildAppOverlaysModel.ts b/src/components/app/overlays/buildAppOverlaysModel.ts
+index 49ebf12..d60b6ac 100644
+--- a/src/components/app/overlays/buildAppOverlaysModel.ts
++++ b/src/components/app/overlays/buildAppOverlaysModel.ts
+@@ -74,6 +74,7 @@ type AppOverlaysAmbient = {
+     playerControlSlotPrimary: PlayerControlSlotActionId;
+     playerControlSlotSecondary: PlayerControlSlotActionId;
+     playerControlSlotContext: SlotContextFromApp;
++    externalCanNext?: boolean;
+     onCommitPlayerBottomBarOffset: (offsetPx: number) => void;
+ };
+ 
+@@ -181,6 +182,7 @@ export const buildAppOverlaysModel = ({
+     playerControlSlotPrimary,
+     playerControlSlotSecondary,
+     playerControlSlotContext,
++    externalCanNext,
+     onCommitPlayerBottomBarOffset,
+ }: BuildAppOverlaysModelParams): AppOverlaysModel => ({
+     // Gated on stageTrackPillOnScreen (computed in App: display mode plus which page allows the
+@@ -305,8 +307,8 @@ export const buildAppOverlaysModel = ({
+                     currentTrackKey: getPlaybackSongKey(currentSong),
+                     onPrev: handlePrevTrack,
+                     onNext: handleNextTrack,
+-                    canPrev: neighbors.prev.canGo && !isNowPlayingControlDisabled,
+-                    canNext: neighbors.next.canGo && !isNowPlayingControlDisabled,
++                    canPrev: externalCanNext === undefined && neighbors.prev.canGo && !isNowPlayingControlDisabled,
++                    canNext: externalCanNext ?? (neighbors.next.canGo && !isNowPlayingControlDisabled),
+                     prevTitle: neighbors.prev.title,
+                     nextTitle: neighbors.next.title,
+                     prevLabel: prevTrackLabel,
+diff --git a/src/components/app/overlays/useAppOverlaysModel.ts b/src/components/app/overlays/useAppOverlaysModel.ts
+index 5fd9d0f..a84a735 100644
+--- a/src/components/app/overlays/useAppOverlaysModel.ts
++++ b/src/components/app/overlays/useAppOverlaysModel.ts
+@@ -1,3 +1,4 @@
++import { useExternalQueuePresentation } from '../../../hooks/useExternalQueuePresentation';
+ import { useMemo } from 'react';
+ import { currentTime, lyricCurrentTime } from '../../../stores/motionSignals';
+ import { useAppViewStore } from '../../../stores/useAppViewStore';
+@@ -31,6 +32,7 @@ const MEMORY_MONITOR_SHORTCUT_LABEL = 'Alt+Shift+M';
+  * alone.
+  */
+ export const useAppOverlaysModel = (deps: AppOverlaysDeps): AppOverlaysModel => {
++    const external = useExternalQueuePresentation();
+     const { t } = useTranslation();
+     const currentView = useAppViewStore(state => state.view);
+     const isPlayerChromeHidden = useAppChromeStore(state => state.isPlayerChromeHidden);
+@@ -56,7 +58,7 @@ export const useAppOverlaysModel = (deps: AppOverlaysDeps): AppOverlaysModel =>
+     const displayPlayerState = usePlaybackStore(selectDisplayPlayerState);
+     const playerControlSlotContext = useMemo(() => ({
+         onShuffle: deps.shuffleQueue,
+-        canShuffle: !isFmMode && playQueue.length > 1,
++        canShuffle: !external.active && !isFmMode && playQueue.length > 1,
+         onLike: deps.handleLike,
+         isLiked: deps.isDisplaySongLiked,
+         likeDisabled: resolveLikeAvailability(
+@@ -68,6 +70,7 @@ export const useAppOverlaysModel = (deps: AppOverlaysDeps): AppOverlaysModel =>
+         canInvokeCommandById: deps.canInvokeCommandById,
+     }), [
+         activePlaybackContext,
++        external.active,
+         deps.canInvokeCommandById,
+         deps.handleLike,
+         deps.invokeCommandById,
+@@ -81,6 +84,7 @@ export const useAppOverlaysModel = (deps: AppOverlaysDeps): AppOverlaysModel =>
+ 
+     return useMemo(() => buildAppOverlaysModel({
+         ...deps,
++        externalCanNext: external.active ? external.canNext : undefined,
+         currentView,
+         isSearchOpen,
+         isDaylight,
+@@ -117,6 +121,8 @@ export const useAppOverlaysModel = (deps: AppOverlaysDeps): AppOverlaysModel =>
+         // eslint-disable-next-line react-hooks/exhaustive-deps
+     }), [
+         ...Object.values(deps),
++        external.active,
++        external.canNext,
+         currentView,
+         isSearchOpen,
+         isDaylight,
+diff --git a/src/components/command-palette/CommandPaletteQueueList.tsx b/src/components/command-palette/CommandPaletteQueueList.tsx
+index b80c68c..35b71e9 100644
+--- a/src/components/command-palette/CommandPaletteQueueList.tsx
++++ b/src/components/command-palette/CommandPaletteQueueList.tsx
+@@ -2,7 +2,7 @@ import React from 'react';
+ import { List, useListRef } from 'react-window';
+ import { useTranslation } from 'react-i18next';
+ import type { SongResult } from '../../types';
+-import { getPlaybackSongKey } from '../../utils/appPlaybackGuards';
++import { getQueueSongKey } from '../../utils/appPlaybackGuards';
+ import type { CommandPaletteMatch } from './types';
+ import CommandPaletteQueueRow, { type CommandPaletteQueueRowProps } from './CommandPaletteQueueRow';
+ 
+@@ -41,7 +41,7 @@ const CommandPaletteQueueList: React.FC<CommandPaletteQueueListProps> = ({
+ }) => {
+     const { t } = useTranslation();
+     const listRef = useListRef(null);
+-    const currentSongKey = currentSong ? getPlaybackSongKey(currentSong) : null;
++    const currentSongKey = currentSong ? getQueueSongKey(currentSong) : null;
+     const currentMatchIndex = React.useMemo(() => {
+         if (!currentSong) {
+             return -1;
+@@ -53,7 +53,7 @@ const CommandPaletteQueueList: React.FC<CommandPaletteQueueListProps> = ({
+         return currentSongKey
+             ? matches.findIndex(match => (
+                 match.command.queueSong
+-                && getPlaybackSongKey(match.command.queueSong) === currentSongKey
++                && getQueueSongKey(match.command.queueSong) === currentSongKey
+             ))
+             : -1;
+     }, [currentSong, currentSongKey, matches]);
+diff --git a/src/components/command-palette/CommandPaletteQueueRow.tsx b/src/components/command-palette/CommandPaletteQueueRow.tsx
+index 5f98900..cd86c92 100644
+--- a/src/components/command-palette/CommandPaletteQueueRow.tsx
++++ b/src/components/command-palette/CommandPaletteQueueRow.tsx
+@@ -1,9 +1,10 @@
++import { ExternalQueueActions } from '../shared/ExternalQueueActions';
+ import React from 'react';
+ import { ListEnd, ListPlus, Trash2 } from 'lucide-react';
+ import type { RowComponentProps } from 'react-window';
+ import { getSongUnavailableLabel, isSongUnavailable } from '../../services/onlineMusic/songAvailability';
+ import { getSongArtistLabel } from '../../services/onlineMusic/songMetadata';
+-import { getPlaybackSongKey } from '../../utils/appPlaybackGuards';
++import { getQueueSongKey } from '../../utils/appPlaybackGuards';
+ import type { CommandPaletteMatch } from './types';
+ 
+ // src/components/command-palette/CommandPaletteQueueRow.tsx
+@@ -54,7 +55,7 @@ const CommandPaletteQueueRow = ({
+     }
+ 
+     const isSelected = index === activeIndex;
+-    const isPlaying = currentSongKey === getPlaybackSongKey(song);
++    const isPlaying = currentSongKey === getQueueSongKey(song);
+     const unavailable = isSongUnavailable(song);
+     const selectedClass = isDaylight ? 'bg-black/10' : 'bg-white/10';
+     const hoverClass = isDaylight ? 'hover:bg-black/[0.05]' : 'hover:bg-white/[0.06]';
+@@ -114,7 +115,7 @@ const CommandPaletteQueueRow = ({
+                         group-hover/queue-row:pointer-events-auto group-hover/queue-row:opacity-100
+                         focus-within:pointer-events-auto focus-within:opacity-100`}
+                 >
+-                    {[
++                    {song.externalQueueEntryKey ? <ExternalQueueActions entryKey={song.externalQueueEntryKey} /> : [
+                         { label: labels.playNext, icon: ListPlus, action: onMoveSongToNext },
+                         { label: labels.moveToEnd, icon: ListEnd, action: onMoveSongToEnd },
+                         { label: labels.remove, icon: Trash2, action: onRemoveSong },
+diff --git a/src/components/command-palette/CommandPaletteQueueView.tsx b/src/components/command-palette/CommandPaletteQueueView.tsx
+index f0258cc..c8278f1 100644
+--- a/src/components/command-palette/CommandPaletteQueueView.tsx
++++ b/src/components/command-palette/CommandPaletteQueueView.tsx
+@@ -1,3 +1,4 @@
++import { ExternalQueueActions } from '../shared/ExternalQueueActions';
+ import React from 'react';
+ import { AtSign, CornerDownLeft, ListEnd, ListPlus, Trash2, X } from 'lucide-react';
+ import { useTranslation } from 'react-i18next';
+@@ -10,6 +11,7 @@ import type { QueueBatchAction, QueueFacetKind } from './queueQuery';
+ 
+ type CommandPaletteQueueViewProps = CommandPaletteQueueListProps & {
+     evaluation: QueueSearchEvaluation;
++    externalSession?: boolean;
+     onAcceptSuggestion: (suggestion: QueueSearchSuggestion) => void;
+     onClearAction: () => void;
+     onClearFacet: () => void;
+@@ -35,6 +37,7 @@ const facetLabelKey: Record<QueueFacetKind, string> = {
+ 
+ const CommandPaletteQueueView: React.FC<CommandPaletteQueueViewProps> = ({
+     evaluation,
++    externalSession = false,
+     isDaylight,
+     isExecuting,
+     onAcceptSuggestion,
+@@ -58,7 +61,8 @@ const CommandPaletteQueueView: React.FC<CommandPaletteQueueViewProps> = ({
+ 
+     return (
+         <div className="flex h-full min-h-0 flex-col gap-2" data-testid="command-palette-queue-view">
+-            {(parsed.action || parsed.actionDraft !== null || parsed.facetDraft !== null) && (
++            {externalSession && <ExternalQueueActions />}
++            {!externalSession && (parsed.action || parsed.actionDraft !== null || parsed.facetDraft !== null) && (
+                 <div className="flex flex-wrap items-center gap-1.5 px-1">
+                     {parsed.action && ActionIcon && (
+                         <button
+@@ -123,13 +127,13 @@ const CommandPaletteQueueView: React.FC<CommandPaletteQueueViewProps> = ({
+                 </div>
+             )}
+ 
+-            {!parsed.action && parsed.actionDraft === null && parsed.facetDraft === null && !parsed.text && (
++            {!externalSession && !parsed.action && parsed.actionDraft === null && parsed.facetDraft === null && !parsed.text && (
+                 <div className="shrink-0 px-3 py-1 text-[11px] opacity-40" data-testid="command-palette-queue-syntax-hint">
+                     {t('commandPalette.queueSyntaxHint')}
+                 </div>
+             )}
+ 
+-            {parsed.action && (
++            {!externalSession && parsed.action && (
+                 <div
+                     className={`flex shrink-0 items-center gap-3 rounded-2xl border px-3 py-2.5 ${chipClass}`}
+                     data-testid="command-palette-queue-batch-preview"
+diff --git a/src/components/command-palette/commands/index.ts b/src/components/command-palette/commands/index.ts
+index 021262b..682692b 100644
+--- a/src/components/command-palette/commands/index.ts
++++ b/src/components/command-palette/commands/index.ts
+@@ -99,6 +99,7 @@ export const DEFAULT_LANDING_COMMAND_IDS = [
+     'playback-next',
+     'playback-prev',
+     'playback-shuffle',
++    'playback-sync-queue',
+     'playback-loop',
+     'panel-queue',
+     'settings-options',
+diff --git a/src/components/command-palette/commands/playbackCommands.ts b/src/components/command-palette/commands/playbackCommands.ts
+index b75ddf6..73993ba 100644
+--- a/src/components/command-palette/commands/playbackCommands.ts
++++ b/src/components/command-palette/commands/playbackCommands.ts
+@@ -1,3 +1,4 @@
++import { RefreshCw } from 'lucide-react';
+ import { PlayerState } from '../../../types';
+ import { Heart, ListX, Pause, Play, Repeat, Shuffle, SkipBack, SkipForward, Star, VolumeX } from 'lucide-react';
+ import { executeModeCommand } from './executeModeCommand';
+@@ -108,10 +109,11 @@ export const playbackCommands: CommandPaletteCommand[] = [
+         context => context.playback.toggleMute(),
+         { icon: VolumeX },
+     ),
+-    createToggleCommand('playback-shuffle', 'playback', 'Shuffle queue', 'Shuffle current play queue', ['shuffle', '打乱', '打乱队列'], context => context.playback.shuffleQueue(), { icon: Shuffle, executeShortcut: 'r', isAvailable: context => !context?.playback.isFmMode }),
++    createToggleCommand('playback-shuffle', 'playback', 'Shuffle queue', 'Shuffle current play queue', ['shuffle', '打乱', '打乱队列'], context => context.playback.shuffleQueue(), { icon: Shuffle, executeShortcut: 'r', isAvailable: context => !context?.playback.isFmMode && !context?.playback.isExternalSession }),
++    createToggleCommand('playback-sync-queue', 'playback', 'Sync queue', 'Refresh the session queue', ['sync', '同步队列'], context => context.playback.syncQueue?.(), { icon: RefreshCw, isAvailable: context => Boolean(context?.playback.isExternalSession) }),
+     {
+         id: 'playback-clear-queue',
+-        isAvailable: context => (context ? !context.playback.isFmMode && context.playback.queue.length > 0 : true),
++        isAvailable: context => (context ? !context.playback.isFmMode && !context.playback.isExternalSession && context.playback.queue.length > 0 : true),
+         group: 'playback',
+         title: 'Clear queue',
+         description: 'Remove all songs from the current play queue',
+diff --git a/src/components/command-palette/queueEvaluation.ts b/src/components/command-palette/queueEvaluation.ts
+index 2d9312c..3712c68 100644
+--- a/src/components/command-palette/queueEvaluation.ts
++++ b/src/components/command-palette/queueEvaluation.ts
+@@ -23,19 +23,25 @@ const getQueueSearchIndex = (queue: SongResult[]) => {
+ let lastQueue: SongResult[] | null = null;
+ let lastCurrentSong: SongResult | null = null;
+ let lastQuery: string | null = null;
++let lastExternal = false;
+ let lastEvaluation: QueueSearchEvaluation | null = null;
+ 
+ export const evaluateQueueForPalette = (context: CommandPaletteContext, query: string): QueueSearchEvaluation => {
+     const queue = context.playback.queue;
+-    const currentSong = context.shared.currentSong;
++    const currentSong = (context.playback.isExternalSession ? context.playback.queueCurrentSong ?? null : context.shared.currentSong);
+ 
+-    if (lastEvaluation && lastQueue === queue && lastCurrentSong === currentSong && lastQuery === query) {
++    if (lastEvaluation && lastQueue === queue && lastCurrentSong === currentSong && lastQuery === query && lastExternal === Boolean(context.playback.isExternalSession)) {
+         return lastEvaluation;
+     }
+ 
+     lastQueue = queue;
+     lastCurrentSong = currentSong;
+     lastQuery = query;
++    lastExternal = Boolean(context.playback.isExternalSession);
+     lastEvaluation = evaluateQueueSearch(getQueueSearchIndex(queue), currentSong, query);
++    if (context.playback.isExternalSession) lastEvaluation = { ...lastEvaluation,
++        suggestions: lastEvaluation.suggestions.filter(suggestion => suggestion.type !== 'action'),
++        eligibleTargetIndices: [],
++    };
+     return lastEvaluation;
+ };
+diff --git a/src/components/command-palette/queueSearchIndex.ts b/src/components/command-palette/queueSearchIndex.ts
+index 1f5d965..bd89350 100644
+--- a/src/components/command-palette/queueSearchIndex.ts
++++ b/src/components/command-palette/queueSearchIndex.ts
+@@ -1,7 +1,7 @@
+ import type { SongResult } from '../../types';
+ import { getProviderSongMetadata } from '../../services/onlineMusic/songMetadata';
+ import type { ProviderSongMetadata } from '../../types/onlineMusic';
+-import { getPlaybackSongKey, getPlaybackSourceRef } from '../../utils/appPlaybackGuards';
++import { getQueueSongKey, getPlaybackSourceRef } from '../../utils/appPlaybackGuards';
+ import type { QueueFacetKind } from './queueQuery';
+ import { normalizeSearchText } from './search/normalize';
+ 
+@@ -85,6 +85,6 @@ export const getCurrentQueueIndex = (index: QueueSearchEntry[], currentSong: Son
+     if (!currentSong) return -1;
+     const exactIndex = index.findIndex(entry => entry.song === currentSong);
+     if (exactIndex >= 0) return index[exactIndex].queueIndex;
+-    const currentKey = getPlaybackSongKey(currentSong);
+-    return index.find(entry => getPlaybackSongKey(entry.song) === currentKey)?.queueIndex ?? -1;
++    const currentKey = getQueueSongKey(currentSong);
++    return index.find(entry => getQueueSongKey(entry.song) === currentKey)?.queueIndex ?? -1;
+ };
+diff --git a/src/components/command-palette/queueSongMatches.ts b/src/components/command-palette/queueSongMatches.ts
+index 754eb42..6509957 100644
+--- a/src/components/command-palette/queueSongMatches.ts
++++ b/src/components/command-palette/queueSongMatches.ts
+@@ -50,7 +50,7 @@ export const getQueueSongMatchesFromEvaluation = (
+ 
+ export const getQueueSongMatches = (query: string, context: CommandPaletteContext): CommandPaletteMatch[] => (
+     getQueueSongMatchesFromEvaluation(
+-        evaluateQueueSearch(buildQueueSearchIndex(context.playback.queue), context.shared.currentSong, query),
++        evaluateQueueSearch(buildQueueSearchIndex(context.playback.queue), context.playback.isExternalSession ? context.playback.queueCurrentSong ?? null : context.shared.currentSong, query),
+         query,
+         context,
+     )
+diff --git a/src/components/command-palette/surfaces/queueSurface.ts b/src/components/command-palette/surfaces/queueSurface.ts
+index b2fa52e..e2f8392 100644
+--- a/src/components/command-palette/surfaces/queueSurface.ts
++++ b/src/components/command-palette/surfaces/queueSurface.ts
+@@ -14,6 +14,7 @@ const acceptSuggestion = (suggestion: QueueSearchSuggestion, setQuery: (next: st
+ };
+ 
+ const runBatch = (evaluation: QueueSearchEvaluation, context: CommandPaletteContext, close: () => void) => {
++    if (context.playback.isExternalSession) return false;
+     const action = evaluation.parsed.action;
+     if (!action || !evaluation.hasMeaningfulFilter || evaluation.eligibleTargetIndices.length === 0) {
+         return false;
+@@ -30,7 +31,8 @@ const buildViewProps = ({ context, query, matches, activeIndex, setActiveIndex,
+     const evaluation = evaluateQueueForPalette(context, query);
+     return {
+         activeIndex,
+-        currentSong: context.shared.currentSong,
++        externalSession: context.playback.isExternalSession,
++        currentSong: (context.playback.isExternalSession ? context.playback.queueCurrentSong ?? null : context.shared.currentSong),
+         evaluation,
+         isDaylight,
+         isExecuting,
+diff --git a/src/components/command-palette/types.ts b/src/components/command-palette/types.ts
+index 800ad24..48be937 100644
+--- a/src/components/command-palette/types.ts
++++ b/src/components/command-palette/types.ts
+@@ -139,6 +139,9 @@ export type CommandPalettePlaybackContext = {
+     next: () => void;
+     prev: () => void;
+     queue: SongResult[];
++    queueCurrentSong?: SongResult | null;
++    isExternalSession?: boolean;
++    syncQueue?: () => void;
+     playSong: (song: SongResult, queue?: SongResult[]) => void | Promise<void>;
+     shuffleQueue: () => void;
+     clearQueue: () => void;
+diff --git a/src/components/floating-player/PlayerControlSlotButton.tsx b/src/components/floating-player/PlayerControlSlotButton.tsx
+index 360f47f..1d07847 100644
+--- a/src/components/floating-player/PlayerControlSlotButton.tsx
++++ b/src/components/floating-player/PlayerControlSlotButton.tsx
+@@ -1,3 +1,5 @@
++import { useExternalQueuePresentation } from '../../hooks/useExternalQueuePresentation';
++import { ExternalQueueActions } from '../shared/ExternalQueueActions';
+ import React from 'react';
+ import { useTranslation } from 'react-i18next';
+ import { resolvePlayerControlSlot, type PlayerControlSlotActionId, type PlayerControlSlotContext } from './playerControlSlotActions';
+@@ -23,10 +25,12 @@ const PlayerControlSlotButton: React.FC<PlayerControlSlotButtonProps> = ({
+     controlsDisabled = false,
+     className = '',
+ }) => {
++    const external = useExternalQueuePresentation();
+     const { t } = useTranslation();
+     const slot = resolvePlayerControlSlot(actionId, context);
+     const Icon = slot.icon;
+-    const disabled = slot.disabled || controlsDisabled;
++    const disabled = external.active && actionId === 'next' ? !external.canNext : slot.disabled || controlsDisabled;
++    if (external.active && actionId === 'shuffle') return <ExternalQueueActions className={className} size={20} />;
+     const label = t(slot.labelKey);
+ 
+     // 三段视觉：已开启（循环非 off / 已喜爱）高亮，不可用压暗，其余是低透明度的常态。
+diff --git a/src/components/panelTab/QueueTab.tsx b/src/components/panelTab/QueueTab.tsx
+index beb5fd0..609e5cc 100644
+--- a/src/components/panelTab/QueueTab.tsx
++++ b/src/components/panelTab/QueueTab.tsx
+@@ -1,3 +1,5 @@
++import { useExternalQueuePresentation } from '../../hooks/useExternalQueuePresentation';
++import { ExternalQueueActions, ExternalQueueSummary } from '../shared/ExternalQueueActions';
+ import React from 'react';
+ import { motion } from 'framer-motion';
+ import { List, useListRef, type RowComponentProps } from 'react-window';
+@@ -7,7 +9,7 @@ import { SongResult } from '../../types';
+ import TextInputDialog from '../shared/TextInputDialog';
+ import { getSongUnavailableLabel, isSongUnavailable } from '../../services/onlineMusic/songAvailability';
+ import { getSongArtistLabel } from '../../services/onlineMusic/songMetadata';
+-import { getPlaybackSongKey } from '../../utils/appPlaybackGuards';
++import { getQueueSongKey } from '../../utils/appPlaybackGuards';
+ 
+ // src/components/panelTab/QueueTab.tsx
+ 
+@@ -59,7 +61,7 @@ const QueueRow = ({
+     labels,
+ }: RowComponentProps<QueueRowProps>): React.ReactElement => {
+     const song = playQueue[index];
+-    const isActive = currentSongKey === getPlaybackSongKey(song);
++    const isActive = currentSongKey === getQueueSongKey(song);
+     const isUnavailable = isSongUnavailable(song);
+     const unavailableTagText = getSongUnavailableLabel(song, labels.unavailable);
+     const activeRowClass = isDaylight ? 'bg-black/[0.08]' : 'bg-white/20';
+@@ -88,7 +90,7 @@ const QueueRow = ({
+                 <div className="text-[10px] opacity-40 truncate">{getSongArtistLabel(song)}</div>
+             </div>
+             <div className="flex shrink-0 items-center gap-0.5 opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto">
+-                {[
++                {song.externalQueueEntryKey ? <ExternalQueueActions entryKey={song.externalQueueEntryKey} /> : [
+                     { label: labels.playNext, icon: ListPlus, action: onMoveSongToNext },
+                     { label: labels.moveToEnd, icon: ListEnd, action: onMoveSongToEnd },
+                     { label: labels.remove, icon: Trash2, action: onRemoveSong },
+@@ -116,8 +118,8 @@ const QueueRow = ({
+ };
+ 
+ const QueueTab: React.FC<QueueTabProps> = ({
+-    playQueue,
+-    currentSong,
++    playQueue: personalQueue,
++    currentSong: personalCurrentSong,
+     onPlaySong,
+     queueScrollRef,
+     shouldScrollToCurrent = false,
+@@ -131,8 +133,11 @@ const QueueTab: React.FC<QueueTabProps> = ({
+     isDaylight = false,
+ }) => {
+     const { t } = useTranslation();
++    const external = useExternalQueuePresentation();
++    const playQueue = external.queue ?? personalQueue;
++    const currentSong = external.active ? external.currentSong ?? null : personalCurrentSong;
+     const ITEM_HEIGHT = 50;
+-    const currentSongKey = currentSong ? getPlaybackSongKey(currentSong) : null;
++    const currentSongKey = currentSong ? getQueueSongKey(currentSong) : null;
+     // Adjust container height calculation if needed, or rely on flex
+     // previously CONTAINER_HEIGHT = 200 was passed to List. 
+     // We should make List take available space.
+@@ -190,7 +195,7 @@ const QueueTab: React.FC<QueueTabProps> = ({
+     // Auto-scroll to current song
+     React.useEffect(() => {
+         if (shouldScrollToCurrent && currentSongKey && listRef.current) {
+-            const currentIndex = playQueue.findIndex(song => getPlaybackSongKey(song) === currentSongKey);
++            const currentIndex = playQueue.findIndex(song => getQueueSongKey(song) === currentSongKey);
+             if (currentIndex >= 0) {
+                 const isInitialMount = isInitialMountRef.current;
+                 const songChanged = lastScrolledIndexRef.current !== currentIndex && lastScrolledIndexRef.current !== -1;
+@@ -220,7 +225,7 @@ const QueueTab: React.FC<QueueTabProps> = ({
+         setIsSaveDialogOpen(true);
+     };
+ 
+-    if (playQueue.length === 0) {
++    if (playQueue.length === 0 && !external.active) {
+         return (
+             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col h-full max-h-[300px] select-none">
+                 <div className="flex items-center justify-center h-full text-xs opacity-40">
+@@ -235,7 +240,7 @@ const QueueTab: React.FC<QueueTabProps> = ({
+             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col h-full max-h-[300px] select-none">
+                 <div className="flex items-center justify-between px-2 pb-2 shrink-0">
+                     <span className="text-xs font-medium opacity-60">
+-                        {t('queue.title')} ({playQueue.length})
++                        {external.active ? <ExternalQueueSummary /> : <>{t('queue.title')} ({playQueue.length})</>}
+                     </span>
+                     <div className="flex items-center gap-1">
+                         {onOpenLattice && (
+@@ -248,7 +253,7 @@ const QueueTab: React.FC<QueueTabProps> = ({
+                                 <PanelsTopLeft size={14} />
+                             </button>
+                         )}
+-                        {canSaveLocalPlaylist && (
++                        {canSaveLocalPlaylist && !external.active && (
+                             <button
+                                 onClick={handleSavePlaylist}
+                                 className="px-2 py-1 rounded-md hover:bg-white/10 transition-colors opacity-60 hover:opacity-100 text-[10px] font-medium"
+@@ -257,7 +262,8 @@ const QueueTab: React.FC<QueueTabProps> = ({
+                                 {t('localMusic.saveQueueAsPlaylist')}
+                             </button>
+                         )}
+-                        {onShuffle && (
++                        {external.active && <ExternalQueueActions />}
++                        {onShuffle && !external.active && (
+                             <button
+                                 onClick={onShuffle}
+                                 className="p-1.5 rounded-md hover:bg-white/10 transition-colors opacity-60 hover:opacity-100"
+diff --git a/src/components/shared/ExternalQueueActions.tsx b/src/components/shared/ExternalQueueActions.tsx
+new file mode 100644
+index 0000000..9a5f97f
+--- /dev/null
++++ b/src/components/shared/ExternalQueueActions.tsx
+@@ -0,0 +1,36 @@
++import { ArrowUpToLine, RefreshCw, ThumbsUp, Trash2 } from 'lucide-react';
++import { useShallow } from 'zustand/react/shallow';
++import { useTranslation } from 'react-i18next';
++import { invokeExternalQueueAction, useExternalQueueStore } from '@/services/externalPlaybackQueue';
++import { resolveFoliumLabel } from '@/mods/folium/params';
++
++// src/components/shared/ExternalQueueActions.tsx
++// Shared by the native list, command results, collage and configured shuffle slot.
++const icons = { 'refresh-cw': RefreshCw, 'trash-2': Trash2, 'arrow-up-to-line': ArrowUpToLine, 'thumbs-up': ThumbsUp };
++export function ExternalQueueActions({ entryKey = null, className = '', size = 14 }: {
++    entryKey?: string | null; className?: string; size?: number;
++}) {
++    const { i18n } = useTranslation();
++    const actions = useExternalQueueStore(state => entryKey ? state.view?.items.get(entryKey)?.actions : state.view?.actions);
++    return <span className={`inline-flex items-center gap-1 ${className}`}>
++        {actions?.map(action => {
++            const Icon = icons[action.icon], label = resolveFoliumLabel(action.label, i18n.language, action.id);
++            return <button key={action.id} type="button" aria-label={label} title={label} disabled={action.disabled}
++                data-session-action={action.id}
++                className="inline-flex items-center gap-1 rounded-md p-1.5 hover:bg-current/10 disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
++                onClick={event => { event.stopPropagation(); invokeExternalQueueAction(entryKey, action.id); }}>
++                <Icon size={size} />{action.count !== undefined && <span className="text-[10px] tabular-nums">{action.count}</span>}
++            </button>;
++        })}
++    </span>;
++}
++
++export function ExternalQueueSummary() {
++    const { t } = useTranslation();
++    const { count, loading } = useExternalQueueStore(useShallow(state => ({
++        count: state.view?.totalCount ?? 0, loading: state.view?.loading ?? false,
++    })));
++    return <span className="inline-flex items-center gap-2" aria-busy={loading}>
++        {t('queue.title')} ({count}){loading && <RefreshCw size={12} className="animate-spin" aria-hidden="true" />}
++    </span>;
++}
+diff --git a/src/hooks/useCommandPaletteContext.ts b/src/hooks/useCommandPaletteContext.ts
+index 1a84416..960de00 100644
+--- a/src/hooks/useCommandPaletteContext.ts
++++ b/src/hooks/useCommandPaletteContext.ts
+@@ -1,3 +1,5 @@
++import { useExternalQueuePresentation } from './useExternalQueuePresentation';
++import { syncExternalQueue } from '../services/externalPlaybackQueue';
+ import { useLatticeControlsStore } from '../stores/useLatticeControlsStore';
+ import { useMemo, useRef } from 'react';
+ import { useTranslation } from 'react-i18next';
+@@ -71,7 +73,9 @@ export const useCommandPaletteContext = (
+ ): CommandPaletteContext => {
+     const { t } = useTranslation();
+     const currentSong = usePlaybackStore(state => state.currentSong);
+-    const queue = usePlaybackStore(state => state.playQueue);
++    const personalQueue = usePlaybackStore(state => state.playQueue);
++    const external = useExternalQueuePresentation();
++    const queue = external.queue ?? personalQueue;
+     const isFmMode = usePlaybackStore(state => state.isFmMode);
+     const setHomeViewTab = useSearchNavigationStore(state => state.setHomeViewTab);
+     // What is on screen, transitions included: surfaces that publish lyrics (the mod runtime
+@@ -186,7 +190,9 @@ export const useCommandPaletteContext = (
+             shared: buildSharedCommandContext(stableDeps),
+             scope: { view, filter: commandFilter, grid: gridSurface },
+             search: buildSearchCommandContext(stableDeps),
+-            playback: buildPlaybackCommandContext(stableDeps),
++            playback: { ...buildPlaybackCommandContext(stableDeps),
++                queueCurrentSong: external.active ? external.currentSong ?? null : currentSong,
++                isExternalSession: external.active, syncQueue: syncExternalQueue },
+             navigation: buildNavigationCommandContext(stableDeps),
+             panel: buildPanelCommandContext(stableDeps),
+             settings: buildSettingsCommandContext(stableDeps),
+@@ -195,6 +201,7 @@ export const useCommandPaletteContext = (
+     // eslint-disable-next-line react-hooks/exhaustive-deps -- value list is derived, shape is fixed
+     }, [
+         ...valueDeps,
++        external.active, external.currentSong, currentSong,
+         ambient,
+         settingsSignals, chromeSignals, desktopSignals, automixSignals,
+         sleepTimerSignals, latticeSignals, audioSignals, visualizerSignals,
+diff --git a/src/hooks/useExternalQueuePresentation.ts b/src/hooks/useExternalQueuePresentation.ts
+new file mode 100644
+index 0000000..caf0028
+--- /dev/null
++++ b/src/hooks/useExternalQueuePresentation.ts
+@@ -0,0 +1,16 @@
++import { useSyncExternalStore } from 'react';
++import { useShallow } from 'zustand/react/shallow';
++import { useExternalQueueStore } from '../services/externalPlaybackQueue';
++import { hasExternalPlayback, subscribeExternalPlayback } from '../services/externalPlaybackSession';
++
++// src/hooks/useExternalQueuePresentation.ts
++// Counts/actions subscribe in their own components; votes don't rebuild the poster wall's queue.
++export function useExternalQueuePresentation() {
++    const active = useSyncExternalStore(subscribeExternalPlayback, hasExternalPlayback, () => false);
++    const data = useExternalQueueStore(useShallow(state => ({
++        queue: state.view?.queue,
++        currentSong: state.view?.currentSong,
++        canNext: state.view?.canNext ?? true,
++    })));
++    return { active, ...data };
++}
+diff --git a/src/hooks/usePlaybackInteractionBridge.ts b/src/hooks/usePlaybackInteractionBridge.ts
+index 60216ab..fcd5099 100644
+--- a/src/hooks/usePlaybackInteractionBridge.ts
++++ b/src/hooks/usePlaybackInteractionBridge.ts
+@@ -1,3 +1,4 @@
++import { hasExternalPlayback } from '../services/externalPlaybackSession';
+ import { routeExternalPlayback } from '../services/externalPlaybackSession';
+ import { useCallback, useEffect } from 'react';
+ import type React from 'react';
+@@ -295,7 +296,7 @@ export function usePlaybackInteractionBridge({
+                         : (event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey);
+ 
+                     if (isNextTrackKey) {
+-                        if (currentSong) {
++                        if (currentSong || hasExternalPlayback()) {
+                             event.preventDefault();
+                             if (isNowPlayingStageActive) {
+                                 return;
+diff --git a/src/hooks/usePlaybackQueueController.ts b/src/hooks/usePlaybackQueueController.ts
+index 17b5a64..ca353c5 100644
+--- a/src/hooks/usePlaybackQueueController.ts
++++ b/src/hooks/usePlaybackQueueController.ts
+@@ -1,3 +1,4 @@
++import { activateExternalQueueSong } from '../services/externalPlaybackQueue';
+ import { captureExternalPlaybackBoundary, hasExternalPlayback, routeExternalPlayback } from '../services/externalPlaybackSession';
+ import { beginPlaybackRequest } from '../services/playbackRequest';
+ import { useCallback, useEffect, useRef, useState } from 'react';
+@@ -447,6 +448,7 @@ export function usePlaybackQueueController({
+         // The hook is async, so a later playSong may finish its hook first; this call then drops
+         // out instead of replacing the song the user picked last.
+         // An automix advance skips the hook (see `isAutomixAdvance`).
++        if (!options.request && activateExternalQueueSong(requestedSong)) return;
+         if (!options.request && routeExternalPlayback({ type: 'play', song: requestedSong })) return;
+         const request = options.request ?? beginPlaybackRequest();
+         if (!request.isCurrent()) return;
+diff --git a/src/i18n/locales/en.ts b/src/i18n/locales/en.ts
+index cef148c..60d852f 100644
+--- a/src/i18n/locales/en.ts
++++ b/src/i18n/locales/en.ts
+@@ -493,6 +493,7 @@ export default {
+       "playback-add-to-playlist": { "title": "Add to a playlist", "description": "Put the current song in one of your playlists" },
+       "playback-mute": { "title": "Mute", "description": "Silence playback, or bring the sound back" },
+       "playback-shuffle": { "title": "Shuffle queue", "description": "Shuffle current play queue" },
++      "playback-sync-queue": { "title": "Sync queue", "description": "Refresh the current session queue" },
+       "playback-clear-queue": { "title": "Clear queue", "description": "Remove all songs from the current play queue" },
+       "theme-generate-current": { "title": "Generate AI theme", "description": "Generate an AI theme for the current song" },
+       "theme-quick-editor": { "title": "Quick theme editor", "description": "Quickly edit AI theme for the current song" },
+diff --git a/src/i18n/locales/in.ts b/src/i18n/locales/in.ts
+index 406ccd6..4b82739 100644
+--- a/src/i18n/locales/in.ts
++++ b/src/i18n/locales/in.ts
+@@ -492,6 +492,7 @@ export default {
+       "playback-add-to-playlist": { "title": "Tambahkan ke daftar putar", "description": "Masukkan lagu ini ke salah satu daftar putar Anda" },
+       "playback-mute": { "title": "Bisukan", "description": "Bisukan pemutaran, atau kembalikan suaranya" },
+       "playback-shuffle": { "title": "Acak antrean", "description": "Acak antrean putar saat ini" },
++      "playback-sync-queue": { "title": "Sinkronkan antrean", "description": "Perbarui antrean sesi saat ini" },
+       "playback-clear-queue": { "title": "Kosongkan antrean", "description": "Hapus semua lagu dari antrean putar saat ini" },
+       "theme-generate-current": { "title": "Buat tema AI", "description": "Buat tema AI untuk lagu saat ini" },
+       "theme-quick-editor": { "title": "Editor tema cepat", "description": "Edit cepat tema AI untuk lagu saat ini" },
+diff --git a/src/i18n/locales/zh-CN.ts b/src/i18n/locales/zh-CN.ts
+index 11729df..2c61ea0 100644
+--- a/src/i18n/locales/zh-CN.ts
++++ b/src/i18n/locales/zh-CN.ts
+@@ -493,6 +493,7 @@ export default {
+       "playback-add-to-playlist": { "title": "添加到歌单", "description": "把当前歌曲放进你的某个歌单" },
+       "playback-mute": { "title": "静音", "description": "静音，或恢复声音" },
+       "playback-shuffle": { "title": "打乱队列", "description": "打乱当前播放队列" },
++      "playback-sync-queue": { "title": "同步队列", "description": "刷新当前会话的播放队列" },
+       "playback-clear-queue": { "title": "清空队列", "description": "移除当前播放队列中的所有歌曲" },
+       "theme-generate-current": { "title": "生成 AI 主题", "description": "为当前歌曲生成 AI 主题" },
+       "theme-quick-editor": { "title": "快速主题编辑器", "description": "快速编辑当前歌曲的 AI 主题" },
+diff --git a/src/mods/folium/api.ts b/src/mods/folium/api.ts
+index 6d6af45..26488e8 100644
+--- a/src/mods/folium/api.ts
++++ b/src/mods/folium/api.ts
+@@ -1,3 +1,4 @@
++import { homeTabsRegistry } from './registries/homeTabs';
+ import type { ModRuntimeInfo } from '../types';
+ import { invokeModRpc, invokeModStorage } from '../ipc';
+ import {
+@@ -43,6 +44,7 @@ const UI_ONLY_REGISTRIES = new Set<keyof FoliumRegistries>([
+     'commands',
+     'stageLayers',
+     'playerPanelTabs',
++    'homeTabs',
+     'controlButtons',
+     'progressLayers',
+     'styles',
+@@ -58,6 +60,7 @@ const HOST_REGISTRIES: Record<keyof FoliumRegistries, AnyHostRegistry> = {
+     stageLayers: stageLayersRegistry,
+     settingsSections: settingsSectionsRegistry,
+     playerPanelTabs: playerPanelTabsRegistry,
++    homeTabs: homeTabsRegistry,
+     controlButtons: controlButtonsRegistry,
+     progressLayers: progressLayersRegistry,
+     styles: stylesRegistry,
+@@ -174,6 +177,7 @@ export const createFoliumClientApi = (mod: ModRuntimeInfo, options: FoliumClient
+                 return Object.freeze({ ...handle, params: stored!.def.access });
+             },
+         }),
++        homeTabs: bindRegistry(homeTabsRegistry, modId, inert('homeTabs')),
+         playerPanelTabs: bindRegistry(playerPanelTabsRegistry, modId, inert('playerPanelTabs')),
+         controlButtons: bindRegistry(controlButtonsRegistry, modId, inert('controlButtons')),
+         progressLayers: bindRegistry(progressLayersRegistry, modId, inert('progressLayers')),
+diff --git a/src/mods/folium/contract.ts b/src/mods/folium/contract.ts
+index f878b72..48227d9 100644
+--- a/src/mods/folium/contract.ts
++++ b/src/mods/folium/contract.ts
+@@ -699,7 +699,7 @@ export interface FoliumRegistry<Def, Handle extends FoliumRegistryHandle = Foliu
+ }
+ 
+ /**
+- * All registries, as `folium.registries`. UI-only ones (commands, stageLayers, playerPanelTabs,
++ * All registries, as `folium.registries`. UI-only ones (commands, stageLayers, playerPanelTabs, homeTabs,
+  * controlButtons, progressLayers, styles) accept registrations and do nothing in the export window.
+  */
+ export interface FoliumRegistries {
+@@ -717,6 +717,8 @@ export interface FoliumRegistries {
+     settingsSections: FoliumRegistry<FoliumSettingsSectionDef, FoliumSettingsSectionHandle>;
+     /** Player panel tabs. */
+     playerPanelTabs: FoliumRegistry<FoliumPlayerPanelTabDef>;
++    /** Full-page mod views in the home navigation capsule. */
++    homeTabs: FoliumRegistry<FoliumPlayerPanelTabDef>;
+     /** Progress bar buttons. */
+     controlButtons: FoliumRegistry<FoliumControlButtonDef>;
+     /** Layers over the progress track. */
+@@ -838,7 +840,52 @@ export type FoliumPlaybackSessionIntent =
+     | { type: 'play'; song: FoliumSong }
+     | { type: 'enqueue'; songs: readonly FoliumSong[] }
+     | { type: 'next' | 'previous' | 'ended' | 'playback-error' }
+-    | { type: 'seek'; seconds: number; resume: boolean };
++    | { type: 'seek'; seconds: number; resume: boolean }
++    | { type: 'queue-action'; entryId: string | null; actionId: string };
++
++/** A mod-owned queue action. Labels are localized by the host; each click is delivered separately. */
++export interface FoliumQueueAction {
++    /** Stable action id, returned in a queue-action intent. */
++    id: string;
++    /** Accessible button label. */
++    label: FoliumLabel;
++    /** Host icon, avoiding bundled icon/render dependencies in a mod. */
++    icon: 'refresh-cw' | 'trash-2' | 'arrow-up-to-line' | 'thumbs-up';
++    /** False by default; the mod owns permissions and pending-operation policy. */
++    disabled?: boolean;
++    /** Optional nonnegative count, such as votes. It never implies a one-time toggle. */
++    count?: number;
++}
++
++/** A queue occurrence. Its identity is separate from its media id, so repeated tracks remain distinct. */
++export interface FoliumQueueEntry {
++    /** Unique id within the session, never the list index. */
++    id: string;
++    /** Presentation metadata; duration is in seconds. An optional host ref supplies richer metadata. */
++    track: { id: string; source: string; title: string; artist: string; album?: string | null; coverUrl?: string; duration?: number; ref?: string | null };
++    /** Replaces native remove/reorder buttons for this occurrence. */
++    actions: readonly FoliumQueueAction[];
++    /** Optional row activation action. Without it, selecting the row does not start local playback. */
++    defaultAction?: string;
++}
++
++/** Authoritative queue shown by native queue, command-palette and collage surfaces. */
++export interface FoliumPlaybackQueue {
++    /** Ordered entries, including the current occurrence when one exists. */
++    entries: readonly FoliumQueueEntry[];
++    /** Current occurrence id, or null while waiting. */
++    currentId: string | null;
++    /** Replaces the native shuffle/clear toolbar while this queue is shown. */
++    actions?: readonly FoliumQueueAction[];
++    /** Toolbar action used in place of a configured shuffle button. */
++    syncActionId?: string;
++    /** Whether the session can accept a next-track request, independent of local queue length. */
++    canNext: boolean;
++    /** Total entries expected while loading; defaults to entries.length. */
++    totalCount?: number;
++    /** Queue refresh indicator. */
++    loading?: boolean;
++}
+ 
+ /** Source assignment, not an assertion that decoding or audible playback succeeded. */
+ export interface FoliumPlaybackStartResult {
+@@ -848,6 +895,10 @@ export interface FoliumPlaybackStartResult {
+ 
+ /** An exclusive session, released automatically on mod disable or failed activation. */
+ export interface FoliumPlaybackSession {
++    /** Publish queue presentation and actions without fetching streams or mutating the private queue. */
++    setQueue(queue: FoliumPlaybackQueue): void;
++    /** Cancel loading and clear the current source, retaining session ownership and queue presentation. */
++    stop(): void;
+     /** Load a host-ref song without autoplay. Resolves at source assignment, cancellation or failure. */
+     play(song: FoliumSong): Promise<FoliumPlaybackStartResult>;
+     /** Set local audio time in seconds, preserving the current pause state. */
+@@ -859,7 +910,7 @@ export interface FoliumPlaybackSession {
+ /** EXPERIMENTAL: requires manifest `playback.sessions` and permission `playback.control`. Main window only. */
+ export interface FoliumPlaybackSessions {
+     /** Experimental service contract version. */
+-    readonly version: 1;
++    readonly version: 2;
+     /** Resolve an online provider's opaque media ID through Omni, returning a host song ref. */
+     resolveSong(provider: string, id: string): Promise<FoliumSong>;
+     /** FM, Stage, video recording, active transitions and another session are rejected before changing playback. */
+@@ -967,6 +1018,10 @@ export interface FoliumUiService {
+     toast(message: string, options?: { type?: 'info' | 'success' | 'error'; durationMs?: number }): void;
+     /** Opens the player panel, optionally on one of this mod's panel tabs (local id). */
+     openPlayerPanel(tabId?: string): void;
++    /** Open a mod's home tab in the top navigation capsule. */
++    openHomeTab(tabId: string): void;
++    /** Open the native player queue. */
++    openQueue(): void;
+     /** Switches to the home or player view. */
+     navigate(view: 'home' | 'player'): void;
+     /** Folium 1.3: opens the host volume panel (the command palette's volume command). */
+diff --git a/src/mods/folium/externalPlayback.ts b/src/mods/folium/externalPlayback.ts
+index b45b91a..f374a30 100644
+--- a/src/mods/folium/externalPlayback.ts
++++ b/src/mods/folium/externalPlayback.ts
+@@ -1,9 +1,11 @@
++import { createExternalQueueAdapter } from './externalQueueAdapter';
++import { clearExternalQueue, setExternalQueue } from '@/services/externalPlaybackQueue';
+ import { omni } from '@/services/onlineMusic/omni';
+ import { usePlaybackStore } from '@/stores/usePlaybackStore';
+ import { currentTime } from '@/stores/motionSignals';
+ import { PlayerState, type SongResult } from '@/types';
+ import type { PlaybackRequest } from '@/types/externalPlayback';
+-import { beginPlaybackRequest } from '@/services/playbackRequest';
++import { beginPlaybackRequest, invalidatePlaybackRequest } from '@/services/playbackRequest';
+ import {
+     acquireExternalPlayback,
+     isExternalPlaybackOwner,
+@@ -43,7 +45,7 @@ export function createFoliumPlaybackSessions(mod: ModRuntimeInfo): FoliumPlaybac
+         releaseExternalPlaybackForMod(mod.id);
+     });
+     return Object.freeze<FoliumPlaybackSessions>({
+-        version: 1,
++        version: 2,
+         async resolveSong(provider, id) {
+             requireAccess();
+             if (typeof provider !== 'string' || !provider || typeof id !== 'string' || !id || id.length > 2048)
+@@ -83,6 +85,7 @@ export function createFoliumPlaybackSessions(mod: ModRuntimeInfo): FoliumPlaybac
+                     return onIntent(dto);
+                 },
+                 cleanup: () => {
++                    clearExternalQueue(token);
+                     try {
+                         host.stop();
+                     } finally {
+@@ -109,7 +112,22 @@ export function createFoliumPlaybackSessions(mod: ModRuntimeInfo): FoliumPlaybac
+                 releaseExternalPlayback(token);
+                 throw error;
+             }
++            const adaptQueue = createExternalQueueAdapter(token);
+             return Object.freeze<FoliumPlaybackSession>({
++                setQueue(queue) {
++                    requireAccess();
++                    if (!isExternalPlaybackOwner(token)) throw new Error('playback-session-released');
++                    setExternalQueue(adaptQueue(queue));
++                },
++                stop() {
++                    requireAccess();
++                    if (!isExternalPlaybackOwner(token)) throw new Error('playback-session-released');
++                    invalidatePlaybackRequest();
++                    host.stop();
++                    usePlaybackStore.setState({ currentSong: null, audioSrc: null, lyrics: null, activeLocalLyricsSource: null,
++                        cachedCoverUrl: null, duration: 0, playerState: PlayerState.IDLE, currentLineIndex: -1 });
++                    currentTime.set(0);
++                },
+                 play(song) {
+                     if (!active || !isExternalPlaybackOwner(token))
+                         return Promise.resolve({ status: 'cancelled' as const });
+diff --git a/src/mods/folium/externalQueueAdapter.ts b/src/mods/folium/externalQueueAdapter.ts
+new file mode 100644
+index 0000000..dff5551
+--- /dev/null
++++ b/src/mods/folium/externalQueueAdapter.ts
+@@ -0,0 +1,71 @@
++import type { SongResult } from '@/types';
++import type { ExternalQueueItem, ExternalQueueView } from '@/types/externalPlayback';
++import type { FoliumPlaybackQueue, FoliumQueueAction } from './contract';
++import { resolveFoliumSongRef, toFoliumSong } from './dto';
++
++// src/mods/folium/externalQueueAdapter.ts
++// Keep media, occurrence, and action identity separate; unchanged media reuses the same view objects.
++let serial = 0;
++const equal = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
++const icons = new Set(['refresh-cw', 'trash-2', 'arrow-up-to-line', 'thumbs-up']);
++function actions(values: readonly FoliumQueueAction[] = []) {
++    if (!Array.isArray(values)) throw new Error('invalid-queue-actions');
++    const ids = new Set<string>();
++    return values.map(action => {
++        if (!action || typeof action.id !== 'string' || !action.id || ids.has(action.id) || !icons.has(action.icon) || !action.label || typeof action.label !== 'object'
++            || Object.values(action.label).some(text => text !== undefined && typeof text !== 'string')
++            || (action.count !== undefined && (!Number.isFinite(action.count) || action.count < 0))) {
++            throw new Error('invalid-queue-action');
++        }
++        ids.add(action.id);
++        return { ...action, label: { ...action.label } };
++    });
++}
++export function createExternalQueueAdapter(owner: symbol) {
++    const prefix = `external:${++serial}:`;
++    let previous: ExternalQueueView | null = null;
++    return (input: FoliumPlaybackQueue): ExternalQueueView => {
++        if (!input || !Array.isArray(input.entries)) throw new Error('invalid-session-queue');
++        const ids = new Set<string>(), items = new Map<string, ExternalQueueItem>();
++        const queue = input.entries.map(entry => {
++            const track = entry?.track;
++            if (!entry || typeof entry.id !== 'string' || !entry.id || ids.has(entry.id) || !track
++                || typeof track.id !== 'string' || !track.id || typeof track.source !== 'string' || !track.source
++                || typeof track.title !== 'string' || typeof track.artist !== 'string'
++                || (track.duration !== undefined && (!Number.isFinite(track.duration) || track.duration < 0))) throw new Error('invalid-queue-entry');
++            ids.add(entry.id);
++            const key = prefix + entry.id, old = previous?.items.get(key);
++            const resolved = resolveFoliumSongRef(track.ref);
++            const dto = resolved ? toFoliumSong(resolved) : null;
++            const base = dto?.id === track.id && dto?.source === track.source ? resolved : null;
++            const candidate: SongResult = {
++                id: track.id, name: track.title,
++                artists: base?.artists ?? [{ id: 0, name: track.artist }],
++                album: { id: base?.album?.id ?? 0, name: track.album ?? base?.album?.name ?? '',
++                    coverUrl: track.coverUrl || base?.album?.coverUrl },
++                durationMs: track.duration !== undefined ? Math.max(0, track.duration * 1000) : base?.durationMs ?? 0,
++                sourceRef: base?.sourceRef ?? { kind: 'online', providerId: track.source, mediaId: track.id },
++                externalQueueEntryKey: key,
++            };
++            const song = old && equal(old.song, candidate) ? old.song : candidate;
++            const entryActions = actions(entry.actions);
++            if (entry.defaultAction && !entryActions.some(action => action.id === entry.defaultAction)) throw new Error('invalid-queue-default-action');
++            const item = { id: entry.id, song, actions: entryActions, defaultAction: entry.defaultAction };
++            items.set(key, old && old.song === song && equal(old.actions, entryActions) && old.defaultAction === entry.defaultAction ? old : item);
++            return song;
++        });
++        if (input.currentId !== null && !ids.has(input.currentId)) throw new Error('queue-current-entry-missing');
++        const toolbar = actions(input.actions);
++        if (input.syncActionId && !toolbar.some(action => action.id === input.syncActionId)) throw new Error('invalid-queue-sync-action');
++        const stableQueue = previous && queue.length === previous.queue.length && queue.every((song, i) => song === previous!.queue[i])
++            ? previous.queue : queue;
++        const view: ExternalQueueView = {
++            owner, items, queue: stableQueue, currentSong: input.currentId === null ? null : items.get(prefix + input.currentId)!.song,
++            actions: previous && equal(previous.actions, toolbar) ? previous.actions : toolbar,
++            syncActionId: input.syncActionId, canNext: input.canNext === true,
++            totalCount: Math.max(queue.length, Number.isSafeInteger(input.totalCount) ? input.totalCount! : queue.length), loading: input.loading === true,
++        };
++        previous = view;
++        return view;
++    };
++}
+diff --git a/src/mods/folium/hostActions.ts b/src/mods/folium/hostActions.ts
+index 925694e..4bd61c3 100644
+--- a/src/mods/folium/hostActions.ts
++++ b/src/mods/folium/hostActions.ts
+@@ -1,3 +1,6 @@
++import { hasExternalPlayback } from '@/services/externalPlaybackSession';
++import { homeTabsRegistry } from './registries/homeTabs';
++import { useSearchNavigationStore } from '@/stores/useSearchNavigationStore';
+ import type { PlaybackRequest } from '@/types/externalPlayback';
+ import { useEffect, useRef } from 'react';
+ import { registerExternalPlaybackActions } from './externalPlayback';
+@@ -49,7 +52,7 @@ type PlaybackStoreState = ReturnType<typeof usePlaybackStore.getState>;
+ 
+ /* Same rule as the player bar's shuffle slot, plus external Stage playback, which shuffleQueue ignores. */
+ const canShuffleQueue = (state: PlaybackStoreState) => (
+-    !state.isFmMode && state.playQueue.length > 1 && state.activePlaybackContext !== 'stage'
++    !hasExternalPlayback() && !state.isFmMode && state.playQueue.length > 1 && state.activePlaybackContext !== 'stage'
+ );
+ 
+ export const useFoliumHostActions = (actions: FoliumAppActions) => {
+@@ -119,6 +122,11 @@ export const useFoliumHostActions = (actions: FoliumAppActions) => {
+                 if (tab) view.setPanelTab(tab as PanelTab);
+                 view.setIsPanelOpen(true);
+             },
++            openHomeTab: (tab) => {
++                if (!homeTabsRegistry.list().some(entry => entry.id === tab)) throw new Error('home-tab-unavailable');
++                actionsRef.current.navigateToHome();
++                useSearchNavigationStore.getState().setHomeModTab(tab);
++            },
+             navigate: (target) => (target === 'player' ? actionsRef.current.navigateToPlayer() : actionsRef.current.navigateToHome()),
+             openVolume: () => actionsRef.current.openVolume(),
+         });
+diff --git a/src/mods/folium/registries/homeTabs.tsx b/src/mods/folium/registries/homeTabs.tsx
+new file mode 100644
+index 0000000..3abc090
+--- /dev/null
++++ b/src/mods/folium/registries/homeTabs.tsx
+@@ -0,0 +1,35 @@
++import { useMemo } from 'react';
++import { useTranslation } from 'react-i18next';
++import type { Theme } from '@/types';
++import { useSearchNavigationStore } from '@/stores/useSearchNavigationStore';
++import type { FoliumPlayerPanelTabDef } from '../contract';
++import { createFoliumRegistry, useFoliumRegistryEntries } from '../registry';
++import { resolveFoliumLabel } from '../params';
++import { FoliumPanelTabContent } from './playerPanelTabs';
++
++// src/mods/folium/registries/homeTabs.tsx
++export const homeTabsRegistry = createFoliumRegistry<FoliumPlayerPanelTabDef>('homeTabs', {
++    validate(def) {
++        if (typeof def.mount !== 'function') throw new Error('homeTabs.register: mount must be a function');
++        return def;
++    },
++    onRemove(entry) {
++        const state = useSearchNavigationStore.getState();
++        if (state.homeModTab === entry.id) state.setHomeModTab(null);
++    },
++});
++export function useFoliumHomeTabs() {
++    const entries = useFoliumRegistryEntries(homeTabsRegistry);
++    const { i18n } = useTranslation();
++    return useMemo(() => [...entries]
++        .sort((a, b) => (a.def.order ?? 500) - (b.def.order ?? 500) || a.id.localeCompare(b.id))
++        .map(entry => ({ id: entry.id, label: resolveFoliumLabel(entry.def.label, i18n.language, entry.name) })),
++        [entries, i18n.language]);
++}
++export function FoliumHomeTabBody({ tab, theme, isDaylight }: { tab: string; theme: Theme; isDaylight: boolean }) {
++    const entries = useFoliumRegistryEntries(homeTabsRegistry);
++    const entry = entries.find(entry => entry.id === tab);
++    return entry ? <div className="w-full h-full overflow-auto px-4 md:px-12 py-4" data-home-mod-tab={tab}>
++        <FoliumPanelTabContent key={entry.id} entry={entry} theme={theme} isDaylight={isDaylight} />
++    </div> : null;
++}
+diff --git a/src/mods/folium/registries/playerPanelTabs.tsx b/src/mods/folium/registries/playerPanelTabs.tsx
+index aae1979..39951bc 100644
+--- a/src/mods/folium/registries/playerPanelTabs.tsx
++++ b/src/mods/folium/registries/playerPanelTabs.tsx
+@@ -60,7 +60,7 @@ const usePanelContext = (theme: Theme, isDaylight: boolean, locale: string): Fol
+     return ctx;
+ };
+ 
+-const FoliumPanelTabContent: React.FC<{
++export const FoliumPanelTabContent: React.FC<{
+     entry: FoliumRegistryEntry<FoliumPlayerPanelTabDef>;
+     theme: Theme;
+     isDaylight: boolean;
+diff --git a/src/mods/folium/services.ts b/src/mods/folium/services.ts
+index 6d2f0dd..cba43cc 100644
+--- a/src/mods/folium/services.ts
++++ b/src/mods/folium/services.ts
+@@ -39,6 +39,7 @@ export interface FoliumHostActions {
+     toggleLike: () => boolean;
+     toast: (message: string, type: 'info' | 'success' | 'error', durationMs?: number) => void;
+     openPlayerPanel: (tab: string | null) => void;
++    openHomeTab: (tab: string) => void;
+     navigate: (view: 'home' | 'player') => void;
+     openVolume: () => void;
+ }
+@@ -144,6 +145,12 @@ export const createFoliumUiService = (mod: ModRuntimeInfo, context: FoliumContex
+     openPlayerPanel: (tabId?: string) => {
+         requireActions('ui', context).openPlayerPanel(tabId ? `folium:${mod.id}:${tabId}` : null);
+     },
++    openHomeTab: (tabId: string) => requireActions('ui', context).openHomeTab(`${mod.id}:${tabId}`),
++    openQueue: () => {
++        const host = requireActions('ui', context);
++        host.navigate('player');
++        host.openPlayerPanel('queue');
++    },
+     navigate: (view: 'home' | 'player') => {
+         if (view !== 'home' && view !== 'player') throw new Error(`ui.navigate: unknown view "${String(view)}"`);
+         requireActions('ui', context).navigate(view);
+diff --git a/src/services/externalPlaybackQueue.ts b/src/services/externalPlaybackQueue.ts
+new file mode 100644
+index 0000000..5b61f3a
+--- /dev/null
++++ b/src/services/externalPlaybackQueue.ts
+@@ -0,0 +1,36 @@
++import { create } from 'zustand';
++import type { SongResult } from '../types';
++import type { ExternalQueueView } from '../types/externalPlayback';
++import { isExternalPlaybackOwner, routeExternalPlayback } from './externalPlaybackSession';
++
++// src/services/externalPlaybackQueue.ts
++// Presentation is separate from the private playback queue and its audio/cache identity.
++export const useExternalQueueStore = create<{ view: ExternalQueueView | null }>(() => ({ view: null }));
++export const clearExternalQueue = (owner: symbol) => {
++    if (useExternalQueueStore.getState().view?.owner === owner) useExternalQueueStore.setState({ view: null });
++};
++export const setExternalQueue = (view: ExternalQueueView) => {
++    if (!isExternalPlaybackOwner(view.owner)) throw new Error('playback-session-released');
++    useExternalQueueStore.setState({ view });
++};
++export function invokeExternalQueueAction(entryKey: string | null, actionId: string) {
++    const view = useExternalQueueStore.getState().view;
++    if (!view || !isExternalPlaybackOwner(view.owner)) return false;
++    const item = entryKey ? view.items.get(entryKey) : null;
++    if (entryKey && !item) return false;
++    const action = (item?.actions ?? view.actions).find(candidate => candidate.id === actionId);
++    if (!action || action.disabled) return false;
++    return routeExternalPlayback({ type: 'queue-action', entryId: item?.id ?? null, actionId });
++}
++export function activateExternalQueueSong(song: SongResult) {
++    const key = song.externalQueueEntryKey;
++    if (!key) return false;
++    const item = useExternalQueueStore.getState().view?.items.get(key);
++    if (item?.defaultAction) invokeExternalQueueAction(key, item.defaultAction);
++    // Even an expired occurrence must not fall through to local playback or recommendation.
++    return true;
++}
++export function syncExternalQueue() {
++    const view = useExternalQueueStore.getState().view;
++    return view?.syncActionId ? invokeExternalQueueAction(null, view.syncActionId) : false;
++}
+diff --git a/src/stores/useSearchNavigationStore.ts b/src/stores/useSearchNavigationStore.ts
+index 2d594a6..ebed223 100644
+--- a/src/stores/useSearchNavigationStore.ts
++++ b/src/stores/useSearchNavigationStore.ts
+@@ -36,6 +36,8 @@ type SearchCacheEntry = {
+ 
+ interface SearchNavigationState {
+     homeViewTab: HomeViewTab;
++    homeModTab: string | null;
++    setHomeModTab: (tab: string | null) => void;
+     searchQuery: string;
+     searchSourceTab: SearchSource;
+     searchResults: UnifiedSong[] | null;
+@@ -177,6 +179,8 @@ const getInitialHomeViewTab = (): HomeViewTab => {
+ 
+ export const useSearchNavigationStore = create<SearchNavigationState>((set, get) => ({
+     homeViewTab: getInitialHomeViewTab(),
++    homeModTab: null,
++    setHomeModTab: (tab) => set({ homeModTab: tab }),
+     searchQuery: '',
+     searchSourceTab: 'netease',
+     searchResults: null,
+@@ -195,7 +199,7 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
+         if (typeof window !== 'undefined') {
+             localStorage.setItem(LAST_HOME_VIEW_TAB_KEY, tab);
+         }
+-        set({ homeViewTab: tab });
++        set({ homeViewTab: tab, homeModTab: null });
+     },
+     setSearchQuery: (query) => set({ searchQuery: query }),
+     setSearchScrollTop: (scrollTop) => set(state => {
+diff --git a/src/types.ts b/src/types.ts
+index 4c5041a..788a80c 100644
+--- a/src/types.ts
++++ b/src/types.ts
+@@ -1126,6 +1126,8 @@ export interface ReplayGainInfo {
+ }
+ 
+ export interface SongResult {
++    /** Presentation-only occurrence identity for an externally owned queue; never part of media/cache identity. */
++    externalQueueEntryKey?: string;
+   id: MediaId;
+   name: string;
+   artists: Artist[];
+diff --git a/src/types/externalPlayback.ts b/src/types/externalPlayback.ts
+index 437e837..6f543d5 100644
+--- a/src/types/externalPlayback.ts
++++ b/src/types/externalPlayback.ts
+@@ -5,7 +5,8 @@ export type ExternalPlaybackIntent =
+     | { type: 'play'; song: SongResult }
+     | { type: 'enqueue'; songs: readonly SongResult[] }
+     | { type: 'next' | 'previous' | 'ended' | 'playback-error' }
+-    | { type: 'seek'; seconds: number; resume: boolean };
++    | { type: 'seek'; seconds: number; resume: boolean }
++    | { type: 'queue-action'; entryId: string | null; actionId: string };
+ 
+ export type PlaybackStartResult = {
+     status: 'source-committed' | 'cancelled' | 'superseded' | 'unavailable' | 'failed';
+@@ -20,3 +21,29 @@ export interface PlaybackRequest {
+     /** Register an uncommitted resource; remove the callback when ownership passes to the player. */
+     onCancel(cleanup: () => void): () => void;
+ }
++
++/** Generic view data owned by the session; no service-specific room or user fields. */
++export interface ExternalQueueAction {
++    id: string;
++    label: Record<string, string | undefined>;
++    icon: 'refresh-cw' | 'trash-2' | 'arrow-up-to-line' | 'thumbs-up';
++    disabled?: boolean;
++    count?: number;
++}
++export interface ExternalQueueItem {
++    id: string;
++    song: SongResult;
++    actions: readonly ExternalQueueAction[];
++    defaultAction?: string;
++}
++export interface ExternalQueueView {
++    owner: symbol;
++    items: ReadonlyMap<string, ExternalQueueItem>;
++    queue: SongResult[];
++    currentSong: SongResult | null;
++    actions: readonly ExternalQueueAction[];
++    syncActionId?: string;
++    canNext: boolean;
++    totalCount: number;
++    loading: boolean;
++}
+diff --git a/src/utils/appPlaybackGuards.ts b/src/utils/appPlaybackGuards.ts
+index e70c0c1..4b244c2 100644
+--- a/src/utils/appPlaybackGuards.ts
++++ b/src/utils/appPlaybackGuards.ts
+@@ -117,3 +117,6 @@ export const replacePlaybackSongInQueue = (
+ export const hasMixedPlaybackSources = (queue: SongResult[]): boolean => (
+     new Set(queue.map(getPlaybackSongSource)).size > 1
+ );
++
++/** Queue occurrence identity is independent from the underlying provider/media identity. */
++export const getQueueSongKey = (song: SongResult): string => song.externalQueueEntryKey ?? getPlaybackSongKey(song);
+diff --git a/src/utils/keyboardTargets.ts b/src/utils/keyboardTargets.ts
+index a95269b..fd54670 100644
+--- a/src/utils/keyboardTargets.ts
++++ b/src/utils/keyboardTargets.ts
+@@ -10,16 +10,18 @@
+ /**
+  * 事件目标是不是正在接收文本输入。是的话，所有裸字母快捷键都必须让路。
+  */
+-export const isTextEntryTarget = (target: EventTarget | null) => {
++export const isTextEntryTarget = (target: EventTarget | null): boolean => {
+     if (!(target instanceof HTMLElement)) {
+         return false;
+     }
+ 
++    // Composed keyboard events are retargeted to a mod's shadow host.
++    if (target.shadowRoot?.activeElement) return isTextEntryTarget(target.shadowRoot.activeElement);
+     const tagName = target.tagName.toLowerCase();
+     return tagName === 'input'
+         || tagName === 'textarea'
+         || tagName === 'select'
+-        || target.isContentEditable;
++        || target.isContentEditable === true;
+ };
+ 
+ /**
+diff --git a/test/unit/command-palette/__snapshots__/commandRegistryContract.test.ts.snap b/test/unit/command-palette/__snapshots__/commandRegistryContract.test.ts.snap
+index 7c0df6c..cace124 100644
+--- a/test/unit/command-palette/__snapshots__/commandRegistryContract.test.ts.snap
++++ b/test/unit/command-palette/__snapshots__/commandRegistryContract.test.ts.snap
+@@ -45,6 +45,7 @@ exports[`command palette registry contract > keeps the registered command order
+   "playback-add-to-playlist",
+   "playback-mute",
+   "playback-shuffle",
++  "playback-sync-queue",
+   "playback-clear-queue",
+   "playback-auto-match-best-lyric",
+   "settings-help",
+diff --git a/test/unit/mod-system/foliumEvents.test.ts b/test/unit/mod-system/foliumEvents.test.ts
+index c1d30ed..35cdf34 100644
+--- a/test/unit/mod-system/foliumEvents.test.ts
++++ b/test/unit/mod-system/foliumEvents.test.ts
+@@ -112,7 +112,8 @@ const fakeActions = () => ({
+     play: vi.fn(), pause: vi.fn(), toggle: vi.fn(), seek: vi.fn(), seekToLyricTime: vi.fn(), next: vi.fn(), previous: vi.fn(),
+     playSongRef: vi.fn(async () => true), enqueueSongRef: vi.fn(() => true),
+     shuffleQueue: vi.fn(() => true), toggleLike: vi.fn(() => false),
+-    toast: vi.fn(), openPlayerPanel: vi.fn(), navigate: vi.fn(), openVolume: vi.fn(),
++    toast: vi.fn(), openPlayerPanel: vi.fn(),
++    openHomeTab: vi.fn(), navigate: vi.fn(), openVolume: vi.fn(),
+ });
+ 
+ describe('folium services', () => {
+diff --git a/test/unit/mod-system/foliumHostActions.test.ts b/test/unit/mod-system/foliumHostActions.test.ts
+index 8ad5512..e1010ad 100644
+--- a/test/unit/mod-system/foliumHostActions.test.ts
++++ b/test/unit/mod-system/foliumHostActions.test.ts
+@@ -1,3 +1,7 @@
++import { homeTabsRegistry } from '@/mods/folium/registries/homeTabs';
++import { createFoliumUiService } from '@/mods/folium/services';
++import { useSearchNavigationStore } from '@/stores/useSearchNavigationStore';
++import { isTextEntryTarget } from '@/utils/keyboardTargets';
+ // @vitest-environment jsdom
+ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+ 
+@@ -76,6 +80,33 @@ afterEach(() => {
+ });
+ 
+ describe('folium host actions', () => {
++    it('opens namespaced home tabs and clears selection on built-in navigation or unload', () => {
++        const actions = appActions();
++        render(actions);
++        const handle = homeTabsRegistry.register(mod.id, { id: 'messages', label: { en: 'Messages' }, mount: () => {} });
++        const ui = createFoliumUiService(mod, 'main');
++        ui.openHomeTab('messages');
++        expect(actions.navigateToHome).toHaveBeenCalled();
++        expect(useSearchNavigationStore.getState().homeModTab).toBe('mod-a:messages');
++        useSearchNavigationStore.getState().setHomeViewTab(useSearchNavigationStore.getState().homeViewTab);
++        expect(useSearchNavigationStore.getState().homeModTab).toBeNull();
++        ui.openHomeTab('messages');
++        handle.unregister();
++        expect(useSearchNavigationStore.getState().homeModTab).toBeNull();
++        expect(() => ui.openHomeTab('messages')).toThrow('home-tab-unavailable');
++    });
++    it('recognizes typing inside nested mod shadow roots', () => {
++        const host = document.createElement('div'), inner = document.createElement('div');
++        document.body.append(host);
++        host.attachShadow({ mode: 'open' }).append(inner);
++        const input = document.createElement('textarea');
++        inner.attachShadow({ mode: 'open' }).append(input);
++        input.focus();
++        expect(isTextEntryTarget(host)).toBe(true);
++        input.blur();
++        expect(isTextEntryTarget(host)).toBe(false);
++    });
++
+     it('shuffles only a queue the player bar could shuffle', () => {
+         const actions = appActions();
+         render(actions);
+diff --git a/test/unit/mod-system/foliumPlaybackSessions.test.ts b/test/unit/mod-system/foliumPlaybackSessions.test.ts
+index 72d1a6f..4608fe8 100644
+--- a/test/unit/mod-system/foliumPlaybackSessions.test.ts
++++ b/test/unit/mod-system/foliumPlaybackSessions.test.ts
+@@ -1,3 +1,6 @@
++import { activateExternalQueueSong, invokeExternalQueueAction, useExternalQueueStore } from '@/services/externalPlaybackQueue';
++import { getPlaybackSongKey, getQueueSongKey } from '@/utils/appPlaybackGuards';
++import { buildLatticeTiles } from '@/components/app/lattice/latticeModel';
+ // @vitest-environment jsdom
+ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+ vi.hoisted(() => {
+@@ -88,6 +91,64 @@ afterEach(async () => {
+ });
+ 
+ describe('experimental playback.sessions', () => {
++    it('projects repeated recordings as distinct occurrences and routes current validated actions', () => {
++        const intent = vi.fn(), service = createFoliumPlaybackSessions(mod());
++        const originalQueue = [song()];
++        usePlaybackStore.setState({ playQueue: originalQueue });
++        const lease = service.acquire(options(intent));
++        const track = { id: 'song', source: 'qq', title: 'Same recording', artist: 'Artist' };
++        const remove = { id: 'remove', label: { en: 'Remove' }, icon: 'trash-2' as const };
++        const input = { entries: [{ id: 'a', track, actions: [] }, { id: 'b', track, actions: [remove] }],
++            currentId: 'a', canNext: true };
++        lease.setQueue(input);
++        const view = useExternalQueueStore.getState().view!;
++        expect(view.queue).toHaveLength(2);
++        expect(usePlaybackStore.getState().playQueue).toEqual([]);
++        expect(getPlaybackSongKey(view.queue[0])).toBe(getPlaybackSongKey(view.queue[1]));
++        expect(getQueueSongKey(view.queue[0])).not.toBe(getQueueSongKey(view.queue[1]));
++        expect(buildLatticeTiles({ queue: view.queue, currentSong: view.currentSong }).map(tile => tile.section)).toEqual(['now', 'upcoming']);
++        expect(activateExternalQueueSong(view.queue[1])).toBe(true);
++        expect(intent).not.toHaveBeenCalled();
++        expect(invokeExternalQueueAction(getQueueSongKey(view.queue[1]), 'remove')).toBe(true);
++        expect(intent).toHaveBeenLastCalledWith({ type: 'queue-action', entryId: 'b', actionId: 'remove' });
++        lease.setQueue({ ...input, entries: [input.entries[0], { ...input.entries[1], actions: [{ ...remove, disabled: true }] }] });
++        expect(invokeExternalQueueAction(getQueueSongKey(view.queue[1]), 'remove')).toBe(false);
++        lease.release();
++        expect(useExternalQueueStore.getState().view).toBeNull();
++        expect(usePlaybackStore.getState().playQueue).toEqual(originalQueue);
++        const next = service.acquire(options(intent));
++        next.setQueue(input);
++        expect(invokeExternalQueueAction(getQueueSongKey(view.queue[1]), 'remove')).toBe(false);
++        expect(activateExternalQueueSong(view.queue[1])).toBe(true);
++        expect(() => lease.setQueue(input)).toThrow('playback-session-released');
++    });
++    it('keeps song/queue identity stable as vote counts change and forwards every click', () => {
++        const intent = vi.fn(), lease = createFoliumPlaybackSessions(mod()).acquire(options(intent));
++        const vote = (count: number) => ({ entries: [{ id: 'now', track: { id: '1', source: 'qq', title: 'Song', artist: 'A' },
++            actions: [{ id: 'vote', icon: 'thumbs-up' as const, label: { en: 'Vote' }, count }] }], currentId: 'now', canNext: true });
++        lease.setQueue(vote(1));
++        const before = useExternalQueueStore.getState().view!;
++        lease.setQueue(vote(99));
++        const after = useExternalQueueStore.getState().view!;
++        expect(after.queue).toBe(before.queue);
++        expect(after.currentSong).toBe(before.currentSong);
++        for (let i = 0; i < 10; i++) invokeExternalQueueAction(getQueueSongKey(after.queue[0]), 'vote');
++        expect(intent).toHaveBeenCalledTimes(10);
++        expect(() => lease.setQueue({ ...vote(1), entries: [vote(1).entries[0], vote(1).entries[0]] })).toThrow('invalid-queue-entry');
++        expect(useExternalQueueStore.getState().view).toBe(after);
++    });
++    it('stops an in-flight source without releasing queue ownership', async () => {
++        host.play.mockImplementationOnce(() => new Promise(() => {}));
++        const lease = createFoliumPlaybackSessions(mod()).acquire(options());
++        const pending = lease.play(toFoliumSong(song())!);
++        lease.stop();
++        expect(await pending).toEqual({ status: 'cancelled' });
++        expect(hasExternalPlayback()).toBe(true);
++        expect(usePlaybackStore.getState().currentSong).toBeNull();
++        lease.release();
++        expect(() => lease.stop()).toThrow('playback-session-released');
++    });
++
+     it('reports source failure to the mod and returns failed without releasing its queue ownership', async () => {
+         clearFoliumIssues('session-test');
+         host.play.mockRejectedValueOnce(new Error('source load failed'));

@@ -36,7 +36,7 @@ const resources = [
   'README.md',
   'LICENSE',
   'NOTICES.md',
-  'host-patch/folia-0.7.9.patch',
+  'host-patch/folia-0.7.10.patch',
   'scripts/apply-host-patch.mjs',
 ]
 for (const name of resources) {

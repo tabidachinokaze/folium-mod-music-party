@@ -1,3 +1,4 @@
+import { mountPrivateHome } from './private-home'
 import type { Folium } from './host'
 import { PartyController } from './controller'
 import { mountPanel } from './panel'
@@ -11,6 +12,16 @@ export default function activate(folium: Folium) {
     folium.ui.openPlayerPanel('room')
   }
   const handles = [
+    ...(folium.registries.homeTabs
+      ? [
+          folium.registries.homeTabs.register({
+            id: 'private',
+            label: { 'zh-CN': '私信', en: 'Messages' },
+            order: 200,
+            mount: (container: HTMLElement) => mountPrivateHome(container, controller),
+          }),
+        ]
+      : []),
     folium.registries.playerPanelTabs.register({
       id: 'room',
       label: { 'zh-CN': '一起听', en: 'Music Party' },

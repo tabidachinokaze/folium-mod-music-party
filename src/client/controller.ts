@@ -1,3 +1,4 @@
+import { nativeQueue } from './native-queue'
 import {
   heartbeatInterval,
   parseRoomPlayback,
@@ -40,6 +41,7 @@ export class PartyController {
   private queueAgain = false
   private transition: RoomTransition | null = null
   private interval = 5000
+  private likeTail: Promise<void> = Promise.resolve()
   constructor(
     readonly folium: Folium,
     connection?: AccountConnection,
@@ -62,8 +64,17 @@ export class PartyController {
     }
     this.connection = connection || new AccountConnection(folium)
     this.player = bridge
-      ? new RoomPlayer(folium, bridge, now, (message) => this.patch({ error: message }))
+      ? new RoomPlayer(
+          folium,
+          bridge,
+          now,
+          (message) => this.patch({ error: message }),
+          () => this.publishQueue(),
+        )
       : null
+  }
+  private publishQueue() {
+    if (this.state.room) this.player?.setQueue(nativeQueue(this.state, this.player.metadata))
   }
   subscribe(fn: () => void) {
     this.listeners.add(fn)
@@ -74,6 +85,14 @@ export class PartyController {
   patch(value: Partial<PartyState>) {
     if (this.disposed) return
     this.state = { ...this.state, ...value }
+    if (
+      value.room !== undefined ||
+      value.queue !== undefined ||
+      value.busy !== undefined ||
+      value.queueLoading !== undefined ||
+      value.account !== undefined
+    )
+      this.publishQueue()
     this.listeners.forEach((fn) => fn())
   }
   async run(action: () => Promise<unknown>) {
@@ -102,7 +121,7 @@ export class PartyController {
   }
   private begin() {
     if (!this.player)
-      throw new Error('此 Folia 尚未提供 Music Party 播放适配接口 v1，请按插件说明安装适配版 Folia')
+      throw new Error('此 Folia 尚未提供 Music Party 播放适配接口 v2，请按插件说明安装适配版 Folia')
     if (!this.state.account) throw new Error('请先连接网易云账号')
     if (this.state.room) throw new Error('请先退出当前房间')
     this.player.start((intent) => this.intent(intent))
@@ -349,6 +368,57 @@ export class PartyController {
     await this.refresh()
     await this.refreshQueue()
   }
+  async syncQueue() {
+    await this.refresh()
+    await this.refreshQueue()
+  }
+  // Each click captures the occurrence; a pending vote can never migrate to another song/room.
+  likeCurrent() {
+    const epoch = this.epoch,
+      roomId = this.state.room?.roomId,
+      song = this.state.room?.playback?.song
+    if (!roomId || !song || this.disposed) return Promise.resolve()
+    this.likeTail = this.likeTail.then(async () => {
+      if (
+        this.disposed ||
+        epoch !== this.epoch ||
+        this.state.room?.roomId !== roomId ||
+        this.state.room.playback?.song?.songBizId !== song.songBizId
+      )
+        return
+      try {
+        await this.connection.call('multiLike', {
+          roomId,
+          songId: song.songId,
+          bizId: song.songBizId,
+        })
+        if (epoch !== this.epoch) return
+        this.patch({ notice: '已为房间歌曲点赞', error: '' })
+        await this.refresh()
+      } catch (error: any) {
+        if (epoch !== this.epoch) return
+        if ([301, 302, 488].includes(error.code)) this.connectionError(error)
+        else this.patch({ error: error.message || '点赞失败，请重试' })
+      }
+    })
+    return this.likeTail
+  }
+  private queueAction(entryId: string | null, actionId: string) {
+    if (!entryId && actionId === 'sync') {
+      void this.run(() => this.syncQueue())
+      return
+    }
+    const current = this.state.room?.playback?.song
+    if (entryId === current?.songBizId) {
+      if (actionId === 'like') void this.likeCurrent()
+      return
+    }
+    const entry = this.state.queue.find((entry) => entry.songBizId === entryId)
+    if (!entry) return
+    if (actionId === 'promote') void this.run(() => this.operate('multiUp', entry))
+    if (actionId === 'remove' && entry.songRcmdUid === this.state.account?.uid)
+      void this.run(() => this.operate('multiRemove', entry))
+  }
   shareLink() {
     return invitation({
       roomId: this.requireRoom().roomId,
@@ -363,6 +433,10 @@ export class PartyController {
   }
   private intent(event: Intent) {
     if (!this.state.room) return
+    if (event.type === 'queue-action') {
+      this.queueAction(event.entryId, event.actionId)
+      return
+    }
     if (event.type === 'ended') {
       this.player?.ended()
       this.transition?.ended()

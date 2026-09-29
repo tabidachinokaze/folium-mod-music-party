@@ -1,7 +1,6 @@
 import styles from './panel.css'
 import type { PartyController, PartyState } from './controller'
 import { button, el, messageNode, picture } from './dom'
-import { mountPrivate } from './private-view'
 import { createStickerPicker } from './sticker-view'
 
 // src/client/panel.ts
@@ -29,19 +28,17 @@ export function mountPanel(container: HTMLElement, controller: PartyController) 
   const notice = el('div', 'mp-notice')
   notice.setAttribute('role', 'status')
   const health = el('div', 'mp-health')
-  const sections = ['房间', '待播', '聊天', '私信'].map((name) => {
+  const sections = ['房间', '聊天'].map((name) => {
     const node = el('section', 'mp-view')
     node.setAttribute('aria-label', name)
     return node
   })
-  const [roomView, queueView, chatView, privateView] = sections
-  let tab = 0,
-    disposed = false
+  const [roomView, chatView] = sections
+  let tab = 0
   const tabs = sections.map((section, i) => {
-    const pick = button(['房间', '待播', '聊天', '私信'][i], () => {
+    const pick = button(['房间', '聊天'][i], () => {
       tab = i
       renderTabs()
-      if (i === 3) privateUi.show()
     })
     pick.setAttribute('role', 'tab')
     nav.append(pick)
@@ -68,7 +65,7 @@ export function mountPanel(container: HTMLElement, controller: PartyController) 
   const prerequisite = el(
     'div',
     'mp-error',
-    '此 Folia 尚未提供 playback.sessions 接口。请升级到 Folia 0.7.10，详见插件安装说明。',
+    '此 Folia 尚未提供 playback.sessions 接口。请升级到支持 playback.sessions v2 的 Folia，详见插件安装说明。',
   )
   const enter = el('div', 'mp-section')
   const restore = button(
@@ -104,12 +101,8 @@ export function mountPanel(container: HTMLElement, controller: PartyController) 
       () => void controller.run(() => controller.operate('multiNext')),
       'primary mp-command',
     ),
-    button(
-      '为这首歌点赞',
-      () => void controller.run(() => controller.operate('multiLike')),
-      'mp-command',
-    ),
-    button('重新同步', () => void controller.run(() => controller.refresh()), 'mp-command'),
+    button('播放队列', () => controller.folium.ui.openQueue()),
+    button('重新同步', () => void controller.run(() => controller.syncQueue()), 'mp-command'),
   )
   const members = el('div', 'mp-members'),
     memberLabel = el('h3'),
@@ -125,69 +118,11 @@ export function mountPanel(container: HTMLElement, controller: PartyController) 
         }),
       'mp-command',
     ),
-    button('私信邀请', () => {
-      tab = 3
-      renderTabs()
-      privateUi.show()
-    }),
+    button('私信邀请', () => controller.folium.ui.openHomeTab('private')),
     button('退出房间', () => void controller.run(() => controller.leave()), 'danger mp-command'),
   )
   active.append(now, actions, memberLabel, members, share, roomLabel)
   roomView.append(hero, prerequisite, account, connect, enter, active)
-
-  const queueTitle = el('h3'),
-    queue = el('div'),
-    searchResults = el('div')
-  const searchForm = el('form', 'mp-row'),
-    searchInput = el('input', 'grow')
-  searchInput.placeholder = '搜索网易云歌曲，推荐给大家'
-  searchInput.setAttribute('aria-label', '搜索推荐歌曲')
-  const search = el('button', 'mp-button mp-command', '搜索')
-  search.type = 'submit'
-  searchForm.append(searchInput, search)
-  searchForm.addEventListener('submit', (event) => {
-    event.preventDefault()
-    void controller.run(async () => {
-      controller.requireRoom()
-      if (!searchInput.value.trim()) return
-      const result = await controller.folium.internals.omni.searchProviderSongs(
-        'netease',
-        searchInput.value.trim(),
-        { limit: 15, offset: 0 },
-      )
-      if (disposed) return
-      searchResults.replaceChildren()
-      result.items.forEach((song: any) => {
-        const row = el('div', 'mp-track'),
-          info = el('div', 'mp-track-info')
-        info.append(
-          el('div', 'mp-track-name', song.name),
-          el('div', 'mp-muted', (song.artists || []).map((artist: any) => artist.name).join(' / ')),
-        )
-        row.append(
-          info,
-          button(
-            '推荐',
-            () => void controller.run(() => controller.recommend(String(song.id))),
-            'mp-command',
-          ),
-        )
-        searchResults.append(row)
-      })
-      if (!result.items.length) searchResults.append(el('p', 'mp-empty', '没有找到相关歌曲'))
-    })
-  })
-  queueView.append(
-    searchForm,
-    searchResults,
-    queueTitle,
-    button(
-      '刷新完整队列',
-      () => void controller.run(() => controller.refreshQueue()),
-      'mp-command',
-    ),
-    queue,
-  )
 
   const history = el('div', 'mp-history'),
     older = button('加载更早的聊天', () => void controller.run(() => controller.refreshChat(true)))
@@ -218,13 +153,11 @@ export function mountPanel(container: HTMLElement, controller: PartyController) 
     history,
     composer,
   )
-  const privateUi = mountPrivate(privateView, controller)
   page.append(header, nav, error, notice, ...sections, health)
   let previous: PartyState | null = null
   function render() {
     const state = controller.state,
       room = state.room
-    if (previous?.account?.uid !== state.account?.uid) privateUi.reset()
     badge.textContent = room
       ? `${room.onlineCount ?? room.members.length} 人一起听`
       : '官方多人房间'
@@ -242,10 +175,8 @@ export function mountPanel(container: HTMLElement, controller: PartyController) 
     enter.hidden = !!room || !state.account || !state.ready
     active.hidden = !room
     hero.hidden = !!room
-    tabs[1].disabled = tabs[2].disabled = !room
-    tabs[3].disabled = !state.account
-    if ((tab === 1 || tab === 2) && !room) tab = 0
-    if (tab === 3 && !state.account) tab = 0
+    tabs[1].disabled = !room
+    if (tab === 1 && !room) tab = 0
     renderTabs()
     if (room) {
       const playing = controller.folium.playback.getState().song
@@ -265,50 +196,6 @@ export function mountPanel(container: HTMLElement, controller: PartyController) 
             node.append(picture(member.avatar, ''), document.createTextNode(member.nickname))
             return node
           }),
-        )
-    }
-    queueTitle.textContent = `待播列表 · ${room?.playback?.waitSongCount ?? state.queue.length} 首${state.queueLoading ? ' · 正在读取完整列表…' : ''}`
-    if (
-      previous?.queue !== state.queue ||
-      previous?.room?.playback?.song?.songBizId !== room?.playback?.song?.songBizId
-    ) {
-      queue.replaceChildren(
-        ...state.queue
-          .filter((row) => row.songBizId !== room?.playback?.song?.songBizId)
-          .map((entry) => {
-            const row = el('div', 'mp-track'),
-              info = el('div', 'mp-track-info'),
-              commands = el('div', 'mp-actions')
-            info.append(
-              el('div', 'mp-track-name', entry.track.name),
-              el('div', 'mp-muted', `${entry.track.artist} · ${entry.recommender || '听友'} 推荐`),
-            )
-            commands.append(
-              button(
-                '置顶',
-                () => void controller.run(() => controller.operate('multiUp', entry)),
-                'mp-command',
-              ),
-            )
-            if (entry.songRcmdUid === state.account?.uid)
-              commands.append(
-                button(
-                  '删除',
-                  () => void controller.run(() => controller.operate('multiRemove', entry)),
-                  'mp-command',
-                ),
-              )
-            row.append(picture(entry.track.cover, ''), info, commands)
-            return row
-          }),
-      )
-      if (!queue.childElementCount)
-        queue.append(
-          el(
-            'p',
-            'mp-empty',
-            state.queueLoading ? '正在读取待播列表…' : '还没有待播歌曲，推荐一首吧。',
-          ),
         )
     }
     older.hidden = !state.chatMore
@@ -331,11 +218,9 @@ export function mountPanel(container: HTMLElement, controller: PartyController) 
     stopSong = controller.folium.events.on('playback.songChanged', render)
   render()
   return () => {
-    disposed = true
     stop()
     stopSong()
     sticker.dispose()
-    privateUi.dispose()
     host.remove()
   }
 }
