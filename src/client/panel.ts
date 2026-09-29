@@ -68,7 +68,7 @@ export function mountPanel(container: HTMLElement, controller: PartyController) 
   const prerequisite = el(
     'div',
     'mp-error',
-    '此 Folia 尚未提供 playback.sessions 接口。请使用接口重构分支的 Folia，详见插件安装说明。',
+    '此 Folia 尚未提供 playback.sessions 接口。请升级到 Folia 0.7.10，详见插件安装说明。',
   )
   const enter = el('div', 'mp-section')
   const restore = button(

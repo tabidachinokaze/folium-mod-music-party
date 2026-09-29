@@ -1,7 +1,12 @@
-开发分支：需要 `playback.sessions` 新接口，尚未发布；请使用对应 Folia PR 分支。
+# Music Party Folium 0.2.0
 
-网易云官方多人一起听 Folium 插件。需要带有 `externalPlayback v1` 的 [Folia fork](https://github.com/tabidachinokaze/folia-major)，当前兼容 Folia 0.7.9。
+**请与 [Folia 0.7.10](https://github.com/tabidachinokaze/folia-major/releases/tag/v0.7.10) 配套升级。** 已发布的 Folia 0.7.9 缺少新接口，需先升级宿主，再安装并重新启用插件 ZIP。
 
-支持房间创建、加入、恢复、同步播放、推歌、完整待播列表、成员、聊天、私信邀请和官方自定义表情发送。将插件 ZIP 拖入 Folia 模组面板并启用，然后连接 Folia 中已登录的网易云账号。
+- 接入新的播放会话接口，模组停用和异常时由宿主清理播放控制。
+- 统一单曲播放与批量推荐，明确区分手动下一首、自然结束、进度操作及播放错误。
+- 取消、替代、不可用或失败的加载有明确结果，避免把取消当成音源加载成功。
+- 保持官方多人房间、成员、完整队列、聊天、私信邀请和自定义表情功能。
 
-首次使用请阅读 [安装说明](https://github.com/tabidachinokaze/folium-mod-music-party#安装)。媒体上传与云信 IM 实时推送尚未移植；自动化验证使用本地模拟服务，真实账号跨端行为仍需验收。
+退出房间恢复个人队列并保持停止；私人 FM、Stage、视频录制及混音过渡期间需先结束相关模式。媒体上传与云信实时推送尚未移植。
+
+将 `folium-mod-music-party-0.2.0.zip` 拖入 Folia 模组面板，并按提示重新启用。自动化验证使用模拟服务，真实账号与手机 App 的跨端表现仍需验收。

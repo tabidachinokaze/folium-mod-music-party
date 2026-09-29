@@ -6,36 +6,43 @@ Music Party for Folia · [插件仓库](https://github.com/tabidachinokaze/foliu
 
 ## 兼容性：请先看这里
 
-此开发分支适配 `folium.experimental['playback.sessions']`，需搭配 [Folia 的 PR 分支](https://github.com/tabidachinokaze/folia-major/tree/pr/folium-external-playback)。已发布的 Folia 0.7.9 与插件 0.1.0 使用旧的 internals 适配接口；本分支尚未发布，不能直接安装到旧宿主。
+**正式配套：Folia 0.7.10 + 本插件 0.2.0。** 播放接管使用 `folium.experimental['playback.sessions']`，请同时升级宿主和插件。
 
-manifest 现在显式声明 `experimental: ["playback.sessions"]` 和 `playback.control`。宿主拒绝未知实验能力，因此旧宿主需继续使用已发布的插件 ZIP。
+| 宿主                             | 插件  | 状态                      |
+| -------------------------------- | ----- | ------------------------- |
+| 已发布的 Folia 0.7.10            | 0.2.0 | 推荐配套                  |
+| 已发布的 Folia 0.7.9             | 0.1.0 | 旧接口配套                |
+| 已发布的 Folia 0.7.9             | 0.2.0 | 不兼容，缺少新 capability |
+| 手动应用新接口补丁的开发版 0.7.9 | 0.2.0 | 开发兼容                  |
+
+manifest 声明 `experimental: ["playback.sessions"]` 与 `playback.control`，宿主范围限于已验证的 0.7.9–0.7.10；版本号落在范围内仍必须提供该 capability。插件更新使用相同 ID，安装新版 ZIP 后需要重新启用。
 
 ## 安装
 
-1. 从 Folia 的接口重构分支运行宿主（已发布安装包尚未包含此接口）：
+1. 安装 [Folia 0.7.10](https://github.com/tabidachinokaze/folia-major/releases/tag/v0.7.10)，或从主分支源码运行：
 
    ```bash
-   git clone -b pr/folium-external-playback git@github.com:tabidachinokaze/folia-major.git
+   git clone git@github.com:tabidachinokaze/folia-major.git
    cd folia-major
    npm ci
    npm run dev:electron
    ```
 
-2. 从本插件适配分支构建开发包：
+2. 下载 [插件 0.2.0 ZIP](https://github.com/tabidachinokaze/folium-mod-music-party/releases/tag/v0.2.0)，或从主分支独立构建：
 
    ```bash
-   git clone -b refactor/playback-sessions git@github.com:tabidachinokaze/folium-mod-music-party.git
+   git clone git@github.com:tabidachinokaze/folium-mod-music-party.git
    cd folium-mod-music-party
    npm ci
    npm run build
    ```
 
-3. 在 Folia 的「设置 → 实验室」开启模组系统，将 `dist/folium-mod-music-party-0.1.0.zip` 拖入模组面板，启用 **Music Party**。在 Folia 登录网易云后，通过播放栏的双人图标，或命令面板的「打开网易云多人一起听」打开插件。
+3. 在 Folia 的「设置 → 实验室」开启模组系统，将 `dist/folium-mod-music-party-0.2.0.zip` 拖入模组面板，启用 **Music Party**。在 Folia 登录网易云后，通过播放栏的双人图标，或命令面板的「打开网易云多人一起听」打开插件。
 4. 点击「连接网易云账号」，然后选择「恢复当前房间」、粘贴官方多人邀请链接，或先播放一首网易云歌曲再创建房间。
 
 运行时直接使用 Folia 自带的本地网易云 API，不需要 Docker，也不需要另开 Music Party 客户端。插件不会另存 Cookie；账号切换后需要重新连接。构建所需的协议代码已随仓库提供，不依赖旁边的 Music Party 源码目录。
 
-如果选择手动适配上游原版 0.7.9，可对基线 `481805873a0b04ca6277dd21c0968ab1e1c4ab02` 执行 `node scripts/apply-host-patch.mjs /path/to/folia-major`，然后重新构建桌面版。**宿主 PR 分支已包含重构，不要重复应用**；脚本不能直接修改已安装应用的 ASAR。
+如果选择手动适配上游原版 0.7.9，可对基线 `481805873a0b04ca6277dd21c0968ab1e1c4ab02` 执行 `node scripts/apply-host-patch.mjs /path/to/folia-major`，然后重新构建桌面版。**Folia 0.7.10 已包含新接口，不要重复应用**；脚本不能直接修改已安装应用的 ASAR。
 
 ## 已实现
 
