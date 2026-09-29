@@ -97,6 +97,15 @@ export class AccountConnection {
       })
     return reply.data
   }
+  async attachment(name: 'media' | 'removeStickers', payload: unknown) {
+    // Recheck the current Folia account and service port before every upload/mutation.
+    await this.call('account')
+    const epoch = this.epoch
+    const reply = await this.folium.rpc.call(name, payload)
+    if (epoch !== this.epoch || this.readCookie() !== this.cookie) throw new Error('账号已变化')
+    if (name === 'media' && !reply?.ok) throw new Error(reply?.error || '图片发送失败')
+    return reply
+  }
   close() {
     this.epoch++
     this.cookie = ''

@@ -1,3 +1,4 @@
+import { MediaSender } from '@party/main/media-send'
 import { ApiService } from '@party/main/service'
 import { createHttpInvoker } from '@party/main/transport'
 import { multiEndpoints, multiPayload, type MultiMethod } from '@party/main/multi-api'
@@ -26,7 +27,12 @@ const needsToken = new Set([
   'multiLike',
 ])
 export function createBackend(fetcher: typeof fetch = fetch) {
-  let current: { key: string; service: ApiService } | null = null
+  let current: {
+    key: string
+    service: ApiService
+    media: MediaSender
+    invoke: (endpoint: string, args: Record<string, unknown>) => Promise<{ body: any }>
+  } | null = null
   let epoch = 0
   return {
     connect(cookie: string, port: number) {
@@ -66,7 +72,17 @@ export function createBackend(fetcher: typeof fetch = fetch) {
       }
       const service = new ApiService(invoke)
       service.restore(cookie)
-      current = { key, service }
+      const media = new MediaSender(
+        invoke,
+        () => ({ cookie: mine === epoch ? cookie : '', epoch }),
+        fetcher,
+      )
+      current = {
+        key,
+        service,
+        media,
+        invoke: (endpoint, args) => invoke(endpoint, { ...args, cookie }),
+      }
     },
     async call(request: Request): Promise<Reply> {
       if (!current) return { ok: false, error: '请先连接 Folia 的网易云账号' }
@@ -78,6 +94,41 @@ export function createBackend(fetcher: typeof fetch = fetch) {
           ? { error: reply.error.replace('Docker 服务和 API 地址', 'Folia 网易云服务') }
           : {}),
       }
+    },
+    async media(value: any) {
+      if (!current) return { ok: false, error: '请先连接网易云账号' }
+      const encoded = value?.file?.base64
+      if (
+        typeof encoded !== 'string' ||
+        encoded.length > 28 * 1024 * 1024 ||
+        encoded.length % 4 !== 0 ||
+        !/^[A-Za-z0-9+/]*={0,2}$/.test(encoded)
+      )
+        return { ok: false, error: '图片数据无效或超过 20 MB' }
+      if (value?.file?.kind !== 'image' || !['private', 'sticker'].includes(value?.target?.kind))
+        return { ok: false, error: '不支持的图片用途' }
+      return current.media.send(
+        { ...value, file: { ...value.file, data: new Uint8Array(Buffer.from(encoded, 'base64')) } },
+        () => {},
+      )
+    },
+    async removeStickers(ids: unknown) {
+      if (!current) throw new Error('请先连接网易云账号')
+      if (
+        !Array.isArray(ids) ||
+        !ids.length ||
+        ids.length > 100 ||
+        ids.some((id) => typeof id !== 'string' || !/^[1-9]\d{0,23}$/.test(id))
+      )
+        throw new Error('表情 ID 无效')
+      const { body } = await current.invoke('api', {
+        uri: '/api/social/emoji/cancel',
+        crypto: 'eapi',
+        // Numeric JSON tokens preserve the official long IDs without JS Number rounding.
+        data: { emojiIds: `[${[...new Set(ids)].join(',')}]` },
+      })
+      if (body?.code !== 200 || body?.data?.result !== true)
+        throw new Error(body?.data?.toast || body?.message || '表情删除未确认，请刷新后重试')
     },
     close() {
       epoch++

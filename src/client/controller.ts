@@ -101,10 +101,7 @@ export class PartyController {
     try {
       await action()
     } catch (error: any) {
-      if (error.code === 302 || error.code === 301) {
-        this.detach()
-        this.patch({ account: null })
-      }
+      this.handleAccountError(error)
       this.patch({
         error: error.deliveryUnknown
           ? '发送结果未确认，请刷新消息后再决定是否重试。'
@@ -112,6 +109,12 @@ export class PartyController {
       })
     } finally {
       this.patch({ busy: false })
+    }
+  }
+  handleAccountError(error: { code?: number }) {
+    if (error.code === 302 || error.code === 301) {
+      this.detach()
+      this.patch({ account: null })
     }
   }
   async connect() {

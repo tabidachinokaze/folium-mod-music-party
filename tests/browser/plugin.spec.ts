@@ -73,3 +73,115 @@ test('missing host bridge is visible and does not join rooms', async ({ page, re
   await expect(page.getByRole('button', { name: '恢复当前房间', exact: true })).not.toBeVisible()
   expect((await (await request.get('/test/state')).json()).calls).toEqual([])
 })
+
+test('private viewport, scroll pagination, compact media and sticker management', async ({
+  page,
+  request,
+}) => {
+  await page.setViewportSize({ width: 1100, height: 780 })
+  await restore(page)
+  await request.get('/test/private-pages')
+  await page.getByRole('button', { name: '私信', exact: true }).click()
+  await page.getByRole('button', { name: '小岛 · 1 未读', exact: true }).click()
+  const home = page.locator('.mp-private-home')
+  const contacts = home.locator('.mp-contacts'),
+    history = home.locator('.mp-history')
+  await expect(home.locator('.mp-contact')).toHaveCount(20)
+  await expect(history.locator('.mp-message')).toHaveCount(25)
+  await expect(history.locator('.mp-message').last().locator('.mp-bubble')).toHaveCount(0)
+  await expect(history.locator('.mp-message').last().getByRole('img')).toBeVisible()
+  await expect(home.getByRole('button', { name: '更多会话' })).toHaveCount(0)
+  await expect(home.getByRole('button', { name: '更早的消息' })).toHaveCount(0)
+  expect(await home.evaluate((node) => node.scrollHeight <= node.clientHeight + 1)).toBe(true)
+  expect(
+    await home
+      .locator('.mp-private-conversation')
+      .evaluate((node) => node.scrollHeight <= node.clientHeight + 1),
+  ).toBe(true)
+  expect(
+    await history
+      .locator('.mp-bubble')
+      .first()
+      .evaluate((node) => node.getBoundingClientRect().width),
+  ).toBeLessThan(400)
+  await contacts.evaluate((node) => {
+    node.scrollTop = node.scrollHeight
+  })
+  await expect(home.locator('.mp-contact')).toHaveCount(40)
+  await history.evaluate((node) => {
+    node.scrollTop = 0
+  })
+  await expect(history.locator('.mp-message')).toHaveCount(50)
+  expect(await history.evaluate((node) => node.scrollTop)).toBeGreaterThan(500)
+  await home.locator('summary').filter({ hasText: 'Emoji' }).click()
+  await home.getByRole('button', { name: '😊', exact: true }).click()
+  await expect(home.getByRole('textbox', { name: '私信内容' })).toHaveValue('😊')
+  await home.locator('summary').filter({ hasText: '表情包' }).click()
+  await home.getByRole('button', { name: '开心', exact: true }).waitFor()
+  await home.getByRole('button', { name: '整理', exact: true }).click()
+  await home.getByRole('button', { name: '开心', exact: true }).click()
+  await expect(home.getByRole('button', { name: '开心', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+  await home.getByRole('button', { name: '删除 (1)', exact: true }).click()
+  await expect(home.getByRole('button', { name: '开心', exact: true })).toHaveCount(0)
+  expect((await (await request.get('/test/state')).json()).calls).toContain('stickerDelete')
+  await page.screenshot({ path: 'test-results/private-desktop.png' })
+  await home.getByRole('heading', { name: '私信', exact: true }).click()
+  await expect(home.getByRole('button', { name: '上传表情包' })).not.toBeVisible()
+})
+
+test('private tools upload targets, isolated feedback and narrow theme layout', async ({
+  page,
+}) => {
+  await restore(page)
+  await page.getByRole('button', { name: '私信', exact: true }).click()
+  await page.getByRole('button', { name: '小岛 · 1 未读', exact: true }).click()
+  const home = page.locator('.mp-private-home')
+  await expect(home.locator('.mp-notice')).toHaveCount(0)
+  const uploads: any[] = []
+  await page.route('**/rpc', async (route) => {
+    const request = route.request().postDataJSON()
+    if (request.name !== 'media') return route.continue()
+    uploads.push(request.args[0])
+    return route.fulfill({ json: { ok: true, result: { ok: true } } })
+  })
+  const file = {
+    name: 'test.gif',
+    mimeType: 'image/gif',
+    buffer: Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64'),
+  }
+  await home.locator('summary').filter({ hasText: '图片' }).click()
+  await home.locator('.mp-image-picker input').setInputFiles(file)
+  await expect.poll(() => uploads.length).toBe(1)
+  expect(uploads[0].target).toEqual({ kind: 'private', uid: '10' })
+  await home.locator('summary').filter({ hasText: '表情包' }).click()
+  await home.getByRole('button', { name: '开心', exact: true }).waitFor()
+  await home.locator('.mp-sticker-content:has(.mp-picker-header) input').setInputFiles(file)
+  await expect.poll(() => uploads.length).toBe(2)
+  expect(uploads[1].target).toEqual({ kind: 'sticker' })
+  await home.getByRole('button', { name: '整理', exact: true }).click()
+  await home.getByRole('button', { name: '开心', exact: true }).click()
+  await home.getByRole('button', { name: '取消', exact: true }).click()
+  await expect(home.getByRole('button', { name: '删除 (0)', exact: true })).not.toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(home.getByRole('button', { name: '上传表情包' })).not.toBeVisible()
+  await page.setViewportSize({ width: 640, height: 640 })
+  await page.locator('#private-home').evaluate((node) => {
+    node.style.setProperty('--folium-bg', '#fafaf7')
+    node.style.setProperty('--folium-primary', '#222222')
+    node.style.color = '#222222'
+    node.style.background = '#fafaf7'
+  })
+  await home.locator('summary').filter({ hasText: '颜文字' }).click()
+  const bounds = await home.locator('.mp-text-picker:visible').boundingBox()
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(640)
+  expect(bounds!.y).toBeGreaterThanOrEqual(0)
+  expect(
+    await home.evaluate(
+      (node) => node.scrollWidth <= node.clientWidth && node.scrollHeight <= node.clientHeight,
+    ),
+  ).toBe(true)
+  await page.screenshot({ path: 'test-results/private-light-narrow.png' })
+})

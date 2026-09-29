@@ -278,6 +278,16 @@ test('actual Folium registration and host audio: restore, native next, local pau
   await page.getByRole('textbox', { name: '私信内容' }).pressSequentially(':n')
   await page.getByRole('textbox', { name: '私信内容' }).press('Control+ArrowRight')
   expect((await (await request.get('/test/state')).json()).current).toBe('4')
+  expect(
+    await page
+      .locator('[data-home-mod-tab]')
+      .evaluate((node) => node.scrollHeight <= node.clientHeight + 1),
+  ).toBe(true)
+  expect(
+    await page
+      .locator('.mp-private-home')
+      .evaluate((node) => node.scrollHeight <= node.clientHeight + 1),
+  ).toBe(true)
   await page.screenshot({ path: 'test-results/folia-private-home.png', fullPage: true })
   await page.getByTestId('home-lattice-pill').click()
   await expect(page.locator('.lattice-root')).toBeVisible()
