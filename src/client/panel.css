@@ -756,3 +756,61 @@ input::placeholder {
   background: var(--folium-bg, #24272b);
   z-index: 1;
 }
+
+.mp-room-details {
+  margin: 20px 0;
+}
+.mp-room-field {
+  display: flex;
+  align-items: baseline;
+  gap: 20px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--line);
+}
+.mp-room-field dt {
+  flex: none;
+  width: 65px;
+}
+.mp-room-field dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.mp-member-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 4px 0 15px;
+  border-bottom: 1px solid var(--line);
+}
+.mp-member-header h3 {
+  margin: 0;
+  flex: 1;
+  font-size: 18px;
+}
+.mp-member-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mp-member-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  text-align: left;
+  border-radius: 0;
+}
+.mp-member-row .mp-muted {
+  flex: none;
+}
+.mp-member-group {
+  margin: 22px 0 8px;
+}

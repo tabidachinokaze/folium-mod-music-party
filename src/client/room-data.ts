@@ -8,17 +8,18 @@ export async function loadQueue(
   call: Call,
   roomId: string,
   current: () => boolean,
+  method: 'multiQueue' | 'multiPlayed' = 'multiQueue',
 ): Promise<RoomQueueEntry[]> {
   const rows = new Map<string, RoomQueueEntry>()
   const seen = new Set<string>()
   let cursor = ''
   do {
-    const page = parseRoomQueue(await call('multiQueue', { roomId, ...(cursor ? { cursor } : {}) }))
+    const page = parseRoomQueue(await call(method, { roomId, ...(cursor ? { cursor } : {}) }))
     if (!current()) return []
     page.entries.forEach((row) => rows.set(row.songBizId, row))
     if (!page.more) return [...rows.values()]
     if (!page.cursor || seen.has(page.cursor) || seen.size >= 1000)
-      throw new Error('待播列表分页异常，请刷新')
+      throw new Error('歌曲列表分页异常，请刷新')
     seen.add(page.cursor)
     cursor = page.cursor
   } while (current())

@@ -283,6 +283,27 @@ const server = createServer(async (req, res) => {
           },
         })
       }
+      if (uri.endsWith('/played/song/list')) {
+        calls.push('playedSongs')
+        const start = Number(JSON.parse(data.page).cursor || 0)
+        const rows = Array.from({ length: 5 }, (_, i) => ({
+          songInfo: {
+            resourceId: '2',
+            bizId: String(700 + i),
+            title: `已播歌曲 ${i + 1}`,
+            artistName: ['歌手'],
+            zanCnt: i + 3,
+          },
+          rcmdUid: i % 2 ? '10' : '9',
+        }))
+        return json({
+          code: 200,
+          data: {
+            songLists: rows.slice(start, start + 2),
+            page: { more: start + 2 < rows.length, cursor: String(start + 2) },
+          },
+        })
+      }
       if (uri.endsWith('/song/operate')) {
         calls.push(`operate:${data.operate}`)
         operations.push(data)

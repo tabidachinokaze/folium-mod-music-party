@@ -6,7 +6,7 @@ Music Party for Folia · [插件仓库](https://github.com/tabidachinokaze/foliu
 
 ## 兼容性：请先看这里
 
-**正式配套：Folia 0.7.12 + 插件 0.3.1。** 请先升级宿主，再安装并重新启用插件。新版使用播放会话接口 v2。
+**正式配套：Folia 0.7.12 + 插件 0.3.2。** 请先升级宿主，再安装并重新启用插件。新版使用播放会话接口 v2。
 
 | 宿主                                      | 插件  | 状态                   |
 | ----------------------------------------- | ----- | ---------------------- |
@@ -30,7 +30,7 @@ manifest 声明 `experimental: ["playback.sessions"]` 与 `playback.control`，�
    npm run dev:electron
    ```
 
-2. 下载 [插件 0.3.1 ZIP](https://github.com/tabidachinokaze/folium-mod-music-party/releases/tag/v0.3.1)。也可从主分支构建：
+2. 下载 [插件 0.3.2 ZIP](https://github.com/tabidachinokaze/folium-mod-music-party/releases/tag/v0.3.2)。也可从主分支构建：
 
    ```bash
    git clone git@github.com:tabidachinokaze/folium-mod-music-party.git
@@ -39,7 +39,7 @@ manifest 声明 `experimental: ["playback.sessions"]` 与 `playback.control`，�
    npm run build
    ```
 
-3. 在 Folia 的「设置 → 实验室」开启模组系统，将 `folium-mod-music-party-0.3.1.zip` 拖入模组面板并启用。在 Folia 登录网易云后，点击播放栏的一起听图标或执行「打开网易云多人一起听」。
+3. 在 Folia 的「设置 → 实验室」开启模组系统，将 `folium-mod-music-party-0.3.2.zip` 拖入模组面板并启用。在 Folia 登录网易云后，点击播放栏的一起听图标或执行「打开网易云多人一起听」。
 4. 连接账号，再恢复房间、粘贴官方邀请链接，或播放网易云歌曲后创建房间。私信可以直接从首页顶部胶囊进入，无需先加入房间。
 
 Folia 0.7.11 已包含宿主接口，无需打补丁。若从本 fork 的 0.7.10 源码（基线 `76e1dfe`）适配，可执行 `node scripts/apply-host-patch.mjs /path/to/folia-major`，再重新构建桌面版。补丁不能修改已安装应用的 ASAR，也不适用于上游原版 0.7.9。
@@ -53,6 +53,10 @@ Folia 0.7.11 已包含宿主接口，无需打补丁。若从本 fork 的 0.7.10
 输入区提供 Emoji、颜文字、表情包和图片浮层。支持私信图片上传，以及网易云自定义表情上传、整理、多选删除；删除以官方 `data.result` 确认为准。表情收藏不会发送给好友。测试仅使用模拟接口，没有发送真实私信。
 
 完整的无外层滚动布局需同时升级 Folia 0.7.12；此版本已包含首页容器高度修复。
+
+## 0.3.2：房间与成员
+
+房间 tab 只显示房间概况、邀请和退出操作。成员 tab 显示在线成员的头像、昵称与推荐数，点击后查看该成员的已播、待播记录及当前歌曲；已播显示点赞数，待播可置顶，本人推荐可删除。统计来自完整分页的已播记录与待播队列，按房间歌曲条目 ID 去重，不将系统推荐归到成员名下。在线成员资料以状态接口实际返回为准；推荐数统计当前接口仍保留的记录，不包含已删除的推荐。接口失败时显示错误，不用零冒充未知数量。
 
 ## 已实现
 

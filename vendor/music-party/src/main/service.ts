@@ -76,6 +76,7 @@ const fields: Partial<Record<Method, string[]>> = {
   multiChatSend: ['roomId', 'text', 'emoji', 'requestId'],
   multiHeartbeat: ['roomId'],
   multiQueue: ['roomId', 'cursor'],
+  multiPlayed: ['roomId', 'cursor'],
   multiSongInfo: ['roomId', 'bizId'],
   multiRemove: ['roomId', 'songId', 'bizId'],
   multiUp: ['roomId', 'songId', 'bizId'],

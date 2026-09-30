@@ -73,6 +73,9 @@ export function parseSnapshot(value: any, sampledAt: number): RoomSnapshot {
       : null
   return {
     roomId: value.roomId,
+    creatorId: info?.creatorId == null ? undefined : String(info.creatorId),
+    createdAt: finite(info?.roomCreateTime) || undefined,
+    tags: Array.isArray(value.roomTagList) ? value.roomTagList.filter((tag: unknown) => typeof tag === "string") : [],
     playback: parseRoomPlayback(value.roomPlaySongInfo, sampledAt),
     members: [...members.values()],
     membersKnown: Array.isArray(rawMembers),
