@@ -23,6 +23,7 @@ export type Method =
   | 'multiStatus'
   | 'multiHeartbeat'
   | 'multiQueue'
+  | 'multiPlayed'
   | 'multiSongInfo'
   | 'multiRemove'
   | 'multiUp'
@@ -143,6 +144,9 @@ export interface Member {
   avatar: string
 }
 export interface RoomSnapshot {
+  creatorId?: string
+  createdAt?: number
+  tags?: string[]
   roomId: string
   playback: RoomPlayback | null
   members: Member[]

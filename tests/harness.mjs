@@ -156,6 +156,8 @@ privateButton.onclick = () => folium.ui.openHomeTab('private')
 const dispose = activate(folium)
 mounted = panel.mount(document.querySelector('#panel'))
 window.partyTest = {
+  openQueue: () => folium.ui.openQueue(),
+  next: () => intent({ type: 'next' }),
   state,
   queue: () => queue,
   intent: (event) => intent(event),
