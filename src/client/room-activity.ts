@@ -1,11 +1,21 @@
 import type { ChatMessage } from '@party/shared/types'
 
 // src/client/room-activity.ts
+/** This official like template names only the song; quoted title text is kept intact. */
+export function likeActivitySongRange(action: string): { start: number; end: number } | null {
+  const match = /^浅赞一下《([^《》\r\n]+)》[。！!]?$/u.exec(action)
+  const title = match?.[1].trim()
+  if (!match || !title) return null
+  const start = '浅赞一下《'.length + match[1].indexOf(title)
+  return { start, end: start + title.length }
+}
+
 export function hasActivityActor(text: string, nickname: string) {
   if (!text.startsWith(nickname)) return false
   const rest = text.slice(nickname.length)
   return (
     !rest ||
+    !!likeActivitySongRange(rest) ||
     /^(?:[\s·:：，,]|来了|推荐了|离开了|加入了|退出了|为(?:歌曲|这首歌)|点赞了|(?:UP|up)了|置顶了)/u.test(
       rest,
     )

@@ -326,6 +326,14 @@ const folium = {
     },
     async icon(name, options = {}) {
       const paths = {
+        smile: [
+          'M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0',
+          'M8 14s1.5 2 4 2 4-2 4-2',
+          'M9 9h.01',
+          'M15 9h.01',
+        ],
+        sticker: ['M20 13V4H4v16h9Z', 'M13 20v-7h7'],
+        image: ['M3 3h18v18H3Z', 'M3 16l5-5 4 4 4-4 5 5', 'M10 8a2 2 0 1 0-4 0 2 2 0 0 0 4 0'],
         'refresh-cw': [
           'M3 12a9 9 0 0 1 15.36-6.36L21 8',
           'M21 3v5h-5',
@@ -430,6 +438,10 @@ window.partyTest = {
   searchCalls,
   pause: () => folium.playback.pause(),
   play: () => folium.playback.play(),
+  setCurrentSong(song) {
+    state.song = song
+    emit('playback.songChanged', { song })
+  },
   queue: () => queue,
   intent: (event) => intent(event),
   dispose() {

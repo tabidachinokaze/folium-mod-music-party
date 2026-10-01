@@ -19,6 +19,8 @@ it.each([
   ['世萌沾坏', '世萌沾坏推荐了歌曲：《到时说爱我 - 茜拉》', 'recommend', '到时说爱我'],
   ['[晚风].*', '[晚风].*来了，带来歌曲 글쎄 - SEVENTEEN', 'join', '글쎄'],
   ['tabidachinokaze', 'tabidachinokazeUP了《黄金数》', 'promote', '黄金数'],
+  ['tabidachinokaze', 'tabidachinokaze浅赞一下《アプリコット》', 'like', 'アプリコット'],
+  ['浅赞一下', '浅赞一下浅赞一下《Love - Yourself》', 'like', 'Love - Yourself'],
   ['小岛', '小岛置顶了歌曲《黄金数》', 'promote', '黄金数'],
 ])('distinguishes actor, action and complete song: %s / %s', (name, text, type, song) => {
   for (const titles of [[song], []]) {
@@ -34,6 +36,7 @@ it.each([
   ['小岛', '为歌曲点赞', 'like', 'thumbs-up'],
   ['小岛', '小岛为歌曲《我们俩》点赞', 'like', 'thumbs-up'],
   ['小岛', '小岛点赞了歌曲《我们俩》', 'like', 'thumbs-up'],
+  ['小岛', '浅赞一下《我们俩》', 'like', 'thumbs-up'],
   ['小岛', '小岛离开了房间', 'leave', 'log-out'],
   ['小岛', '小岛退出了', 'leave', 'log-out'],
   ['小岛', '小岛加入了房间', 'join', 'user-plus'],
@@ -50,10 +53,26 @@ it('does not classify lyrics, titles or words about another actor as an event', 
     ['小岛', '歌曲《来了，推荐了歌曲》'],
     ['小岛', '推荐了歌曲的那个朋友说再见'],
     ['小岛', '来了又走，留下了一首歌'],
+    ['tabi', 'tabidachinokaze浅赞一下《アプリコット》'],
+    ['小岛', '今天想浅赞一下《アプリコット》'],
+    ['小岛', '浅赞一下《アプリコット》的歌词很好'],
+    ['小岛', '浅赞一下这首歌'],
+    ['小岛', '浅赞一下《》'],
     ['小岛', ''],
   ]) {
     expect(activity(name, text, '来了')).toMatchObject({ type: 'notice', icon: 'info' })
   }
+})
+
+it('extracts the complete quoted song only from the official like template', () => {
+  const result = activity('[晚风].*', '[晚风].*浅赞一下《 Love - Yourself 》！')
+  expect(result.type).toBe('like')
+  expect(result.icon).toBe('thumbs-up')
+  expect(songs(result)).toEqual(['Love - Yourself'])
+  expect(result.parts[0]).toEqual({ kind: 'actor', text: '[晚风].*' })
+  expect(activity('小岛', '小岛推荐了歌曲《浅赞一下 - 歌手》').type).toBe('recommend')
+  for (const text of ['小岛说“浅赞一下《アプリコット》”', '小岛浅赞一下《アプリコット》的歌词'])
+    expect(songs(activity('小岛', text))).toEqual([])
 })
 
 it('marks short names and titles only within complete boundaries', () => {

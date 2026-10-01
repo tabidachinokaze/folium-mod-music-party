@@ -167,16 +167,24 @@ export function mountMembers(container: HTMLElement, controller: PartyController
               await controller.operate(method, entry)
               await refresh(true)
             })
-          const up = iconButton(controller.folium.ui, t('置顶'), 'top', () => operate('multiUp'))
+          const up = iconButton(
+            controller.folium.ui,
+            t('置顶'),
+            'top',
+            () => operate('multiUp'),
+            'mp-promote-button',
+          )
           up.disabled = controller.state.busy
           up.classList.toggle('mp-promoted', entry.uped)
           up.setAttribute('aria-pressed', String(entry.uped))
           if (entry.uped) up.title = t('已置顶')
           if (upCount !== undefined) {
-            const count = el('span', 'mp-muted mp-top-count', String(upCount))
-            count.title = t('已被置顶 {count} 次', { count: upCount })
-            count.setAttribute('aria-label', count.title)
-            actions.append(count)
+            const count = el('span', 'mp-top-count', String(upCount))
+            const description = t('已被置顶 {count} 次', { count: upCount })
+            count.setAttribute('aria-hidden', 'true')
+            up.setAttribute('aria-description', description)
+            up.title += ` · ${description}`
+            up.append(count)
           }
           actions.append(up)
           if (entry.songRcmdUid === controller.state.account?.uid) {

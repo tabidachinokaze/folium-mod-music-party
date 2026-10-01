@@ -49,7 +49,7 @@ test('safe message rendering, failed draft retention, sticker dismiss and privat
   await draft.fill('<img src=x onerror=alert(1)>')
   await page.getByRole('button', { name: '发送', exact: true }).click()
   await expect(page.getByText('<img src=x onerror=alert(1)>', { exact: true })).toBeVisible()
-  await page.locator('summary:visible').filter({ hasText: '表情' }).click()
+  await page.locator('summary[aria-label="表情包"]:visible').click()
   await expect(page.getByRole('button', { name: '开心', exact: true })).toBeVisible()
   await page.getByRole('tab', { name: '房间', exact: true }).click()
   await page.getByRole('tab', { name: '聊天', exact: true }).click()
@@ -487,28 +487,19 @@ test('sidebar pickers open to the left, dismiss on navigation and stay inside na
   await expect(match).toBeHidden()
   const chat = page.locator('.mp-chat-view')
   for (const name of ['Emoji', '颜文字', '表情包', '图片']) {
-    await chat
-      .locator('summary')
-      .filter({ hasText: new RegExp(`^${name}$`) })
-      .click()
+    await chat.locator(`summary[aria-label="${name}"]`).click()
     const popup = chat.getByRole('dialog', { name, exact: true })
     await expectLeft(popup)
     await page.screenshot({ path: `test-results/side-popup-${name}.png`, animations: 'disabled' })
     await page.keyboard.press('Escape')
     await expect(popup).toBeHidden()
   }
-  await chat
-    .locator('summary')
-    .filter({ hasText: /^Emoji$/ })
-    .click()
+  await chat.locator('summary[aria-label="Emoji"]').click()
   await page.getByRole('tab', { name: '成员', exact: true }).click()
   await expect(chat.getByRole('dialog', { name: 'Emoji', exact: true })).toBeHidden()
   await page.getByRole('tab', { name: '聊天', exact: true }).click()
   await page.setViewportSize({ width: 360, height: 720 })
-  await chat
-    .locator('summary')
-    .filter({ hasText: /^Emoji$/ })
-    .click()
+  await chat.locator('summary[aria-label="Emoji"]').click()
   const popup = chat.getByRole('dialog', { name: 'Emoji', exact: true })
   const bounds = (await popup.boundingBox())!
   expect(bounds.x).toBeGreaterThanOrEqual(0)
@@ -554,7 +545,9 @@ test('room mentions select members, retain drafts and highlight only the full cu
   await expect(list).toBeVisible()
   await draft.press('Escape')
   await expect(list).toBeHidden()
-  await page.getByRole('button', { name: '提及成员', exact: true }).click()
+  await expect(page.getByRole('button', { name: '提及成员', exact: true })).toHaveCount(0)
+  await draft.fill('')
+  await draft.fill('@')
   await expect(list).toBeVisible()
   await page.getByRole('tab', { name: '房间', exact: true }).click()
   await page.getByRole('tab', { name: '聊天', exact: true }).click()
@@ -573,6 +566,11 @@ test('room chat wraps long content with avatars and does not duplicate UP actors
   await expect(history.locator('[data-activity="promote"] .mp-activity-body')).toHaveText(
     'tabidachinokazeUP了《黄金数》',
   )
+  const gentleLike = history.locator('[data-activity="like"]').filter({ hasText: 'アプリコット' })
+  await expect(gentleLike.locator('.mp-activity-body')).toHaveText(
+    'tabidachinokaze浅赞一下《アプリコット》',
+  )
+  await expect(gentleLike.locator('.mp-activity-actor')).toHaveText('tabidachinokaze')
   await expect(history.locator('.mp-message-primary .mp-message-avatar')).toHaveCount(3)
   await expect(history.locator('.mp-message-primary .mp-message-avatar img')).toHaveCount(3)
   await expect(history.locator('.mp-message-secondary .mp-message-avatar')).toHaveCount(0)
@@ -613,10 +611,10 @@ test('room composer shares emoji tools and sends images to the captured room', a
   const chat = page.locator('.mp-chat-view'),
     draft = page.getByRole('textbox', { name: '房间聊天内容' })
   await draft.fill('好听 ')
-  await chat.locator('summary').filter({ hasText: 'Emoji' }).click()
+  await chat.locator('summary[aria-label="Emoji"]').click()
   await chat.getByRole('button', { name: '😊', exact: true }).click()
   await expect(draft).toHaveValue('好听 😊')
-  await chat.locator('summary').filter({ hasText: '颜文字' }).click()
+  await chat.locator('summary[aria-label="颜文字"]').click()
   await chat.getByRole('button', { name: '(≧▽≦)', exact: true }).click()
   await expect(draft).toHaveValue('好听 😊(≧▽≦)')
   const uploads: any[] = []
@@ -627,7 +625,7 @@ test('room composer shares emoji tools and sends images to the captured room', a
     await request.post('/test/room-image')
     return route.fulfill({ json: { ok: true, result: { ok: true } } })
   })
-  await chat.locator('summary').filter({ hasText: '图片' }).click()
+  await chat.locator('summary[aria-label="图片"]').click()
   await chat.locator('.mp-image-picker input').setInputFiles({
     name: 'test.gif',
     mimeType: 'image/gif',
@@ -641,7 +639,7 @@ test('room composer shares emoji tools and sends images to the captured room', a
   await expect(chat.locator('.mp-history .mp-message.is-mine .mp-bubble')).toHaveCount(0)
   await expect(draft).toHaveValue('好听 😊(≧▽≦)')
   await expect(chat.getByRole('button', { name: /加载更早|加载更多/ })).toHaveCount(0)
-  await chat.locator('summary').filter({ hasText: '表情包' }).click()
+  await chat.locator('summary[aria-label="表情包"]').click()
   await chat.getByRole('button', { name: '开心', exact: true }).click()
   await expect(chat.locator('.mp-history .mp-message.is-mine .mp-message-content img')).toHaveCount(
     2,
@@ -657,7 +655,7 @@ test('room sticker list loads the next page on scroll without a load-more button
   await restore(page)
   await page.getByRole('tab', { name: '聊天', exact: true }).click()
   const chat = page.locator('.mp-chat-view')
-  await chat.locator('summary').filter({ hasText: '表情包' }).click()
+  await chat.locator('summary[aria-label="表情包"]').click()
   const content = chat.locator('.mp-sticker-content:has(.mp-picker-header)')
   await expect(content.locator('[data-sticker-key]')).toHaveCount(24)
   await expect(content.getByRole('button', { name: /加载更多/ })).toHaveCount(0)
@@ -727,7 +725,10 @@ test('promotion counts distinguish zero from missing data and update in queue an
   ).toHaveCount(0)
   const countBox = (await members.locator('[data-biz-id="200"] .mp-top-count').boundingBox())!
   const buttonBox = (await up.boundingBox())!
-  expect(countBox.x + countBox.width).toBeLessThanOrEqual(buttonBox.x)
+  const iconBox = (await up.locator('svg').boundingBox())!
+  expect(countBox.x).toBeGreaterThanOrEqual(iconBox.x + iconBox.width)
+  expect(countBox.x + countBox.width).toBeLessThanOrEqual(buttonBox.x + buttonBox.width)
+  await expect(up.locator('.mp-top-count')).toHaveText('3')
   await expect(members.locator('[data-biz-id="202"] .mp-top-count')).toHaveCount(0)
   await expect(members.locator('[data-biz-id="700"] .mp-actions')).toHaveText('3 赞')
   await members.getByRole('button', { name: '返回', exact: true }).click()
@@ -801,14 +802,15 @@ test('English follows the host locale across room, member, chat and private surf
     ['Stickers', '开心'],
     ['Image', 'Choose an image'],
   ]) {
-    await page.locator('summary:visible').filter({ hasText: label }).click()
+    await page.locator(`summary[aria-label="${label}"]:visible`).click()
     if (label === 'Image') await expect(page.getByText(expected, { exact: true })).toBeVisible()
     else if (label === 'Stickers')
       await expect(page.getByRole('button', { name: expected, exact: true })).toBeVisible()
     else await expect(page.locator('.mp-text-picker:visible button').first()).toBeVisible()
     await page.keyboard.press('Escape')
   }
-  await page.getByRole('button', { name: 'Mention a member', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Mention a member', exact: true })).toHaveCount(0)
+  await page.getByRole('textbox', { name: 'Room message' }).fill('@')
   await expect(page.getByRole('option').filter({ hasText: '小岛' })).toBeVisible()
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: 'Direct messages', exact: true }).click()
@@ -850,4 +852,116 @@ test('matching progress follows language changes without restarting the match', 
   expect((await (await request.get('/test/state')).json()).matchSongs).toHaveLength(1)
   await page.getByRole('button', { name: '取消匹配', exact: true }).click()
   await expect(page.getByRole('button', { name: '匹配房间', exact: true })).toBeVisible()
+})
+
+test('private song and album shares keep captions, covers and credits in a single music card', async ({
+  page,
+  request,
+}) => {
+  await request.post('/test/private-music')
+  await restore(page)
+  await page.getByRole('button', { name: '私信', exact: true }).click()
+  await page.getByRole('button', { name: '小岛 · 1 未读', exact: true }).click()
+  const history = page.getByLabel('聊天消息')
+  await expect(history.locator('.mp-message')).toHaveCount(3)
+  await expect(history.locator('.mp-private-music-message')).toHaveCount(3)
+  await expect(history.locator('.mp-bubble, .mp-resource')).toHaveCount(0)
+  const announcement = history.locator('[data-message-id="server:600"]')
+  await expect(announcement.locator('.mp-private-music-caption')).toHaveText(
+    '我的最新专辑《Kids》发布了，快来抢先听！',
+  )
+  await expect(announcement.locator('.mp-private-music-kind')).toHaveText('专辑')
+  await expect(announcement.locator('.mp-private-music-title')).toHaveText('Kids')
+  await expect(announcement.locator('.mp-private-music-artist')).toHaveText('majiko')
+  await expect(announcement.locator('.mp-private-music-cover img')).toBeVisible()
+  await expect(history.locator('[data-message-id="server:601"] .mp-private-music-kind')).toHaveText(
+    '单曲',
+  )
+  await expect(
+    history.locator('[data-message-id="server:601"] .mp-private-music-artist'),
+  ).toHaveText('いよわ')
+  await expect(
+    history.locator('[data-message-id="server:602"] .mp-message-content > img'),
+  ).toHaveCount(0)
+  await page.screenshot({ path: 'test-results/private-music-cards.png', animations: 'disabled' })
+  for (const locale of ['zh-CN', 'en']) {
+    await page.getByRole('combobox', { name: 'Preview language' }).selectOption(locale)
+    await page.getByRole('button', { name: '小岛', exact: true }).click()
+    await expect(page.locator('.mp-private-music-kind')).toHaveText(
+      locale === 'en' ? ['Album', 'Song', 'Album'] : ['专辑', '单曲', '专辑'],
+    )
+    await page.setViewportSize({ width: 420, height: 780 })
+    expect(
+      await page
+        .locator('.mp-private-home')
+        .evaluate((node) => node.scrollWidth <= node.clientWidth + 1),
+    ).toBe(true)
+    expect(
+      await page
+        .locator('.mp-history:visible')
+        .evaluate((node) => node.scrollWidth <= node.clientWidth + 1),
+    ).toBe(true)
+  }
+  await page.screenshot({ path: 'test-results/private-music-cards-narrow.png' })
+})
+
+test('long matching titles and English room tools fit the sidebar without clipping controls', async ({
+  page,
+  request,
+}) => {
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  await restore(page)
+  const song = {
+    id: '1',
+    source: 'netease',
+    ref: '1',
+    title: 'オヌオイ・ハマンはもういらない'.repeat(12),
+    artist: 'Tomohiko Togashi / Yana'.repeat(12),
+  }
+  await page.evaluate((song) => (window as any).partyTest.setCurrentSong(song), song)
+  for (const locale of ['zh-CN', 'en']) {
+    await page.getByRole('combobox', { name: 'Preview language' }).selectOption(locale)
+    await page.getByRole('tab', { name: locale === 'en' ? 'Room' : '房间', exact: true }).click()
+    const change = page.getByRole('button', {
+      name: locale === 'en' ? 'Change song' : '切换歌曲',
+      exact: true,
+    })
+    await change.click()
+    const picker = page.getByRole('dialog', {
+      name: locale === 'en' ? 'Choose a matching song' : '选择匹配歌曲',
+    })
+    await picker.locator('.mp-match-current').click()
+    await expect(page.locator('.mp-match-song-summary strong')).toHaveText(song.title)
+    for (const width of [320, 280]) {
+      await page.locator('#panel').evaluate((node, width) => {
+        node.style.width = `${width}px`
+      }, width)
+      const card = page.locator('.mp-lobby-card').filter({ has: change })
+      const a = (await card.boundingBox())!,
+        b = (await change.boundingBox())!
+      expect(b.x + b.width).toBeLessThanOrEqual(a.x + a.width - 8)
+      expect(await card.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true)
+      await page.screenshot({ path: `test-results/matching-${locale}-${width}.png` })
+    }
+    await page.getByRole('tab', { name: locale === 'en' ? 'Chat' : '聊天', exact: true }).click()
+    const chat = page.locator('.mp-chat-view'),
+      tools = chat.locator('.mp-room-composer-tools')
+    expect(errors).toEqual([])
+    await expect(chat.getByRole('textbox')).toBeVisible()
+    await expect(chat.getByRole('textbox')).toHaveAttribute('placeholder', /@/)
+    await expect(chat.locator('.mp-mention-trigger')).toHaveCount(0)
+    const controls = await tools.locator('summary, button[type=submit]').evaluateAll((nodes) =>
+      nodes.map((node) => {
+        const r = node.getBoundingClientRect()
+        return { x: r.x, y: r.y, width: r.width, height: r.height }
+      }),
+    )
+    expect(controls).toHaveLength(5)
+    expect(controls.every((r) => r.width > 0 && r.height > 0)).toBe(true)
+    expect(new Set(controls.map((r) => r.y)).size).toBe(1)
+    expect(await tools.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true)
+    await page.screenshot({ path: `test-results/composer-${locale}.png`, animations: 'disabled' })
+  }
+  expect((await (await request.get('/test/state')).json()).operations).toHaveLength(0)
 })

@@ -49,7 +49,6 @@ export function mountMentionComposer({ draft, composer, members, notify }: Menti
     candidates = []
     popup.hidden = true
     popup.replaceChildren()
-    trigger.setAttribute('aria-expanded', 'false')
     draft.removeAttribute('aria-controls')
     draft.removeAttribute('aria-expanded')
     draft.removeAttribute('aria-activedescendant')
@@ -123,7 +122,6 @@ export function mountMentionComposer({ draft, composer, members, notify }: Menti
     if (!candidates.length) popup.append(el('p', 'mp-mention-empty', t('没有匹配的房间成员')))
     open = true
     popup.hidden = false
-    trigger.setAttribute('aria-expanded', 'true')
     draft.setAttribute('aria-expanded', 'true')
     draft.setAttribute('aria-controls', popup.id)
     select(
@@ -133,26 +131,6 @@ export function mountMentionComposer({ draft, composer, members, notify }: Menti
       ),
     )
   }
-
-  const trigger = button(
-    '@',
-    () => {
-      if (open) return close()
-      if (composing || disposed || draft.disabled || draft.readOnly) return
-      const query = currentQuery()
-      render(query || { start: draft.selectionStart, end: draft.selectionEnd, query: '' })
-      draft.focus({ preventScroll: true })
-    },
-    'mp-mention-trigger',
-  )
-  trigger.setAttribute('aria-label', t('提及成员'))
-  trigger.setAttribute('aria-haspopup', 'listbox')
-  trigger.setAttribute('aria-controls', popup.id)
-  trigger.setAttribute('aria-expanded', 'false')
-  trigger.title = t('提及成员')
-  trigger.addEventListener('pointerdown', (event) => event.preventDefault(), {
-    signal: events.signal,
-  })
 
   const update = () => {
     if (composing || disposed) return
@@ -205,13 +183,12 @@ export function mountMentionComposer({ draft, composer, members, notify }: Menti
     'pointerdown',
     (event) => {
       const path = event.composedPath()
-      if (!path.includes(popup) && !path.includes(trigger) && !path.includes(draft)) close()
+      if (!path.includes(popup) && !path.includes(draft)) close()
     },
     { signal: events.signal },
   )
 
   return {
-    button: trigger,
     mention(member: Member) {
       insert(member, { start: draft.selectionStart, end: draft.selectionEnd })
     },
@@ -221,7 +198,6 @@ export function mountMentionComposer({ draft, composer, members, notify }: Menti
       close()
       events.abort()
       popup.remove()
-      trigger.remove()
     },
   }
 }

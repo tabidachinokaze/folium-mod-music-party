@@ -11,6 +11,7 @@ export const enRuntime: Record<string, string> = {
   提到了你: 'Mentioned you',
   房间聊天记录: 'Room chat history',
   '聊聊这首歌…': 'Talk about this song…',
+  '聊聊这首歌，输入 @ 提及成员…': 'Message… type @ to mention someone',
   房间聊天内容: 'Room message',
   发送: 'Send',
   还没有聊天消息: 'No messages yet',

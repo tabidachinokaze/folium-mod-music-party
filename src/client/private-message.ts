@@ -2,6 +2,7 @@ import type { MultiInvitation, PrivateMessage } from '@party/shared/types'
 import { button, el, messageNode, picture } from './dom'
 import { messageTime } from './message-time'
 import { t } from './i18n'
+import { decoratePrivateMusic } from './private-music'
 
 // src/client/private-message.ts
 export interface PrivateProfile {
@@ -51,6 +52,7 @@ export function privateMessageNode(
   const row = messageNode(message, mine),
     content = el('div', 'mp-message-content'),
     avatar = el('span', 'mp-avatar mp-message-avatar')
+  if (!message.invitations.length) decoratePrivateMusic(row, message)
   row.classList.add('mp-message-primary', 'mp-private-message')
   avatar.setAttribute('role', 'img')
   avatar.setAttribute('aria-label', t('{name}的头像', { name: profile.nickname }))

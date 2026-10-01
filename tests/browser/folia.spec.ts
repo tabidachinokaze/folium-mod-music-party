@@ -16,7 +16,7 @@ test('actual Folium registration and host audio: restore, native next, local pau
   await page.addInitScript(() => {
     localStorage.clear()
     localStorage.setItem('i18nextLng', 'zh-CN')
-    localStorage.setItem('folia_last_seen_ponder_onboarding_version', '0.7.14')
+    localStorage.setItem('folia_last_seen_ponder_onboarding_version', '0.7.16')
     localStorage.setItem('online_provider:netease:cookie', 'MUSIC_U=test-only')
     localStorage.setItem('static_mode', 'true')
     localStorage.setItem('player_loop_mode', 'one')
@@ -86,7 +86,7 @@ test('actual Folium registration and host audio: restore, native next, local pau
         id: 'music-party',
         name: 'Music Party',
         permissions: ['playback.control'],
-        folia: '>=0.7.13 <=0.7.14',
+        folia: '>=0.7.13 <=0.7.16',
         experimental: ['playback.sessions'],
       },
       {
@@ -122,7 +122,9 @@ test('actual Folium registration and host audio: restore, native next, local pau
   })
   await page.getByRole('button', { name: '一起听', exact: true }).click()
   await expect(
-    page.getByRole('button', { name: '一起听', exact: true }).locator('svg.lucide-users'),
+    page
+      .getByRole('button', { name: '一起听', exact: true })
+      .locator('svg[data-folium-custom-icon]'),
   ).toBeVisible()
   await page.getByRole('button', { name: '恢复当前房间', exact: true }).click()
   await expect(page.locator('.mp-panel > .mp-header .mp-pill')).toHaveText('3 人一起听')

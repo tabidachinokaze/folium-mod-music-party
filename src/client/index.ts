@@ -4,6 +4,7 @@ import { activeNeteaseSession, type Folium } from './host'
 import { PartyController } from './controller'
 import { mountPanel } from './panel'
 import { setLocale, t } from './i18n'
+import { createPartyIcon, partyIconPaths } from './party-icon'
 
 // src/client/index.ts
 function registerEntries(folium: Folium, controller: PartyController) {
@@ -27,6 +28,7 @@ function registerEntries(folium: Folium, controller: PartyController) {
       id: 'room',
       label: { 'zh-CN': '一起听', en: 'Music Party' },
       icon: 'users',
+      iconPaths: partyIconPaths,
       order: 200,
       mount: (container: HTMLElement, context: FoliumPanelContext) =>
         mountPanel(container, controller, context),
@@ -48,13 +50,7 @@ function registerEntries(folium: Folium, controller: PartyController) {
         button.setAttribute('aria-label', button.title)
         button.style.cssText =
           'display:grid;place-items:center;width:24px;height:24px;color:inherit;cursor:pointer;background:transparent;border:0'
-        let disposed = false
-        void folium.ui
-          .icon('users', { size: 18 })
-          .then((icon) => {
-            if (!disposed && icon) button.append(icon)
-          })
-          .catch(() => {})
+        button.append(createPartyIcon())
         button.onclick = open
         container.append(button)
         const render = () => {
@@ -70,7 +66,6 @@ function registerEntries(folium: Folium, controller: PartyController) {
         language.observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] })
         render()
         return () => {
-          disposed = true
           stop()
           language.disconnect()
           button.remove()

@@ -16,7 +16,7 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
   const composer = el('form', 'mp-composer'),
     draft = el('textarea')
   draft.maxLength = 100
-  draft.placeholder = t('聊聊这首歌…')
+  draft.placeholder = t('聊聊这首歌，输入 @ 提及成员…')
   draft.setAttribute('aria-label', t('房间聊天内容'))
   const mentions = mountMentionComposer({
     draft,
@@ -49,8 +49,30 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
       }
     },
   )
-  const actions = el('div', 'mp-composer-tools')
-  actions.append(mentions.button, ...tools.nodes, sticker.node, tools.image, send)
+  const actions = el('div', 'mp-composer-tools mp-room-composer-tools')
+  // Compact tools reserve one line for the native sidebar in either language.
+  // Summary labels remain available to assistive technology and as tooltips.
+  const compactTool = (box: HTMLDetailsElement, fallback: string, icon?: string) => {
+    const summary = box.querySelector('summary')!
+    const label = summary.textContent || ''
+    summary.setAttribute('aria-label', label)
+    summary.title = label
+    const visual = el('span', 'mp-composer-tool-icon', fallback)
+    visual.setAttribute('aria-hidden', 'true')
+    summary.replaceChildren(visual)
+    if (icon)
+      void controller.folium.ui
+        .icon(icon, { size: 16 })
+        .then((svg) => {
+          if (!disposed && svg) visual.replaceChildren(svg)
+        })
+        .catch(() => {})
+  }
+  compactTool(tools.nodes[0], '☺', 'smile')
+  compactTool(tools.nodes[1], '(ω)')
+  compactTool(sticker.node, '▧', 'sticker')
+  compactTool(tools.image, '▧', 'image')
+  actions.append(...tools.nodes, sticker.node, tools.image, send)
   composer.append(draft, actions)
   container.append(history, composer)
   let visible = false,
@@ -121,7 +143,7 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
   const render = () => {
     const state = controller.state
     send.disabled = state.busy || !state.room
-    mentions.button.disabled = !state.room
+    draft.disabled = !state.room
     tools.image.inert = state.busy || !state.room
     if (state.room?.roomId !== roomId) {
       roomId = state.room?.roomId || ''

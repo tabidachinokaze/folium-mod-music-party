@@ -21,6 +21,9 @@ export const enPrivate: Record<string, string> = {
   多人一起听邀请: 'Listening room invitation',
   一起听歌: 'Listen together',
   加入多人房间: 'Join room',
+  音乐分享: 'Shared music',
+  单曲: 'Song',
+  专辑: 'Album',
   '私信会话响应格式异常，请重试': 'Could not read the conversations. Please try again.',
   '私信内容响应格式异常，请重试': 'Could not read the messages. Please try again.',
 }

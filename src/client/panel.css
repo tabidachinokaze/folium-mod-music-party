@@ -257,8 +257,15 @@
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
-.mp-top-count {
-  margin-right: 2px;
+.mp-button.mp-icon-button.mp-promote-button {
+  width: auto;
+  min-width: 28px;
+  gap: 4px;
+}
+.mp-promote-button .mp-top-count {
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 .mp-track-status {
   color: var(--accent);

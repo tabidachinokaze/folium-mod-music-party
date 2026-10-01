@@ -109,6 +109,29 @@ export function richMessageContent(value: unknown): {
   const root = messageObject(value)
   const body = messageObject(root.body ?? root.msgBody)
   const data = { ...root, ...body }
+  const typed: Record<number, string> = {
+    2: 'generalMsg',
+    30: 'song',
+    31: 'song',
+    32: 'playlist',
+    33: 'program',
+    34: 'artist',
+    35: 'album',
+    36: 'mv',
+    37: 'topic',
+    38: 'user',
+    39: 'event',
+    40: 'radio',
+    41: 'comment',
+    42: 'concert',
+    43: 'concert',
+    44: 'video',
+    45: 'live',
+    46: 'promotion',
+    47: 'generalMsg',
+    48: 'mlog',
+  }
+  const isMusicResource = typed[root.msgType] === 'song' || typed[root.msgType] === 'album'
   const attachments: MessageAttachment[] = []
   const addMedia = (kind: 'image' | 'audio' | 'video', raw: any, title: string) => {
     if (!raw) return
@@ -143,7 +166,12 @@ export function richMessageContent(value: unknown): {
   if (emoji) addMedia('image', emoji, emoji.emojiName)
   const images = data.pics || data.pictures || data.images
   if (Array.isArray(images)) images.slice(0, 9).forEach((pic) => addMedia('image', pic, '图片'))
-  else addMedia('image', data.picInfo || data.picture || data.image || data.picUrl, '图片')
+  else
+    addMedia(
+      'image',
+      data.picInfo || data.picture || data.image || (!isMusicResource ? data.picUrl : null),
+      '图片',
+    )
   addMedia('audio', data.voice || data.audio || (data.voiceUrl ? data : null), '语音消息')
   const video = messageObject(data.video)
   if (
@@ -183,35 +211,28 @@ export function richMessageContent(value: unknown): {
   ]
   for (const [key, type, label] of resources) {
     let raw = data[key]
-    const typed: Record<number, string> = {
-      2: 'generalMsg',
-      30: 'song',
-      31: 'song',
-      32: 'playlist',
-      33: 'program',
-      34: 'artist',
-      35: 'album',
-      36: 'mv',
-      37: 'topic',
-      38: 'user',
-      39: 'event',
-      40: 'radio',
-      41: 'comment',
-      42: 'concert',
-      43: 'concert',
-      44: 'video',
-      45: 'live',
-      46: 'promotion',
-      47: 'generalMsg',
-      48: 'mlog',
-    }
+    // Music cards own their related album/artist metadata and cover. Other message
+    // kinds keep the existing mixed-attachment behavior of the generic renderer.
+    if (isMusicResource && typed[root.msgType] !== key) continue
     if (!raw && typed[root.msgType] === key) raw = body
     if (!raw || (key === 'video' && (video.url || video.videoUrl || video.playUrlInfo?.url)))
       continue
     const item = messageObject(raw)
     const rawId = item.id ?? item.resourceId ?? item.userId ?? item.vid ?? item.resId ?? ''
     const id = typeof rawId === 'number' && !Number.isSafeInteger(rawId) ? '' : String(rawId)
-    const artists = item.artists || item.ar || []
+    const artists = Array.isArray(item.artists)
+      ? item.artists
+      : Array.isArray(item.ar)
+        ? item.ar
+        : item.artist
+          ? [item.artist]
+          : []
+    const artist = artists
+      .slice(0, 30)
+      .map((a: any) => text(a?.name))
+      .filter(Boolean)
+      .join(' / ')
+      .slice(0, 1000)
     const subtitle =
       text(
         item.description ||
@@ -221,12 +242,7 @@ export function richMessageContent(value: unknown): {
           item.subTitle ||
           item.creator?.nickname,
       ) ||
-      (Array.isArray(artists)
-        ? artists
-            .map((a: any) => text(a.name))
-            .filter(Boolean)
-            .join(' / ')
-        : '')
+      artist
     attachments.push({
       kind: 'resource',
       resourceType: type,
@@ -235,6 +251,7 @@ export function richMessageContent(value: unknown): {
         text(item.name || item.title || item.nickname || item.mainTitle?.title || item.mainTitle) ||
         label,
       subtitle: subtitle || label,
+      ...(artist ? { artist } : {}),
       cover: mediaUrl(
         item.picUrl ||
           item.coverImgUrl ||

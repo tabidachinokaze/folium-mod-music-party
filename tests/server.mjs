@@ -57,6 +57,7 @@ let handlers = new Map(),
   promoted = null,
   privatePages = false,
   privateLayout = false,
+  privateMusic = false,
   stickerPages = false,
   deletedStickers = new Set()
 const self = { userId: 9, nickname: '晚风' },
@@ -87,6 +88,7 @@ function reset() {
   promoted = null
   privatePages = false
   privateLayout = false
+  privateMusic = false
   stickerPages = false
   deletedStickers = new Set()
 }
@@ -176,6 +178,10 @@ const server = createServer(async (req, res) => {
       privateLayout = true
       return json({ ok: true })
     }
+    if (url.pathname === '/test/private-music') {
+      privateMusic = true
+      return json({ ok: true })
+    }
     if (url.pathname === '/test/state')
       return json({
         calls,
@@ -206,6 +212,12 @@ const server = createServer(async (req, res) => {
           sendUid: '9',
           msgType: 3,
           text: 'tabidachinokazeUP了《黄金数》',
+        },
+        {
+          nickname: 'tabidachinokaze',
+          sendUid: '9',
+          msgType: 3,
+          text: 'tabidachinokaze浅赞一下《アプリコット》',
         },
         {
           nickname: '名前'.repeat(40),
@@ -379,6 +391,32 @@ const server = createServer(async (req, res) => {
     }
     if (url.pathname === '/msg/private/history') {
       calls.push(`history:${args.uid}:${args.before || 0}`)
+      if (privateMusic) {
+        const album = {
+          id: 700,
+          name: 'Kids',
+          picUrl: 'https://p1.music.126.net/fixture/kids.jpg',
+          artist: { name: 'majiko' },
+        }
+        const song = {
+          id: 701,
+          name: 'アプリコット',
+          artists: [{ name: 'いよわ' }],
+          album: { picUrl: album.picUrl },
+        }
+        const rows = [
+          { msg: JSON.stringify({ msg: '我的最新专辑《Kids》发布了，快来抢先听！', album }) },
+          { msg: JSON.stringify({ msg: '[分享歌曲] アプリコット', song }) },
+          { msgType: 35, body: album },
+        ].map((message, index) => ({
+          ...message,
+          id: 600 + index,
+          time: 1790600000000 + index * 1000,
+          fromUser: peer,
+          toUser: self,
+        }))
+        return json({ code: 200, msgs: rows, more: false })
+      }
       if (privateLayout) {
         const me = { ...self, avatarUrl: 'https://p1.music.126.net/fixture/me.jpg' }
         const rows = [

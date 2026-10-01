@@ -39,11 +39,11 @@ export function iconButton(
     .then((svg) => {
       if (svg) {
         svg.setAttribute('aria-hidden', 'true')
-        node.append(svg)
-      } else node.textContent = label
+        node.prepend(svg)
+      } else node.prepend(document.createTextNode(label))
     })
     .catch(() => {
-      node.textContent = label
+      node.prepend(document.createTextNode(label))
     })
   return node
 }

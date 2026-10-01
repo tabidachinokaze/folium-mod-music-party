@@ -241,6 +241,7 @@ export interface MessageAttachment {
   kind: 'image' | 'audio' | 'video' | 'resource' | 'file'
   title: string
   subtitle?: string
+  artist?: string
   url?: string
   cover?: string
   resourceType?: string

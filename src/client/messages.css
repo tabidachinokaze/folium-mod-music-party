@@ -105,6 +105,35 @@
   padding: 6px 8px;
   background: transparent;
 }
+.mp-room-composer-tools {
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+.mp-room-composer-tools > .mp-stickers,
+.mp-room-composer-tools > button[type='submit'] {
+  flex: none;
+}
+.mp-room-composer-tools > button[type='submit'] {
+  height: 28px;
+  padding: 4px 10px;
+}
+.mp-room-composer-tools summary {
+  width: 28px;
+  height: 28px;
+  padding: 4px;
+}
+.mp-composer-tool-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  font-size: 12px;
+  pointer-events: none;
+}
+.mp-composer-tool-icon svg {
+  width: 16px;
+  height: 16px;
+}
 .mp-message.mp-message-secondary {
   display: flex;
   align-items: flex-start;

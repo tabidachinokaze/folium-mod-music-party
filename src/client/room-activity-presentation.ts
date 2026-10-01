@@ -1,5 +1,5 @@
 import type { ChatMessage } from '@party/shared/types'
-import { hasActivityActor, roomActivityText } from './room-activity'
+import { hasActivityActor, likeActivitySongRange, roomActivityText } from './room-activity'
 
 // src/client/room-activity-presentation.ts
 export interface RoomActivityPart {
@@ -25,6 +25,7 @@ const events = {
 
 function eventType(action: string): RoomActivityPresentation['type'] {
   // Classify only the leading action, never a keyword inside a song or arbitrary sentence.
+  if (likeActivitySongRange(action)) return 'like'
   if (/^(?:来了(?:[\s，,。！!]|$)|加入了(?:房间|一起听)(?:[\s，,。！!]|$))/u.test(action))
     return 'join'
   if (/^推荐了(?:歌曲|一首歌)(?:[\s:：《「“"·]|$)/u.test(action)) return 'recommend'
@@ -58,6 +59,9 @@ function titleSpans(text: string, title: string, after: number): Span[] {
   return spans
 }
 function templateTitle(action: string, offset: number): Span | null {
+  const likedSong = likeActivitySongRange(action)
+  if (likedSong)
+    return { start: offset + likedSong.start, end: offset + likedSong.end, kind: 'song' }
   const prefix =
     /^(?:来了[，,]\s*带来歌曲|带来歌曲|推荐了歌曲[：:]?|(?:(?:UP|up)了|置顶了)(?:歌曲)?[：:]?)\s*/u.exec(
       action,

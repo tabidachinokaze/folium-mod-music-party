@@ -15,6 +15,8 @@ it.each([
   ['听友', '听友来了，带来歌曲 Booty Music - Deep Side', 'Booty Music'],
   ['[晚风].*', '[晚风].*来了，带来歌曲 글쎄 - SEVENTEEN', '글쎄'],
   ['tabidachinokaze', 'tabidachinokazeUP了《黄金数》', '黄金数'],
+  ['tabidachinokaze', 'tabidachinokaze浅赞一下《アプリコット》', 'アプリコット'],
+  ['[晚风].*', '[晚风].*浅赞一下《Love - Yourself》', 'Love - Yourself'],
   ['小岛', '小岛置顶了歌曲《黄金数》', '黄金数'],
 ])(
   'keeps the complete official activity without repeating actor or title: %s / %s',
@@ -35,6 +37,12 @@ it('keeps short titles and nickname prefixes that merely overlap ordinary words'
   expect(activity('小', '小岛推荐给我一首歌', '我', '歌')).toBe('小 · 小岛推荐给我一首歌 · 我 / 歌')
   expect(activity('小岛', '晚风为小岛推荐了歌曲', '爱')).toBe('小岛 · 晚风为小岛推荐了歌曲 · 爱')
   expect(activity('晚风', '晚风推荐了歌曲《我》', '我')).toBe('晚风推荐了歌曲《我》')
+  expect(activity('tabi', 'tabidachinokaze浅赞一下《アプリコット》', 'アプリコット')).toBe(
+    'tabi · tabidachinokaze浅赞一下《アプリコット》',
+  )
+  expect(activity('晚风', '晚风浅赞一下《Love Yourself》', 'Love', 'Yourself')).toBe(
+    '晚风浅赞一下《Love Yourself》 · Love / Yourself',
+  )
 })
 
 it('supplements distinct titles once without mutating attachment data', () => {

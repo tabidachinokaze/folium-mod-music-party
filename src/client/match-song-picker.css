@@ -1,6 +1,8 @@
 /* src/client/match-song-picker.css */
 .mp-match-song {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 0;
   align-items: center;
   gap: 8px;
   margin: 10px 0;
@@ -26,6 +28,7 @@
 }
 .mp-match-song > .mp-button {
   flex: none;
+  white-space: nowrap;
   padding: 5px 8px;
   font-size: 10px;
 }
