@@ -25,6 +25,13 @@ jobs:
       - run: npm run check
       - run: npx playwright install --with-deps chromium
       - run: npm run test:ui
+      - name: Save browser failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-failure-diagnostics
+          path: test-results/
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v7
         with:
           name: folium-mod-music-party

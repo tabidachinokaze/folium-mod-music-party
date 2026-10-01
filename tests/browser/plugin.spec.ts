@@ -13,7 +13,7 @@ test.beforeEach(async ({ page, request }) => {
 async function restore(page: import('@playwright/test').Page) {
   await page.goto('/')
   await page.getByRole('button', { name: '恢复当前房间', exact: true }).click()
-  await expect(page.getByText('3 人一起听', { exact: true })).toBeVisible()
+  await expect(page.locator('.mp-panel > .mp-header .mp-pill')).toHaveText('3 人一起听')
 }
 test('full queue, own deletion, official next and local cleanup', async ({ page, request }) => {
   const errors: string[] = []

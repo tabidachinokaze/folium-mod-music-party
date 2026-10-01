@@ -56,7 +56,7 @@ export function mountPanel(
   const prerequisite = el(
     'div',
     'mp-error',
-    '此 Folia 尚未提供 playback.sessions 接口。请升级到 Folia 0.7.12，并使用 Music Party 0.3.3，详见插件安装说明。',
+    '此 Folia 尚未提供 playback.sessions 接口。请升级到 Folia 0.7.12，并使用 Music Party 0.3.4，详见插件安装说明。',
   )
   const lobby = mountLobby(controller)
   const active = el('section', 'mp-lobby-card mp-room-card'),

@@ -1,6 +1,8 @@
-# Music Party Folium 0.3.3
+# Music Party Folium 0.3.4
 
-继续配套 [Folia 0.7.12](https://github.com/tabidachinokaze/folia-major/releases/tag/v0.7.12)。下载 `folium-mod-music-party-0.3.3.zip`，在模组面板安装并重新启用即可，无需升级宿主。
+0.3.3 的 CI 未通过，未生成发行包；本版包含这轮完整改动及浏览器测试定位修正。
+
+继续配套 [Folia 0.7.12](https://github.com/tabidachinokaze/folia-major/releases/tag/v0.7.12)。下载 `folium-mod-music-party-0.3.4.zip`，在模组面板安装并重新启用即可，无需升级宿主。
 
 - 全面统一原生侧栏风格：字号、间距、圆角、卡片、图标按钮、输入框、消息气泡、滚动条与弹窗；移除重复内边距、大品牌头图和固定薄荷绿，跟随播放器主题。
 - 登录网易云且当前使用网易云时，自动启用私信与一起听入口；未登录或切换到其他音乐来源时隐藏入口，无需手动连接。
