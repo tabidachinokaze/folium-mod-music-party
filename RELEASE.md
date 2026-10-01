@@ -1,6 +1,6 @@
 # Music Party Folium 0.3.4
 
-0.3.3 的 CI 未通过，未生成发行包；本版包含这轮完整改动及浏览器测试定位修正。
+0.3.3 的 CI 未通过，未生成发行包；本版包含这轮完整改动，并修复浏览器测试定位和构建依赖下载 404。
 
 继续配套 [Folia 0.7.12](https://github.com/tabidachinokaze/folia-major/releases/tag/v0.7.12)。下载 `folium-mod-music-party-0.3.4.zip`，在模组面板安装并重新启用即可，无需升级宿主。
 
