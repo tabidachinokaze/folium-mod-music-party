@@ -36,11 +36,7 @@ export function mountLobby(controller: PartyController) {
     () => void controller.run(() => controller.match()),
     'mp-command',
   )
-  const cancel = button(
-    '取消匹配',
-    () => void controller.run(() => controller.cancelMatch()),
-    'mp-command',
-  )
+  const cancel = button('取消匹配', () => void controller.cancelMatch())
   const progress = el('p', 'mp-muted')
   progress.setAttribute('role', 'status')
   actions.append(create, match, cancel)
@@ -84,7 +80,7 @@ export function mountLobby(controller: PartyController) {
       match.textContent = state.room ? '重新匹配' : '匹配房间'
       progress.hidden = !state.matching && !state.room
       progress.textContent = state.matching
-        ? '正在寻找房间…'
+        ? state.matchPhase || '正在寻找房间…'
         : '重新匹配会退出当前房间，寻找新的听友。'
       discover.querySelector('p')!.textContent = state.room
         ? '换一个房间，和新的朋友分享音乐。'

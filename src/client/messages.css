@@ -72,3 +72,16 @@
   padding: 6px 8px;
   background: transparent;
 }
+.mp-message.mp-message-secondary {
+  width: auto;
+  max-width: 100%;
+  margin: 6px 0;
+  padding: 2px 4px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+  text-align: center;
+}
+.mp-chat-view .mp-history {
+  overflow-anchor: none;
+}

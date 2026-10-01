@@ -29,7 +29,7 @@ test('full queue, own deletion, official next and local cleanup', async ({ page,
   await page.evaluate(() => (window as any).partyTest.next())
   await expect.poll(async () => (await (await request.get('/test/state')).json()).current).toBe('2')
   await page.getByRole('button', { name: '退出房间', exact: true }).click()
-  await expect(page.getByText('个人播放队列已恢复', { exact: false })).toBeVisible()
+  await expect(page.getByText('当前音乐继续播放', { exact: false })).toBeVisible()
   expect((await (await request.get('/test/state')).json()).calls).toContain('operate:4')
   await page.evaluate(() => (window as any).partyTest.dispose())
   expect(errors).toEqual([])
@@ -65,9 +65,7 @@ test('safe message rendering, failed draft retention, sticker dismiss and privat
 })
 test('missing host bridge is visible and does not join rooms', async ({ page, request }) => {
   await page.goto('/?unpatched')
-  await expect(
-    page.getByText('此 Folia 尚未提供 playback.sessions 接口。', { exact: false }),
-  ).toBeVisible()
+  await expect(page.getByText('请升级到 Folia 0.7.13', { exact: false })).toBeVisible()
   await expect(page.getByRole('button', { name: '恢复当前房间', exact: true })).not.toBeVisible()
   expect((await (await request.get('/test/state')).json()).calls).not.toContain('operate:4')
 })
@@ -259,4 +257,74 @@ test('lobby cards show only an existing room and separate link joining from crea
   await expect(page.getByRole('button', { name: '取消匹配', exact: true })).toBeVisible()
   await page.getByRole('button', { name: '取消匹配', exact: true }).click()
   await expect(page.getByRole('button', { name: '匹配房间', exact: true })).toBeVisible()
+})
+
+test('official matching notification enters a room while pending and leaving preserve playback', async ({
+  page,
+  request,
+}) => {
+  await request.post('/test/empty')
+  await request.post('/test/match-mode', { data: { value: 'success' } })
+  await page.goto('/')
+  await page.getByRole('button', { name: '匹配房间', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '房间信息', exact: true })).toBeVisible()
+  expect((await (await request.get('/test/state')).json()).calls).toContain(
+    '/api/listen/together/multi/match/ack',
+  )
+  await page.getByRole('button', { name: '退出房间', exact: true }).click()
+  await expect(page.locator('[data-host-toast]')).toContainText('当前音乐继续播放')
+  await expect(page.locator('.mp-panel .mp-notice, .mp-panel > [role=alert]')).toHaveCount(0)
+  await request.post('/test/match-mode', { data: { value: 'failure' } })
+  await page.getByRole('button', { name: '匹配房间', exact: true }).click()
+  await expect(page.locator('[data-host-toast=error]')).toContainText('官方匹配未成功')
+  await expect(page.getByRole('button', { name: '取消匹配', exact: true })).toBeHidden()
+  await expect(page.getByRole('button', { name: '匹配房间', exact: true })).toBeEnabled()
+})
+
+test('room chat opens at latest and scrolls older history without jumping or prominent activity cards', async ({
+  page,
+  request,
+}) => {
+  await request.post('/test/chat-pages')
+  await restore(page)
+  await page.getByRole('tab', { name: '聊天', exact: true }).click()
+  const history = page.getByLabel('房间聊天记录')
+  await expect(history.getByText('聊天消息 79', { exact: true })).toBeInViewport()
+  await expect(page.getByRole('button', { name: '加载更早的聊天' })).toHaveCount(0)
+  await expect(page.getByText('与网易云官方多人房间互通 · 最多 100 字')).toHaveCount(0)
+  expect((await (await request.get('/test/state')).json()).calls).not.toContain('chat:older')
+  await expect(history.locator('.mp-message-secondary')).toContainText('为歌曲点赞')
+  await expect(history.locator('.mp-message-secondary .mp-bubble')).toHaveCount(0)
+  await history.evaluate((node) => {
+    node.scrollTop = 5
+  })
+  await expect
+    .poll(async () => (await (await request.get('/test/state')).json()).calls)
+    .toContain('chat:older')
+  await expect(history.getByText('聊天消息 0', { exact: true })).toBeAttached()
+  await expect(history.getByText('聊天消息 30', { exact: true })).toBeInViewport()
+  await page.getByRole('tab', { name: '房间', exact: true }).click()
+  await page.getByRole('tab', { name: '聊天', exact: true }).click()
+  await expect(history.getByText('聊天消息 79', { exact: true })).toBeInViewport()
+})
+
+test('real official notification SDK initializes and destroys without login or persistent storage', async ({
+  page,
+}) => {
+  await page.goto('/')
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  await page.evaluate(async () => {
+    const before = Object.keys(localStorage).sort()
+    const { createMatchSdk } = await import('/sdk-probe.mjs' as string)
+    const sdk = await createMatchSdk()
+    sdk.onNotification(() => {})
+    sdk.onDisconnect(() => {})
+    sdk.close()
+    sdk.close()
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    if (JSON.stringify(Object.keys(localStorage).sort()) !== JSON.stringify(before))
+      throw new Error('SDK persisted data')
+  })
+  expect(errors).toEqual([])
 })

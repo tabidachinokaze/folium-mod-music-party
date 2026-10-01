@@ -86,7 +86,7 @@ test('actual Folium registration and host audio: restore, native next, local pau
         id: 'music-party',
         name: 'Music Party',
         permissions: ['playback.control'],
-        folia: '>=0.7.12 <=0.7.12',
+        folia: '>=0.7.13 <=0.7.13',
         experimental: ['playback.sessions'],
       },
       {
@@ -313,10 +313,32 @@ test('actual Folium registration and host audio: restore, native next, local pau
     ;(window as any).partyHost.api.ui.navigate('player')
     ;(window as any).partyHost.api.ui.openPlayerPanel('room')
   })
+  const beforeLeave = await page.evaluate(() => {
+    const audio = Array.from(document.querySelectorAll('audio')).find(
+      (item) => item.currentSrc && item.duration > 0,
+    )!
+    ;(window as any).partyContinuityAudio = audio
+    return {
+      song: (window as any).partyHost.api.playback.getState().song?.id,
+      src: audio.currentSrc,
+      time: audio.currentTime,
+    }
+  })
   await page.getByRole('button', { name: '退出房间', exact: true }).click()
-  await expect
-    .poll(() => page.evaluate(() => (window as any).partyHost.api.playback.getState().song))
-    .toBeNull()
+  await expect(page.getByRole('heading', { name: '房间信息', exact: true })).toBeHidden()
+  const afterLeave = await page.evaluate(() => {
+    const audio = (window as any).partyContinuityAudio as HTMLAudioElement
+    return {
+      song: (window as any).partyHost.api.playback.getState().song?.id,
+      src: audio.currentSrc,
+      time: audio.currentTime,
+      state: (window as any).partyHost.api.playback.getState().state,
+    }
+  })
+  expect(afterLeave.song).toBe(beforeLeave.song)
+  expect(afterLeave.src).toBe(beforeLeave.src)
+  expect(afterLeave.time).toBeCloseTo(beforeLeave.time, 0)
+  expect(afterLeave.state).toBe('paused')
   expect(await page.locator('audio[loop]').count()).toBeGreaterThan(0)
   await page.evaluate(() => (window as any).partyHost.dispose())
   expect(errors).toEqual([])

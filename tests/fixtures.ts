@@ -60,9 +60,11 @@ export function fakeHost() {
       state.position = seconds
     }),
     release: vi.fn(),
+    handoff: vi.fn(),
   }
   const bridge = {
     version: 2 as const,
+    supportsHandoff: true,
     resolveSong: vi.fn(async (_: string, id: string) => song(id)),
     acquire: vi.fn(({ onIntent }: { onIntent: (event: Intent) => void }) => {
       dispatch = onIntent

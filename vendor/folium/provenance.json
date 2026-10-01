@@ -1,7 +1,7 @@
 {
   "repository": "https://github.com/tabidachinokaze/folia-major",
-  "branch": "feat/native-party-queue",
-  "commit": "132a2ef3503d2c0ee838479d283cfd6aa6e038f4",
+  "branch": "main",
+  "commit": "d1faf6a4eae5a7a45247fda7dee94bb7c04a12e7",
   "path": "src/mods/folium/contract.ts",
-  "sha256": "9d527024240e337dae18b80b74db8e15cb12e4641478da76cd4d4fe5b47a1483"
+  "sha256": "82198b672d037291ec8d01edd4392943587803a7f0ea437ce71c3b9beed802b2"
 }

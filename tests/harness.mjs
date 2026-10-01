@@ -169,6 +169,7 @@ const folium = {
       ? undefined
       : {
           version: 2,
+          supportsHandoff: true,
           resolveSong: async (_, id) => ({
             id,
             source: 'netease',
@@ -195,6 +196,11 @@ const folium = {
               },
               seek: (seconds) => {
                 state.position = seconds
+              },
+              handoff() {
+                intent = undefined
+                queue = undefined
+                queueNode.hidden = true
               },
               release() {
                 state.song = null
@@ -254,7 +260,16 @@ const folium = {
       queueNode.hidden = false
       renderQueue()
     },
-    toast() {},
+    toast(message, { type = 'info', durationMs = 2500 } = {}) {
+      const toast = document.createElement('div')
+      toast.textContent = message
+      toast.setAttribute('role', type === 'error' ? 'alert' : 'status')
+      toast.dataset.hostToast = type
+      toast.style.cssText =
+        'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:10px 16px;border-radius:12px;background:#333;color:white;z-index:50;font:12px system-ui'
+      document.body.append(toast)
+      setTimeout(() => toast.remove(), durationMs)
+    },
     async icon(name, options = {}) {
       const paths = {
         'refresh-cw': [

@@ -7,3 +7,5 @@
 `host-patch/folia-0.7.10.patch` 面向 [Folia](https://github.com/chthollyphile/folia-major) 的 AGPL-3.0 代码生成；基线为 `76e1dfe`。本分支补丁包含 playback.sessions v2 原生队列与首页入口；对应宿主分支为 `feat/native-party-queue`。发行仓库为 [tabidachinokaze/folia-major](https://github.com/tabidachinokaze/folia-major)。Folia 原作者及贡献者的权利和署名保留。
 
 `vendor/folium/contract.ts` 是宿主公开契约的类型快照，用于插件的编译期校验，来自 Folia 同名开发分支；来源提交和文件校验值见同目录 `provenance.json`。它沿用 Folia 的 AGPL-3.0 许可证，构建时仅使用类型，不执行该模块。
+
+多人匹配通知使用网易云信官方 `nim-web-sdk-ng` 10.11.0（包元数据声明 ISC 许可证，作者 yunxin）。仅将匹配所需的登录和自定义通知模块打包进客户端；原始版权标记随 SDK 保留。官方 Android 资料仅用于核对接口与通知字段，未复制其实现代码。

@@ -108,3 +108,20 @@ it('maps stranger creation and rematching to the official parameters', async () 
     exitType: 'CHANGE_ROOM',
   })
 })
+
+it('fetches mini-notification credentials through a dedicated RPC without adding them to traces', async () => {
+  const requests: any[] = []
+  const backend = createBackend(async (_url, init) => {
+    requests.push(JSON.parse(String(init?.body)))
+    return response({ code: 200, data: { accId: '9', token: 'fake-mini-token' } })
+  })
+  backend.connect('MUSIC_U=fake-session', 4176)
+  expect(await backend.matchCredentials()).toEqual({ accId: '9', token: 'fake-mini-token' })
+  expect(requests[0]).toMatchObject({
+    uri: '/api/middle/im/token/get',
+    crypto: 'eapi',
+    data: { bizTag: 'platform' },
+  })
+  backend.close()
+  await expect(backend.matchCredentials()).rejects.toThrow('登录')
+})

@@ -146,3 +146,20 @@ describe('room playback', () => {
     player.dispose()
   })
 })
+
+it('hands off the current song without reloading, seeking or changing pause state', async () => {
+  const host = fakeHost(),
+    player = new RoomPlayer(host.folium, host.bridge, () => 2000)
+  player.start(() => {})
+  await player.apply(snapshot())
+  host.folium.playback.pause()
+  host.lease.play.mockClear()
+  host.lease.seek.mockClear()
+  player.stop(true)
+  expect(host.lease.handoff).toHaveBeenCalledTimes(1)
+  expect(host.lease.release).not.toHaveBeenCalled()
+  expect(host.state.state).toBe('paused')
+  expect(host.lease.play).not.toHaveBeenCalled()
+  expect(host.lease.seek).not.toHaveBeenCalled()
+  player.dispose()
+})

@@ -31,7 +31,10 @@ export interface Folium {
     openPlayerPanel(id?: string): void
     openHomeTab(id: string): void
     openQueue(): void
-    toast(message: string, options?: { type: string }): void
+    toast(
+      message: string,
+      options?: { type: 'info' | 'success' | 'error'; durationMs?: number },
+    ): void
     icon(name: string, options?: any): Promise<SVGSVGElement | null>
   }
   registries: Record<string, { register(def: any): { unregister(): void } }>
@@ -39,7 +42,7 @@ export interface Folium {
 export function getPlaybackBridge(folium: Folium): ExternalPlayback | null {
   try {
     const bridge = folium.experimental['playback.sessions']
-    return bridge?.version === 2 ? bridge : null
+    return bridge?.version === 2 && bridge.supportsHandoff === true ? bridge : null
   } catch {
     return null
   }
@@ -97,7 +100,7 @@ export class AccountConnection {
       })
     return reply.data
   }
-  async attachment(name: 'media' | 'removeStickers', payload: unknown) {
+  async attachment(name: 'media' | 'removeStickers' | 'matchCredentials', payload: unknown) {
     // Recheck the current Folia account and service port before every upload/mutation.
     await this.call('account')
     const epoch = this.epoch

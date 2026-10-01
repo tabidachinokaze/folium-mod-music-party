@@ -3,6 +3,17 @@ import { PartyController } from '../src/client/controller'
 import type { AccountConnection } from '../src/client/host'
 import { fakeHost, rawSnapshot } from './fixtures'
 
+const notifications = vi.hoisted(() => ({ receive: (_event: any) => {} }))
+vi.mock('../src/client/match-channel', () => ({
+  createMatchChannel: () => ({
+    connect: vi.fn(async (_credentials, receive) => {
+      notifications.receive = receive
+    }),
+    arm: vi.fn(),
+    confirmStart: vi.fn(),
+    close: vi.fn(),
+  }),
+}))
 // tests/controller.test.ts
 afterEach(() => vi.useRealTimers())
 function setup() {
@@ -10,6 +21,7 @@ function setup() {
   const api = {
     connect: vi.fn(async () => ({ uid: '9', nickname: '测试账号' })),
     close: vi.fn(),
+    attachment: vi.fn(async () => ({ accId: '9', token: 'fake' })),
     call: vi.fn(async (method: string) => {
       if (method === 'multiStatus')
         return { code: 200, data: { multiLtRoomSnapshot: rawSnapshot() } }
@@ -184,7 +196,7 @@ describe('official multiplayer controller', () => {
     expect(controller.state.room).toBeNull()
     expect(controller.state.error).toContain('已经在多人房间')
     expect(api.call.mock.calls.some(([method]) => method === 'multiCreate')).toBe(false)
-    expect(host.lease.release).toHaveBeenCalled()
+    expect(host.bridge.acquire).not.toHaveBeenCalled()
     controller.dispose()
   })
   it('does not send a leave when merely disabling the plugin', async () => {
@@ -243,6 +255,7 @@ it('starts and cancels matching without acquiring a room from a pending response
   await controller.match()
   expect(controller.state.matching).toBe(true)
   expect(controller.state.room).toBeNull()
+  expect(host.bridge.acquire).not.toHaveBeenCalled()
   await controller.cancelMatch()
   await vi.advanceTimersByTimeAsync(4000)
   expect(controller.state.matching).toBe(false)
@@ -269,7 +282,7 @@ it('adopts a confirmed matched room and stops the matching loop', async () => {
   host.state.song = { id: '1', source: 'netease', ref: '1', title: '', artist: '', album: null }
   await controller.match()
   matched = true
-  await vi.advanceTimersByTimeAsync(2000)
+  await vi.advanceTimersByTimeAsync(2500)
   expect(controller.state.room?.roomId).toBe('official_room')
   expect(controller.state.matching).toBe(false)
   expect(api.call.mock.calls.some(([method]) => method === 'multiJoin')).toBe(false)
@@ -304,7 +317,8 @@ it('does not activate a late match acknowledgement while cancellation is pending
   host.state.song = { id: '1', source: 'netease', ref: '1', title: '', artist: '', album: null }
   await controller.match()
   pendingMatch = true
-  await vi.advanceTimersByTimeAsync(2000)
+  notifications.receive({ kind: 'ready', roomId: 'official_room' })
+  await vi.advanceTimersByTimeAsync(1)
   expect(finishAck).toBeTypeOf('function')
   const cancel = controller.cancelMatch()
   finishAck({ code: 200, data: { success: true, multiLtRoomSnapshot: rawSnapshot() } })
@@ -333,5 +347,34 @@ it('times out matching even when status requests keep failing', async () => {
   expect(api.call).toHaveBeenCalledWith('multiMatchCancel')
   expect(controller.state.matching).toBe(false)
   expect(controller.state.error).toContain('匹配超时')
+  controller.dispose()
+})
+
+it('leaves and rematches without stopping an already committed room song', async () => {
+  const { controller, host, api } = setup()
+  await controller.connect()
+  await controller.enter('restore')
+  await vi.waitFor(() => expect(host.state.state).toBe('playing'))
+  const before = { ...host.state }
+  api.call.mockImplementation(
+    async () => ({ code: 200, data: { success: true, multiLtRoomSnapshot: null } }) as any,
+  )
+  await controller.match()
+  expect(host.lease.handoff).toHaveBeenCalledTimes(1)
+  expect(host.lease.release).not.toHaveBeenCalled()
+  expect(host.state).toEqual(before)
+  expect(controller.state.matching).toBe(true)
+  await controller.cancelMatch()
+  controller.dispose()
+})
+
+it('shows operation feedback through host toast without retaining a notice in the panel state', async () => {
+  const { controller, host } = setup()
+  controller.patch({ notice: '已为房间歌曲点赞' })
+  expect(host.folium.ui.toast).toHaveBeenCalledWith(
+    '已为房间歌曲点赞',
+    expect.objectContaining({ type: 'success', durationMs: 2500 }),
+  )
+  expect(controller.state.notice).toBe('')
   controller.dispose()
 })

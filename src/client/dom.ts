@@ -62,7 +62,18 @@ export function picture(url: string, label = '') {
   return img
 }
 export function messageNode(message: ChatMessage | PrivateMessage, mine: boolean) {
+  const secondary =
+    'roomId' in message && !message.emoji && message.kind !== 'text' && message.kind !== 'image'
+  if (secondary) {
+    const row = el('article', 'mp-message mp-message-secondary')
+    row.dataset.messageId = message.id
+    row.append(el('span', '', `${message.nickname} · ${message.text}`))
+    const titles = (message.attachments || []).map((item) => item.title).filter(Boolean)
+    if (titles.length) row.append(el('span', '', ` · ${titles.join(' / ')}`))
+    return row
+  }
   const row = el('article', `mp-message ${mine ? 'is-mine' : ''}`)
+  row.dataset.messageId = message.id
   const nickname = 'nickname' in message ? message.nickname : mine ? '我' : '听友'
   row.append(
     el(

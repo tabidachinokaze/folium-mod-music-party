@@ -12,19 +12,13 @@ export function mountPrivateHome(
 ) {
   const { page, dispose: disposeSurface } = mountSurface(container, 'mp-private-home', context)
   const header = el('header', 'mp-header')
-  const feedback = el('div', 'mp-private-feedback')
-  feedback.hidden = true
-  const report = (text: string, error = false) => {
-    feedback.textContent = text
-    feedback.hidden = !text
-    feedback.setAttribute('role', error ? 'alert' : 'status')
-    feedback.classList.toggle('mp-error', error)
-  }
+  const report = (text: string, error = false) =>
+    controller.notify(text, error ? 'error' : 'success')
   const body = el('section', 'mp-private-layout')
   body.setAttribute('aria-label', '私信会话')
   const view = mountPrivate(body, controller, report)
   header.append(el('h2', '', '私信'), view.refreshButton)
-  page.append(header, feedback, body)
+  page.append(header, body)
   let accountUid: string | null = null
   const render = () => {
     const uid = controller.state.account?.uid ?? null

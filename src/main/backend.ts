@@ -96,6 +96,27 @@ export function createBackend(fetcher: typeof fetch = fetch) {
           : {}),
       }
     },
+    async matchCredentials() {
+      const session = current
+      if (!session) throw new Error('请先登录网易云')
+      // Dedicated RPC: credentials never enter ApiService traces or view state.
+      const { body } = await session.invoke('api', {
+        uri: '/api/middle/im/token/get',
+        crypto: 'eapi',
+        data: { bizTag: 'platform' },
+      })
+      if (session !== current) throw new Error('账号已变化')
+      const data = body?.data
+      if (
+        body?.code !== 200 ||
+        typeof data?.accId !== 'string' ||
+        typeof data?.token !== 'string' ||
+        !data.accId ||
+        !data.token
+      )
+        throw new Error('未取得官方匹配通知凭据，请重新登录网易云后重试')
+      return { accId: data.accId, token: data.token }
+    },
     async media(value: any) {
       if (!current) return { ok: false, error: '请先连接网易云账号' }
       const encoded = value?.file?.base64

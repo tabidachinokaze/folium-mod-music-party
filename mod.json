@@ -2,12 +2,12 @@
   "folium": 1,
   "id": "music-party",
   "name": "Music Party · 网易云多人一起听",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "author": "tabidachinokaze",
-  "description": "网易云官方多人一起听，配套 Folia 0.7.12，账号自动启用与原生侧栏风格。",
+  "description": "网易云官方多人一起听，配套 Folia 0.7.13，匹配通知、连续播放与聊天滚动体验。",
   "main": "index.cjs",
   "client": "client.mjs",
   "permissions": ["playback.control"],
-  "folia": ">=0.7.12 <=0.7.12",
+  "folia": ">=0.7.13 <=0.7.13",
   "experimental": ["playback.sessions"]
 }

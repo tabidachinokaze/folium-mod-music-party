@@ -176,9 +176,10 @@ export class RoomPlayer {
     this.suspended = true
     this.pauseInternally()
   }
-  stop() {
+  stop(continuePlayback = false) {
     this.epoch++
-    this.lease?.release()
+    if (continuePlayback && this.lease?.handoff) this.lease.handoff()
+    else this.lease?.release()
     this.lease = null
     this.snapshot = null
     this.metadata = null

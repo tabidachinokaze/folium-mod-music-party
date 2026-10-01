@@ -903,6 +903,8 @@ export interface FoliumPlaybackSession {
     play(song: FoliumSong): Promise<FoliumPlaybackStartResult>;
     /** Set local audio time in seconds, preserving the current pause state. */
     seek(seconds: number): void;
+    /** Release control while preserving the committed audio, position and pause state; restore the private queue with the current track if absent. Available when supportsHandoff is true. */
+    handoff?(): void;
     /** Idempotent. Restore the previous queue stopped; clear current audio, song and lyrics. */
     release(): void;
 }
@@ -911,6 +913,8 @@ export interface FoliumPlaybackSession {
 export interface FoliumPlaybackSessions {
     /** Experimental service contract version. */
     readonly version: 2;
+    /** Whether sessions can hand the current source back to ordinary playback without stopping it. */
+    readonly supportsHandoff?: boolean;
     /** Resolve an online provider's opaque media ID through Omni, returning a host song ref. */
     resolveSong(provider: string, id: string): Promise<FoliumSong>;
     /** FM, Stage, video recording, active transitions and another session are rejected before changing playback. */

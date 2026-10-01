@@ -1,11 +1,40 @@
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
+import { build } from 'esbuild'
+import { fileURLToPath } from 'node:url'
 
 // tests/server.mjs
 // All protocol writes in browser tests terminate here, never at NetEase.
 const port = 4176,
   origin = `http://127.0.0.1:${port}`
+const clientBuild = await build({
+  entryPoints: ['src/client/index.ts'],
+  bundle: true,
+  platform: 'browser',
+  target: 'es2022',
+  format: 'esm',
+  write: false,
+  loader: { '.css': 'text' },
+  plugins: [
+    {
+      name: 'mock-official-notification-transport',
+      setup(builder) {
+        builder.onResolve({ filter: /\/match-sdk$/ }, () => ({
+          path: fileURLToPath(new URL('match-sdk.mjs', import.meta.url)),
+        }))
+      },
+    },
+  ],
+})
+const sdkProbe = await build({
+  entryPoints: ['src/client/match-sdk.ts'],
+  bundle: true,
+  platform: 'browser',
+  target: 'es2022',
+  format: 'esm',
+  write: false,
+})
 const require = createRequire(import.meta.url)
 const activate = require('../dist/music-party/index.cjs')
 let handlers = new Map(),
@@ -14,6 +43,9 @@ let handlers = new Map(),
   version = 1,
   joined = true,
   matching = false,
+  matchMode = 'pending',
+  notificationSent = false,
+  chatPages = false,
   removed = new Set(),
   calls = [],
   messages = [],
@@ -34,6 +66,9 @@ function reset() {
     lifecycle: { onDeactivate: (fn) => dispose.push(fn) },
   })
   matching = false
+  matchMode = 'pending'
+  notificationSent = false
+  chatPages = false
   current = '1'
   version = 1
   joined = true
@@ -130,7 +165,35 @@ const server = createServer(async (req, res) => {
       return json({ ok: true })
     }
     if (url.pathname === '/test/state')
-      return json({ calls, current, version, joined, likes, operations })
+      return json({ calls, current, version, joined, matching, likes, operations })
+    if (url.pathname === '/test/match-mode') {
+      matchMode = args.value
+      return json({ ok: true })
+    }
+    if (url.pathname === '/test/chat-pages') {
+      chatPages = true
+      return json({ ok: true })
+    }
+    if (url.pathname === '/test/match-notification') {
+      if (!matching || notificationSent || matchMode === 'pending') return json({})
+      notificationSent = true
+      return json({
+        receiverId: '9',
+        timestamp: Date.now(),
+        content: JSON.stringify({
+          msgType: 133,
+          bizType: 'music_listenTogether_multi_match_song',
+          serverExt: JSON.stringify({
+            subType:
+              matchMode === 'success'
+                ? 'STRANGER_MULTI_MATCH_WAIT_ACK'
+                : 'STRANGER_MULTI_MATCH_FAILED',
+            data:
+              matchMode === 'success' ? { roomId: 'official_room' } : { failedType: 'NO_MATCH' },
+          }),
+        }),
+      })
+    }
     if (url.pathname === '/test/empty') {
       joined = false
       return json({ ok: true })
@@ -142,9 +205,13 @@ const server = createServer(async (req, res) => {
         return json({ ok: false, error: error.message })
       }
     }
+    if (url.pathname === '/sdk-probe.mjs') {
+      res.setHeader('Content-Type', 'text/javascript')
+      return res.end(sdkProbe.outputFiles[0].text)
+    }
     if (url.pathname === '/client.mjs') {
       res.setHeader('Content-Type', 'text/javascript')
-      return res.end(await readFile(new URL('../dist/music-party/client.mjs', import.meta.url)))
+      return res.end(clientBuild.outputFiles[0].text)
     }
     if (url.pathname === '/harness.mjs') {
       res.setHeader('Content-Type', 'text/javascript')
@@ -247,7 +314,10 @@ const server = createServer(async (req, res) => {
       const data = typeof args.data === 'string' ? JSON.parse(args.data) : args.data || {},
         uri = args.uri
       calls.push(uri)
+      if (uri.endsWith('/im/token/get'))
+        return json({ code: 200, data: { accId: '9', token: 'fake-test-token' } })
       if (uri.endsWith('/multi/match')) {
+        notificationSent = false
         matching = true
         return json({ code: 200, data: { success: true } })
       }
@@ -266,6 +336,7 @@ const server = createServer(async (req, res) => {
       if (uri.endsWith('/heartbeat'))
         return json({ code: 200, data: { ...snapshot(), heartBeatDuration: 5 } })
       if (uri.endsWith('/room/create') || uri.endsWith('/match/ack')) {
+        matching = false
         joined = true
         return json({ code: 200, data: { success: true, multiLtRoomSnapshot: snapshot() } })
       }
@@ -331,6 +402,24 @@ const server = createServer(async (req, res) => {
         }
         if (data.operate === 7) removed.add(data.bizId)
         return json({ code: 200, data: { failedCode: 0 } })
+      }
+      if (uri.endsWith('/msg/history') && chatPages) {
+        const older = !!JSON.parse(data.page || '{}').cursor
+        calls.push(older ? 'chat:older' : 'chat:latest')
+        const records = Array.from({ length: older ? 30 : 50 }, (_, index) => {
+          const n = index + (older ? 0 : 30)
+          return {
+            sendUid: '10',
+            sendTime: 1790600000000 + n * 1000,
+            nickname: '小岛',
+            msgType: n === 75 ? 1 : 0,
+            imChatRoomMsgBody: { text: n === 75 ? '为歌曲点赞' : `聊天消息 ${n}` },
+          }
+        })
+        return json({
+          code: 200,
+          data: { records, page: { more: !older, cursor: older ? null : 'older-1' } },
+        })
       }
       if (uri.endsWith('/msg/history'))
         return json({

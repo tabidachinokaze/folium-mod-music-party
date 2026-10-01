@@ -9,6 +9,7 @@ function activate(api: MainApi) {
   const backend = createBackend()
   api.rpc.handle('connect', (cookie: string, port: number) => backend.connect(cookie, port))
   api.rpc.handle('call', (request) => backend.call(request))
+  api.rpc.handle('matchCredentials', () => backend.matchCredentials())
   api.rpc.handle('media', (request) => backend.media(request))
   api.rpc.handle('removeStickers', (ids) => backend.removeStickers(ids))
   api.rpc.handle('disconnect', () => backend.close())
