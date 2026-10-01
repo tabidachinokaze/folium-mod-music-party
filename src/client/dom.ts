@@ -2,6 +2,8 @@ import type { Folium } from './host'
 import { mediaUrl } from '@party/shared/message-content'
 import type { ChatMessage, PrivateMessage } from '@party/shared/types'
 import { roomActivityPresentation } from './room-activity-presentation'
+import { messageTime } from './message-time'
+import { t } from './i18n'
 
 // src/client/dom.ts
 export function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = '') {
@@ -95,18 +97,10 @@ export function messageNode(
     const content = el('div', 'mp-activity-content'),
       heading = el('div', 'mp-activity-heading'),
       body = el('p', 'mp-activity-body')
-    heading.append(el('span', 'mp-activity-type', activity.label))
-    const date = new Date(message.time)
-    if (Number.isFinite(date.getTime())) {
-      const time = el(
-        'time',
-        'mp-activity-time',
-        date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      )
-      time.dateTime = date.toISOString()
-      time.title = date.toLocaleString()
-      heading.append(time)
-    }
+    heading.append(el('span', 'mp-activity-type', t(activity.label)))
+    const time = messageTime(message.time)
+    time.classList.add('mp-activity-time')
+    heading.append(time)
     for (const part of activity.parts) {
       body.append(el('span', `mp-activity-${part.kind}`, part.text))
     }
@@ -116,14 +110,10 @@ export function messageNode(
   }
   const row = el('article', `mp-message ${mine ? 'is-mine' : ''}`)
   row.dataset.messageId = message.id
-  const nickname = 'nickname' in message ? message.nickname : mine ? '我' : '听友'
-  row.append(
-    el(
-      'div',
-      'mp-meta',
-      `${nickname} · ${new Date(message.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
-    ),
-  )
+  const nickname = 'nickname' in message ? message.nickname : mine ? t('我') : t('听友')
+  const meta = el('div', 'mp-meta', `${nickname} · `)
+  meta.append(messageTime(message.time))
+  row.append(meta)
   const attachments = message.attachments || []
   const emoji = 'emoji' in message ? message.emoji : undefined
   const text = message.text?.trim() || ''
@@ -143,7 +133,7 @@ export function messageNode(
     row.append(image)
   }
   for (const item of message.attachments || []) {
-    if (item.kind === 'image' && item.url) row.append(picture(item.url, '图片消息'))
+    if (item.kind === 'image' && item.url) row.append(picture(item.url, t('图片消息')))
     else if ((item.kind === 'audio' || item.kind === 'video') && item.url) {
       const media = el(item.kind === 'audio' ? 'audio' : 'video', 'mp-media')
       const safe = mediaUrl(item.url)
@@ -158,7 +148,7 @@ export function messageNode(
         el(
           'div',
           'mp-resource',
-          'title' in item ? String(item.title || '分享的内容') : '收到一条附件消息',
+          'title' in item ? String(item.title || t('分享的内容')) : t('收到一条附件消息'),
         ),
       )
   }

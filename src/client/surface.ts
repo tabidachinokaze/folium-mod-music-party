@@ -6,6 +6,7 @@ import pickers from './pickers.css'
 import privatePage from './private.css'
 import mentions from './mentions.css'
 import { el } from './dom'
+import { setLocale } from './i18n'
 
 // src/client/surface.ts
 // The host owns outer spacing, font resolution and color variables. Shadow DOM only isolates rules.
@@ -14,6 +15,7 @@ export function mountSurface(
   className: string,
   context?: FoliumPanelContext,
 ) {
+  if (context?.locale) setLocale(context.locale)
   const host = el('div')
   host.style.cssText =
     className === 'mp-private-home' ? 'height:100%;min-height:0;overflow:hidden' : 'min-width:0'

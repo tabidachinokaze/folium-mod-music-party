@@ -5,6 +5,7 @@ import type {
 } from '../../vendor/folium/contract'
 import type { PartyState } from './controller'
 import { promotionCount } from './queue-counts'
+import { t } from './i18n'
 
 // src/client/native-queue.ts
 // Occurrences use official business IDs, even when the same recording was recommended twice.
@@ -50,7 +51,7 @@ export function nativeQueue(state: PartyState, resolved: FoliumSong | null): Fol
       track: {
         id: current.songId,
         source: 'netease',
-        title: metadata?.title ?? queuedCurrent?.track.name ?? '正在加载房间歌曲…',
+        title: metadata?.title ?? queuedCurrent?.track.name ?? t('正在加载房间歌曲…'),
         artist: metadata?.artist ?? queuedCurrent?.track.artist ?? '',
         album: metadata?.album,
         coverUrl: queuedCurrent?.track.cover,

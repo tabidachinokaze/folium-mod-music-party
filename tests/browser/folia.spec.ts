@@ -16,7 +16,7 @@ test('actual Folium registration and host audio: restore, native next, local pau
   await page.addInitScript(() => {
     localStorage.clear()
     localStorage.setItem('i18nextLng', 'zh-CN')
-    localStorage.setItem('folia_last_seen_ponder_onboarding_version', '0.7.13')
+    localStorage.setItem('folia_last_seen_ponder_onboarding_version', '0.7.14')
     localStorage.setItem('online_provider:netease:cookie', 'MUSIC_U=test-only')
     localStorage.setItem('static_mode', 'true')
     localStorage.setItem('player_loop_mode', 'one')
@@ -86,7 +86,7 @@ test('actual Folium registration and host audio: restore, native next, local pau
         id: 'music-party',
         name: 'Music Party',
         permissions: ['playback.control'],
-        folia: '>=0.7.13 <=0.7.13',
+        folia: '>=0.7.13 <=0.7.14',
         experimental: ['playback.sessions'],
       },
       {
@@ -121,6 +121,9 @@ test('actual Folium registration and host audio: restore, native next, local pau
     api.ui.openPlayerPanel('room')
   })
   await page.getByRole('button', { name: '一起听', exact: true }).click()
+  await expect(
+    page.getByRole('button', { name: '一起听', exact: true }).locator('svg.lucide-users'),
+  ).toBeVisible()
   await page.getByRole('button', { name: '恢复当前房间', exact: true }).click()
   await expect(page.locator('.mp-panel > .mp-header .mp-pill')).toHaveText('3 人一起听')
   await expect
@@ -135,6 +138,23 @@ test('actual Folium registration and host audio: restore, native next, local pau
     .poll(() => page.evaluate(() => (window as any).partyHost.api.playback.getState().position))
     .toBeGreaterThan(4)
   expect(await page.locator('audio[loop]').count()).toBe(0)
+  // Real host locale changes remount the surface without releasing room playback.
+  await page.evaluate(async () => {
+    const { default: i18n } = await import(/* @vite-ignore */ '/src/i18n/config.ts' as string)
+    await i18n.changeLanguage('en')
+  })
+  await expect(page.getByRole('tab', { name: 'Members', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Change song', exact: true })).toBeVisible()
+  await expect(page.locator('.mp-panel > .mp-header .mp-pill')).toHaveText('3 listening together')
+  expect(await page.evaluate(() => (window as any).partyHost.api.playback.getState().state)).toBe(
+    'playing',
+  )
+  await page.screenshot({ path: 'test-results/folia-english.png', animations: 'disabled' })
+  await page.evaluate(async () => {
+    const { default: i18n } = await import(/* @vite-ignore */ '/src/i18n/config.ts' as string)
+    await i18n.changeLanguage('zh-CN')
+  })
+  await expect(page.getByRole('tab', { name: '成员', exact: true })).toBeVisible()
   await expect
     .poll(
       () =>
@@ -150,6 +170,17 @@ test('actual Folium registration and host audio: restore, native next, local pau
   const matchPicker = page.getByRole('dialog', { name: '选择匹配歌曲' })
   await matchPicker.getByRole('searchbox', { name: '搜索网易云歌曲' }).fill('下一站')
   await matchPicker.getByRole('button', { name: '搜索', exact: true }).click()
+  await expect(
+    matchPicker.getByRole('button', { name: '选择 下一站 · 20 · 岛屿来信', exact: true }),
+  ).toBeVisible()
+  await expect
+    .poll(async () => {
+      const panel = (await page.getByTestId('unified-panel-surface').boundingBox())!
+      const popup = (await matchPicker.boundingBox())!
+      return popup.x + popup.width <= panel.x - 8
+    })
+    .toBe(true)
+  await page.screenshot({ path: 'test-results/folia-side-popup.png', animations: 'disabled' })
   await matchPicker
     .getByRole('button', { name: '选择 下一站 · 20 · 岛屿来信', exact: true })
     .click()

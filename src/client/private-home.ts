@@ -3,6 +3,7 @@ import type { FoliumPanelContext } from '../../vendor/folium/contract'
 import type { PartyController } from './controller'
 import { el } from './dom'
 import { mountPrivate } from './private-view'
+import { t } from './i18n'
 
 // src/client/private-home.ts
 export function mountPrivateHome(
@@ -15,9 +16,9 @@ export function mountPrivateHome(
   const report = (text: string, error = false) =>
     controller.notify(text, error ? 'error' : 'success')
   const body = el('section', 'mp-private-layout')
-  body.setAttribute('aria-label', '私信会话')
+  body.setAttribute('aria-label', t('私信会话'))
   const view = mountPrivate(body, controller, report)
-  header.append(el('h2', '', '私信'), view.refreshButton)
+  header.append(el('h2', '', t('私信')), view.refreshButton)
   page.append(header, body)
   let accountUid: string | null = null
   const render = () => {

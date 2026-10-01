@@ -3,6 +3,8 @@ import type { RoomPlayback } from '@party/shared/types'
 import type { ExternalPlayback, Folium, Intent, Lease, HostSong } from './host'
 import type { FoliumPlaybackQueue } from '../../vendor/folium/contract'
 
+import { t } from './i18n'
+
 // src/client/player.ts
 // Server snapshots only move the local player; they never issue a room mutation.
 export class RoomPlayer {
@@ -42,9 +44,10 @@ export class RoomPlayer {
       this.lease = this.bridge.acquire({ onIntent, restore: 'queue-stopped' })
     } catch (error: any) {
       const messages: Record<string, string> = {
-        'external-playback-context-unavailable':
+        'external-playback-context-unavailable': t(
           '请先退出私人 FM/Stage，结束视频录制或等待混音过渡结束，再加入房间',
-        'external-playback-busy': '其他模组正在控制播放，请先结束其会话',
+        ),
+        'external-playback-busy': t('其他模组正在控制播放，请先结束其会话'),
       }
       throw new Error(messages[error.message] || error.message)
     }
@@ -129,8 +132,8 @@ export class RoomPlayer {
       if (result.status !== 'source-committed')
         throw new Error(
           result.status === 'unavailable'
-            ? '当前歌曲不可用，请等待下一首或重新同步'
-            : '房间歌曲加载失败，请重新同步',
+            ? t('当前歌曲不可用，请等待下一首或重新同步')
+            : t('房间歌曲加载失败，请重新同步'),
         )
       // Folia loads metadata separately from its lyric fetch. Wait without advancing the room.
       const deadline = this.now() + 20000
@@ -138,7 +141,7 @@ export class RoomPlayer {
         const state = this.folium.playback.getState()
         if (state.song?.id === song.id && state.song.source === 'netease' && state.duration > 0)
           break
-        if (this.now() >= deadline) throw new Error('房间歌曲加载超时，请重新同步')
+        if (this.now() >= deadline) throw new Error(t('房间歌曲加载超时，请重新同步'))
         await new Promise<void>((resolve) => {
           setTimeout(resolve, 100)
         })
@@ -155,7 +158,7 @@ export class RoomPlayer {
     try {
       await task
     } catch (error) {
-      if (epoch === this.epoch) this.report(error instanceof Error ? error.message : '播放失败')
+      if (epoch === this.epoch) this.report(error instanceof Error ? error.message : t('播放失败'))
     } finally {
       if (epoch === this.epoch) {
         this.applying = false

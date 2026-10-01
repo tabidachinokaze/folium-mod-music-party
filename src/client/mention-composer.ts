@@ -1,5 +1,6 @@
 import type { Member } from '@party/shared/types'
 import { button, el, picture } from './dom'
+import { t } from './i18n'
 
 // src/client/mention-composer.ts
 interface MentionComposerOptions {
@@ -20,7 +21,7 @@ export function mountMentionComposer({ draft, composer, members, notify }: Menti
   const popup = el('div', 'mp-mention-popup')
   popup.id = `mp-mention-picker-${++nextPickerId}`
   popup.setAttribute('role', 'listbox')
-  popup.setAttribute('aria-label', '提及成员')
+  popup.setAttribute('aria-label', t('提及成员'))
   popup.hidden = true
   composer.append(popup)
   let open = false,
@@ -72,7 +73,7 @@ export function mountMentionComposer({ draft, composer, members, notify }: Menti
     const text = `@${nickname} `
     const limit = draft.maxLength > 0 ? Math.min(100, draft.maxLength) : 100
     if (draft.value.length - (selection.end - selection.start) + text.length > limit) {
-      notify(`最多输入 ${limit} 字，剩余空间不足以提及这位成员`)
+      notify(t('最多输入 {limit} 字，剩余空间不足以提及这位成员', { limit }))
       draft.focus({ preventScroll: true })
       return
     }
@@ -119,7 +120,7 @@ export function mountMentionComposer({ draft, composer, members, notify }: Menti
         return option
       }),
     )
-    if (!candidates.length) popup.append(el('p', 'mp-mention-empty', '没有匹配的房间成员'))
+    if (!candidates.length) popup.append(el('p', 'mp-mention-empty', t('没有匹配的房间成员')))
     open = true
     popup.hidden = false
     trigger.setAttribute('aria-expanded', 'true')
@@ -144,11 +145,11 @@ export function mountMentionComposer({ draft, composer, members, notify }: Menti
     },
     'mp-mention-trigger',
   )
-  trigger.setAttribute('aria-label', '提及成员')
+  trigger.setAttribute('aria-label', t('提及成员'))
   trigger.setAttribute('aria-haspopup', 'listbox')
   trigger.setAttribute('aria-controls', popup.id)
   trigger.setAttribute('aria-expanded', 'false')
-  trigger.title = '提及成员'
+  trigger.title = t('提及成员')
   trigger.addEventListener('pointerdown', (event) => event.preventDefault(), {
     signal: events.signal,
   })

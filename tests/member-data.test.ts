@@ -86,3 +86,23 @@ it('preserves room details and filters malformed tags without inventing metadata
   })
   expect(parseSnapshot({ roomId: 'room' }, 1).createdAt).toBeUndefined()
 })
+it('reads viewer promotion state from the official resource field independently of its total', async () => {
+  const call = vi.fn(async () => ({
+    data: {
+      songLists: [
+        { songInfo: { uped: true, upCnt: 1 }, uped: false },
+        { songInfo: { uped: false, upCnt: 8 }, uped: true },
+        { songInfo: { upCnt: 6 } },
+        { songInfo: { uped: 'true', upCnt: 6 } },
+        { songInfo: {}, uped: true },
+      ].map((item, index) => ({
+        ...item,
+        songInfo: { resourceId: '10', bizId: String(index + 1), ...item.songInfo },
+        rcmdUid: '9',
+      })),
+      page: { more: false },
+    },
+  }))
+  const rows = await loadQueue(call, 'room', () => true)
+  expect(rows.map((row) => row.uped)).toEqual([true, false, false, false, true])
+})

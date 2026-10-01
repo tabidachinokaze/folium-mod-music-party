@@ -14,6 +14,8 @@ it.each([
   ['小岛', '小岛推荐了歌曲：《到时说爱我 - 茜拉》', '到时说爱我'],
   ['听友', '听友来了，带来歌曲 Booty Music - Deep Side', 'Booty Music'],
   ['[晚风].*', '[晚风].*来了，带来歌曲 글쎄 - SEVENTEEN', '글쎄'],
+  ['tabidachinokaze', 'tabidachinokazeUP了《黄金数》', '黄金数'],
+  ['小岛', '小岛置顶了歌曲《黄金数》', '黄金数'],
 ])(
   'keeps the complete official activity without repeating actor or title: %s / %s',
   (name, text, title) => {

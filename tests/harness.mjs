@@ -17,6 +17,7 @@ const emit = (name, value) => events.get(name)?.forEach((fn) => fn(value))
 const searchCalls = []
 let panel, home, mounted, intent, queue
 const panelNode = document.querySelector('#panel')
+panelNode.dataset.testid = 'unified-panel-surface'
 const homeNode = document.createElement('div')
 homeNode.id = 'private-home'
 homeNode.hidden = true
@@ -53,6 +54,22 @@ const context = {
     themeListeners.add(fn)
     return () => themeListeners.delete(fn)
   },
+}
+function setLocale(locale) {
+  document.documentElement.lang = locale
+  context.locale = locale
+  privateButton.textContent = locale === 'en' ? 'Direct messages' : '私信'
+  roomButton.textContent = locale === 'en' ? 'Listen together' : '一起听'
+  // Folia remounts mod surfaces when its locale context changes, retaining the controller.
+  if (panel) {
+    mounted?.()
+    mounted = panel.mount(panelNode, context)
+  }
+  if (homeMounted) {
+    homeMounted()
+    homeMounted = home.mount(homeNode, context)
+  }
+  if (!queueNode.hidden) renderQueue()
 }
 function setTheme(name) {
   currentTheme = themes[name]
@@ -126,8 +143,32 @@ for (const [value, text] of [
   themePicker.append(option)
 }
 themePicker.onchange = () => setTheme(themePicker.value)
-previewBar.append(label, loginButton, provider, themePicker, roomButton, privateButton)
+const languagePicker = document.createElement('select')
+languagePicker.setAttribute('aria-label', 'Preview language')
+for (const [value, text] of [
+  ['zh-CN', '简体中文'],
+  ['en', 'English'],
+]) {
+  const option = document.createElement('option')
+  option.value = value
+  option.textContent = text
+  languagePicker.append(option)
+}
+languagePicker.onchange = () => setLocale(languagePicker.value)
+previewBar.append(
+  label,
+  loginButton,
+  provider,
+  themePicker,
+  languagePicker,
+  roomButton,
+  privateButton,
+)
 document.body.prepend(previewBar)
+const previewSize = new ResizeObserver(() => {
+  homeNode.style.height = `calc(100dvh - ${previewBar.getBoundingClientRect().height}px)`
+})
+previewSize.observe(previewBar)
 panelNode.hidden = true
 const register = (name) => ({
   register(def) {
@@ -356,8 +397,9 @@ function renderQueue() {
     row.textContent = entry.track.title
     for (const action of entry.actions) {
       const button = document.createElement('button')
-      button.textContent = action.label['zh-CN']
-      button.setAttribute('aria-label', action.label['zh-CN'])
+      const label = action.label[context.locale] || action.label.en
+      button.textContent = label
+      button.setAttribute('aria-label', label)
       button.dataset.action = action.id
       if (action.count !== undefined) {
         const count = document.createElement('span')
@@ -386,9 +428,12 @@ window.partyTest = {
   next: () => intent({ type: 'next' }),
   state,
   searchCalls,
+  pause: () => folium.playback.pause(),
+  play: () => folium.playback.play(),
   queue: () => queue,
   intent: (event) => intent(event),
   dispose() {
+    previewSize.disconnect()
     mounted?.()
     homeMounted?.()
     dispose()

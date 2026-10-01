@@ -125,7 +125,8 @@
   height: auto;
   max-height: none;
   padding: 12px 8px 8px 0;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   overflow-anchor: none;
 }
 .mp-private-conversation .mp-composer {
@@ -138,8 +139,101 @@
   height: 72px;
   min-height: 0;
 }
-.mp-private-conversation .mp-bubble {
-  font-size: 13px;
+.mp-private-conversation .mp-private-message {
+  max-width: min(560px, 92%);
+  margin-top: 14px;
+  margin-bottom: 14px;
+}
+.mp-private-message .mp-message-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.mp-private-message.is-mine .mp-message-content {
+  align-items: flex-end;
+}
+.mp-private-message .mp-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.4;
+}
+.mp-private-message.is-mine .mp-meta {
+  flex-direction: row-reverse;
+}
+.mp-private-author {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.mp-private-message time {
+  flex: none;
+  opacity: 0.65;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+.mp-private-message .mp-bubble {
+  padding: 7px 10px;
+  border-radius: 3px 8px 8px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.mp-private-message.is-mine .mp-bubble {
+  border-radius: 8px 3px 8px 8px;
+}
+.mp-private-message .mp-resource {
+  width: fit-content;
+  max-width: 100%;
+  background: var(--soft);
+  border-left: 0;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.mp-private-invitation {
+  width: 240px;
+  max-width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--soft);
+  text-align: left;
+}
+.mp-private-invitation-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mp-private-invitation-heading strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+.mp-private-invitation-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--hover);
+  color: var(--accent);
+  font-size: 17px;
+}
+.mp-private-invitation-description {
+  margin: 8px 0 10px;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.mp-private-invitation .mp-private-invitation-join {
+  margin-top: 4px;
+  background: var(--hover);
+  color: var(--accent);
+  font-size: 11px;
+  padding: 6px 10px;
 }
 @container (max-width: 600px) {
   .mp-private-layout {
@@ -165,5 +259,18 @@
   }
   .mp-composer-tools {
     gap: 2px;
+  }
+  .mp-private-conversation .mp-private-message {
+    max-width: 100%;
+    gap: 6px;
+  }
+  .mp-private-message .mp-meta {
+    flex-wrap: wrap;
+    gap: 2px 6px;
+  }
+  .mp-private-message .mp-message-avatar {
+    width: 24px;
+    height: 24px;
+    font-size: 9px;
   }
 }

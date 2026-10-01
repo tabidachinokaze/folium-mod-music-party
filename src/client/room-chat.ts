@@ -6,16 +6,18 @@ import { mountMentionComposer } from './mention-composer'
 import { decorateRoomMessage } from './room-message'
 import { createComposerTools, uploadImage } from './private-tools'
 
+import { t } from './i18n'
+
 // src/client/room-chat.ts
 export function mountRoomChat(container: HTMLElement, controller: PartyController) {
   const history = el('div', 'mp-history')
-  history.setAttribute('aria-label', '房间聊天记录')
+  history.setAttribute('aria-label', t('房间聊天记录'))
   history.tabIndex = 0
   const composer = el('form', 'mp-composer'),
     draft = el('textarea')
   draft.maxLength = 100
-  draft.placeholder = '聊聊这首歌…'
-  draft.setAttribute('aria-label', '房间聊天内容')
+  draft.placeholder = t('聊聊这首歌…')
+  draft.setAttribute('aria-label', t('房间聊天内容'))
   const mentions = mountMentionComposer({
     draft,
     composer,
@@ -27,7 +29,7 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
     (emoji) => controller.send(`[${emoji.emojiName}]`, emoji),
     'room',
   )
-  const send = el('button', 'mp-button primary', '发送')
+  const send = el('button', 'mp-button primary', t('发送'))
   send.type = 'submit'
   const tools = createComposerTools(
     controller,
@@ -137,11 +139,22 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
     history.replaceChildren(
       ...state.messages.map((message) => {
         const row = messageNode(message, message.uid === state.account?.uid, controller.folium.ui)
-        decorateRoomMessage(row, message, state.account?.nickname || '', mentions.mention)
+        decorateRoomMessage(
+          row,
+          {
+            ...message,
+            avatar:
+              message.avatar ||
+              state.room?.members.find((member) => member.uid === message.uid)?.avatar ||
+              '',
+          },
+          state.account?.nickname || '',
+          mentions.mention,
+        )
         return row
       }),
     )
-    if (!state.messages.length) history.append(el('p', 'mp-empty', '还没有聊天消息'))
+    if (!state.messages.length) history.append(el('p', 'mp-empty', t('还没有聊天消息')))
     previous = state.messages
     if (!visible) return
     if (followLatest && !loadingOlder) toLatest()

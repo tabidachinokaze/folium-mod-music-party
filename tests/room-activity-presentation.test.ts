@@ -18,6 +18,8 @@ it.each([
   ['世萌沾坏', '世萌沾坏来了，带来歌曲 我们俩 - 郭顶', 'join', '我们俩'],
   ['世萌沾坏', '世萌沾坏推荐了歌曲：《到时说爱我 - 茜拉》', 'recommend', '到时说爱我'],
   ['[晚风].*', '[晚风].*来了，带来歌曲 글쎄 - SEVENTEEN', 'join', '글쎄'],
+  ['tabidachinokaze', 'tabidachinokazeUP了《黄金数》', 'promote', '黄金数'],
+  ['小岛', '小岛置顶了歌曲《黄金数》', 'promote', '黄金数'],
 ])('distinguishes actor, action and complete song: %s / %s', (name, text, type, song) => {
   for (const titles of [[song], []]) {
     const result = activity(name, text, ...titles)

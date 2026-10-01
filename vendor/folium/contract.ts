@@ -611,6 +611,8 @@ export interface FoliumPlayerPanelTabDef {
     id: string;
     /** Tab title. */
     label: FoliumLabel;
+    /** Optional player-panel icon: a Lucide kebab-case name. Missing or unavailable icons use `puzzle`. */
+    icon?: string;
     /** Tab order; default 500. */
     order?: number;
     /** Draws the tab into its container. */

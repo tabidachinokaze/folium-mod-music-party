@@ -1,5 +1,7 @@
 import type { ChatMessage, Member } from '@party/shared/types'
-import { button, el } from './dom'
+import { button, el, picture } from './dom'
+import { messageTime } from './message-time'
+import { t } from './i18n'
 
 // src/client/room-message.ts
 // Official multiplayer chat carries mentions as @nickname text, not recipient IDs.
@@ -9,13 +11,24 @@ export function decorateRoomMessage(
   viewerNickname: string,
   mention: (member: Member) => void,
 ) {
+  if (!row.classList.contains('mp-message-secondary')) {
+    row.classList.add('mp-message-primary')
+    const content = el('div', 'mp-message-content'),
+      avatar = el('span', 'mp-avatar mp-message-avatar')
+    avatar.setAttribute('aria-label', t('{name}的头像', { name: message.nickname }))
+    avatar.setAttribute('role', 'img')
+    avatar.append(el('span', '', Array.from(message.nickname)[0] || '♪'))
+    if (message.avatar) avatar.append(picture(message.avatar, ''))
+    content.append(...row.childNodes)
+    row.append(avatar, content)
+  }
   const author = () => {
     const node = button(
       message.nickname,
       () => mention({ uid: message.uid, nickname: message.nickname, avatar: message.avatar }),
       'mp-message-author',
     )
-    node.setAttribute('aria-label', `提及 ${message.nickname}`)
+    node.setAttribute('aria-label', t('提及 {name}', { name: message.nickname }))
     node.title = `@${message.nickname}`
     return node
   }
@@ -27,12 +40,7 @@ export function decorateRoomMessage(
   }
   const meta = row.querySelector('.mp-meta')
   if (meta) {
-    meta.replaceChildren(
-      author(),
-      document.createTextNode(
-        ` · ${new Date(message.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
-      ),
-    )
+    meta.replaceChildren(author(), document.createTextNode(' · '), messageTime(message.time))
   }
   const bubble = row.querySelector('.mp-bubble')
   if (!bubble) return
@@ -52,6 +60,6 @@ export function decorateRoomMessage(
   bubble.replaceChildren(...parts)
   if (mentionsMe) {
     row.classList.add('mp-mentioned')
-    meta?.append(el('span', 'mp-mention-badge', '提到了你'))
+    meta?.append(el('span', 'mp-mention-badge', t('提到了你')))
   }
 }

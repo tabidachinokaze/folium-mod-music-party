@@ -3,6 +3,7 @@ import { mountPrivateHome } from './private-home'
 import { activeNeteaseSession, type Folium } from './host'
 import { PartyController } from './controller'
 import { mountPanel } from './panel'
+import { setLocale, t } from './i18n'
 
 // src/client/index.ts
 function registerEntries(folium: Folium, controller: PartyController) {
@@ -25,6 +26,7 @@ function registerEntries(folium: Folium, controller: PartyController) {
     folium.registries.playerPanelTabs.register({
       id: 'room',
       label: { 'zh-CN': '一起听', en: 'Music Party' },
+      icon: 'users',
       order: 200,
       mount: (container: HTMLElement, context: FoliumPanelContext) =>
         mountPanel(container, controller, context),
@@ -42,7 +44,7 @@ function registerEntries(folium: Folium, controller: PartyController) {
       mount: (container: HTMLElement) => {
         const button = document.createElement('button')
         button.type = 'button'
-        button.title = '网易云多人一起听'
+        button.title = t('网易云多人一起听')
         button.setAttribute('aria-label', button.title)
         button.style.cssText =
           'display:grid;place-items:center;width:24px;height:24px;color:inherit;cursor:pointer;background:transparent;border:0'
@@ -56,16 +58,21 @@ function registerEntries(folium: Folium, controller: PartyController) {
         button.onclick = open
         container.append(button)
         const render = () => {
+          button.title = t('网易云多人一起听')
+          button.setAttribute('aria-label', button.title)
           button.style.color = controller.state.room
             ? 'var(--folium-accent, currentColor)'
             : 'inherit'
           button.setAttribute('aria-pressed', String(!!controller.state.room))
         }
         const stop = controller.subscribe(render)
+        const language = new MutationObserver(render)
+        language.observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] })
         render()
         return () => {
           disposed = true
           stop()
+          language.disconnect()
           button.remove()
         }
       },
@@ -86,6 +93,7 @@ function registerEntries(folium: Folium, controller: PartyController) {
 // Registration follows the selected provider and verified account, including same-window changes.
 export default function activate(folium: Folium) {
   if (folium.env.context !== 'main') return
+  setLocale(document.documentElement.lang || 'zh-CN')
   let session = '',
     controller: PartyController | null = null,
     unregister: (() => void) | undefined

@@ -1,12 +1,14 @@
 import type { ChatMessage } from '@party/shared/types'
 
 // src/client/room-activity.ts
-function hasActor(text: string, nickname: string) {
+export function hasActivityActor(text: string, nickname: string) {
   if (!text.startsWith(nickname)) return false
   const rest = text.slice(nickname.length)
   return (
     !rest ||
-    /^(?:[\s·:：，,]|来了|推荐了|离开了|加入了|退出了|为(?:歌曲|这首歌)|点赞了)/u.test(rest)
+    /^(?:[\s·:：，,]|来了|推荐了|离开了|加入了|退出了|为(?:歌曲|这首歌)|点赞了|(?:UP|up)了|置顶了)/u.test(
+      rest,
+    )
   )
 }
 function hasTitle(text: string, title: string) {
@@ -31,7 +33,7 @@ export function roomActivityText(message: Pick<ChatMessage, 'nickname' | 'text' 
   const text = message.text.trim(),
     nickname = message.nickname.trim()
   const parts = [text].filter(Boolean)
-  if (nickname && !hasActor(text, nickname)) parts.unshift(nickname)
+  if (nickname && !hasActivityActor(text, nickname)) parts.unshift(nickname)
   const titles = new Set<string>()
   for (const attachment of message.attachments || []) {
     const title = attachment.title.trim()

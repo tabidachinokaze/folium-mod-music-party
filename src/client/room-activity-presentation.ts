@@ -1,5 +1,5 @@
 import type { ChatMessage } from '@party/shared/types'
-import { roomActivityText } from './room-activity'
+import { hasActivityActor, roomActivityText } from './room-activity'
 
 // src/client/room-activity-presentation.ts
 export interface RoomActivityPart {
@@ -8,33 +8,27 @@ export interface RoomActivityPart {
 }
 export interface RoomActivityPresentation {
   text: string
-  type: 'join' | 'recommend' | 'like' | 'leave' | 'notice'
+  type: 'join' | 'recommend' | 'promote' | 'like' | 'leave' | 'notice'
   label: string
-  icon: 'user-plus' | 'music-2' | 'thumbs-up' | 'log-out' | 'info'
+  icon: 'user-plus' | 'music-2' | 'arrow-up-to-line' | 'thumbs-up' | 'log-out' | 'info'
   parts: RoomActivityPart[]
 }
 type Span = { start: number; end: number; kind: 'actor' | 'song' }
 const events = {
   join: { label: '加入', icon: 'user-plus' },
   recommend: { label: '推荐', icon: 'music-2' },
+  promote: { label: '置顶', icon: 'arrow-up-to-line' },
   like: { label: '点赞', icon: 'thumbs-up' },
   leave: { label: '离开', icon: 'log-out' },
   notice: { label: '动态', icon: 'info' },
 } as const
 
-function actorPrefix(body: string, nickname: string) {
-  if (!nickname || !body.startsWith(nickname)) return false
-  const rest = body.slice(nickname.length)
-  return (
-    !rest ||
-    /^(?:[\s·:：，,]|来了|推荐了|离开了|加入了|退出了|为(?:歌曲|这首歌)|点赞了)/u.test(rest)
-  )
-}
 function eventType(action: string): RoomActivityPresentation['type'] {
   // Classify only the leading action, never a keyword inside a song or arbitrary sentence.
   if (/^(?:来了(?:[\s，,。！!]|$)|加入了(?:房间|一起听)(?:[\s，,。！!]|$))/u.test(action))
     return 'join'
   if (/^推荐了(?:歌曲|一首歌)(?:[\s:：《「“"·]|$)/u.test(action)) return 'recommend'
+  if (/^(?:(?:UP|up)了|置顶了)(?:歌曲)?(?:[\s:：《「“"·]|$)/u.test(action)) return 'promote'
   if (
     /^(?:点赞了(?:歌曲|这首歌)(?:[\s:：《「“"·]|$)|为(?:歌曲|这首歌)(?:[《「“"].*?[》」”"])?\s*点赞(?:了)?(?:[\s，,。！!]|$))/u.test(
       action,
@@ -64,7 +58,10 @@ function titleSpans(text: string, title: string, after: number): Span[] {
   return spans
 }
 function templateTitle(action: string, offset: number): Span | null {
-  const prefix = /^(?:来了[，,]\s*带来歌曲|带来歌曲|推荐了歌曲[：:]?)\s*/u.exec(action)
+  const prefix =
+    /^(?:来了[，,]\s*带来歌曲|带来歌曲|推荐了歌曲[：:]?|(?:(?:UP|up)了|置顶了)(?:歌曲)?[：:]?)\s*/u.exec(
+      action,
+    )
   if (!prefix) return null
   let value = action.slice(prefix[0].length),
     start = offset + prefix[0].length
@@ -94,7 +91,7 @@ export function roomActivityPresentation(
   const text = roomActivityText(message),
     body = message.text.trim(),
     nickname = message.nickname.trim(),
-    hasActor = actorPrefix(body, nickname),
+    hasActor = !!nickname && hasActivityActor(body, nickname),
     bodyOffset = nickname && !hasActor ? nickname.length + 3 : 0,
     rawAction = body.slice(hasActor ? nickname.length : 0),
     action = rawAction.replace(/^[\s·:：，,]+/u, ''),

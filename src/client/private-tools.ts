@@ -1,5 +1,7 @@
 import type { PartyController } from './controller'
 import { button, el } from './dom'
+import { mountDetailsPopup } from './popup-position'
+import { t } from './i18n'
 
 // src/client/private-tools.ts
 export type PrivateRun = (task: () => Promise<unknown>) => Promise<void>
@@ -13,12 +15,12 @@ export async function uploadImage(
     !file.size ||
     file.size > 20 * 1024 * 1024
   )
-    throw new Error('请选择 20 MB 以内的 PNG、JPEG、GIF 或 WebP 图片')
+    throw new Error(t('请选择 20 MB 以内的 PNG、JPEG、GIF 或 WebP 图片'))
   const account = controller.state.account?.uid
   const destination = { ...target }
   const checkRoom = () => {
     if (destination.kind === 'room' && controller.state.room?.roomId !== destination.roomId)
-      throw new Error('房间已变化，请重新选择图片')
+      throw new Error(t('房间已变化，请重新选择图片'))
   }
   checkRoom()
   const url = URL.createObjectURL(file)
@@ -29,11 +31,11 @@ export async function uploadImage(
     const base64 = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = () => resolve(String(reader.result).split(',')[1])
-      reader.onerror = () => reject(new Error('无法读取图片'))
+      reader.onerror = () => reject(new Error(t('无法读取图片')))
       reader.readAsDataURL(file)
     })
     if (!account || controller.state.account?.uid !== account)
-      throw new Error('账号已变化，请重新选择图片')
+      throw new Error(t('账号已变化，请重新选择图片'))
     checkRoom()
     return await controller.connection.attachment('media', {
       requestId: crypto.randomUUID(),
@@ -79,13 +81,13 @@ export function createComposerTools(
   run: PrivateRun,
   onImage: (file: File) => Promise<unknown>,
 ) {
-  const popups: HTMLDetailsElement[] = []
+  const popups: ReturnType<typeof mountDetailsPopup>[] = []
   const create = (label: string, values: string[]) => {
     const box = el('details', 'mp-stickers'),
       content = el('div', 'mp-sticker-content mp-text-picker')
     if (label === '颜文字') content.classList.add('mp-kaomoji')
-    box.append(el('summary', '', label))
-    content.append(el('h3', '', label))
+    box.append(el('summary', '', t(label)))
+    content.append(el('h3', '', t(label)))
     const grid = el('div', 'mp-text-grid')
     values.forEach((value) =>
       grid.append(
@@ -102,7 +104,7 @@ export function createComposerTools(
     )
     content.append(grid)
     box.append(content)
-    popups.push(box)
+    popups.push(mountDetailsPopup(box, content))
     return box
   }
   const nodes = [
@@ -148,40 +150,27 @@ export function createComposerTools(
   const input = imageInput(
     (file) =>
       void run(async () => {
-        if (!controller.state.account) throw new Error('请先登录网易云账号')
+        if (!controller.state.account) throw new Error(t('请先登录网易云账号'))
         await onImage(file)
         image.open = false
       }),
   )
-  image.append(el('summary', '', '图片'))
+  image.append(el('summary', '', t('图片')))
   content.append(
-    el('h3', '', '发送图片'),
-    el('p', 'mp-muted', 'PNG、JPEG、GIF、WebP · 最大 20 MB'),
-    button('选择图片', () => input.click()),
+    el('h3', '', t('发送图片')),
+    el('p', 'mp-muted', t('PNG、JPEG、GIF、WebP · 最大 20 MB')),
+    button(t('选择图片'), () => input.click()),
     input,
   )
   image.append(content)
-  popups.push(image)
-  const close = () =>
-    popups.forEach((box) => {
-      box.open = false
-    })
-  const outside = (event: Event) =>
-    popups.forEach((box) => {
-      if (!event.composedPath().includes(box)) box.open = false
-    })
-  const escape = (event: KeyboardEvent) => {
-    if (event.key === 'Escape') close()
-  }
-  document.addEventListener('pointerdown', outside)
-  document.addEventListener('keydown', escape)
+  popups.push(mountDetailsPopup(image, content))
+  const close = () => popups.forEach((popup) => popup.close())
   return {
     nodes,
     image,
     close,
     dispose() {
-      document.removeEventListener('pointerdown', outside)
-      document.removeEventListener('keydown', escape)
+      popups.forEach((popup) => popup.dispose())
     },
   }
 }

@@ -2,9 +2,11 @@ import { parseConversations, parsePrivatePage } from '@party/shared/private-mess
 import { invitation } from '@party/shared/protocol'
 import type { Conversation, PrivateMessage } from '@party/shared/types'
 import type { PartyController } from './controller'
-import { button, el, iconButton, messageNode, picture } from './dom'
+import { button, el, iconButton, picture } from './dom'
 import { createStickerPicker } from './sticker-view'
 import { createPrivateTools } from './private-tools'
+import { privateMessageNode, privateMessageProfiles, type PrivateProfile } from './private-message'
+import { t } from './i18n'
 
 // src/client/private-view.ts
 export function mountPrivate(
@@ -25,15 +27,16 @@ export function mountPrivate(
     reading = false,
     sending = false
   const peers = new Map<string, Conversation>()
+  const profiles = new Map<string, PrivateProfile>()
   const contacts = el('div', 'mp-contacts'),
     history = el('div', 'mp-history')
-  contacts.setAttribute('aria-label', '会话列表')
-  history.setAttribute('aria-label', '聊天消息')
-  const title = el('h3', '', '选择一个私信会话'),
+  contacts.setAttribute('aria-label', t('会话列表'))
+  history.setAttribute('aria-label', t('聊天消息'))
+  const title = el('h3', '', t('选择一个私信会话')),
     draft = el('textarea')
-  draft.placeholder = '发送私信…'
+  draft.placeholder = t('发送私信…')
   draft.maxLength = 500
-  draft.setAttribute('aria-label', '私信内容')
+  draft.setAttribute('aria-label', t('私信内容'))
   const form = el('form', 'mp-composer')
   const run = async (task: () => Promise<unknown>) => {
     const epoch = accountGeneration
@@ -43,14 +46,14 @@ export function mountPrivate(
     } catch (error) {
       if (!disposed && epoch === accountGeneration) {
         controller.handleAccountError(error as { code?: number })
-        report(error instanceof Error ? error.message : '私信操作失败', true)
+        report(t(error instanceof Error ? error.message : '私信操作失败'), true)
       }
     }
   }
   const sendToPeer = async (task: (peer: Conversation) => Promise<unknown>) => {
     if (sending) return
     const peer = selected
-    if (!peer) throw new Error('请先选择收信人')
+    if (!peer) throw new Error(t('请先选择收信人'))
     sending = true
     update()
     try {
@@ -62,7 +65,7 @@ export function mountPrivate(
     }
   }
   const invite = button(
-    '邀请一起听',
+    t('邀请一起听'),
     () =>
       void run(() =>
         sendToPeer(async (peer) => {
@@ -71,7 +74,7 @@ export function mountPrivate(
             roomId: controller.requireRoom().roomId,
             requestId: crypto.randomUUID(),
           })
-          report('已发送一起听邀请')
+          report(t('已发送一起听邀请'))
         }),
       ),
   )
@@ -91,7 +94,7 @@ export function mountPrivate(
   const tools = createPrivateTools(controller, draft, run, (target) =>
     sendToPeer((peer) => target(peer.uid)),
   )
-  const send = el('button', 'mp-button primary', '发送')
+  const send = el('button', 'mp-button primary', t('发送'))
   send.type = 'submit'
   const actions = el('div', 'mp-composer-tools')
   actions.append(...tools.nodes, sticker.node, tools.image, send)
@@ -119,7 +122,9 @@ export function mountPrivate(
         pick.dataset.uid = peer.uid
         pick.setAttribute(
           'aria-label',
-          `${peer.nickname}${peer.unread ? ` · ${peer.unread} 未读` : ''}`,
+          peer.unread
+            ? t('{name} · {count} 未读', { name: peer.nickname, count: peer.unread })
+            : peer.nickname,
         )
         pick.setAttribute('aria-pressed', String(selected?.uid === peer.uid))
         const avatar = el('span', 'mp-avatar', peer.nickname.slice(0, 1))
@@ -127,7 +132,7 @@ export function mountPrivate(
         const info = el('span', 'mp-contact-info')
         info.append(
           el('strong', '', peer.nickname),
-          el('span', 'mp-contact-preview', peer.preview || '暂无消息'),
+          el('span', 'mp-contact-preview', peer.preview || t('暂无消息')),
         )
         pick.append(avatar, info)
         if (peer.unread)
@@ -135,7 +140,7 @@ export function mountPrivate(
         return pick
       }),
     )
-    if (!peers.size) contacts.append(el('p', 'mp-empty', '暂无私信会话'))
+    if (!peers.size) contacts.append(el('p', 'mp-empty', t('暂无私信会话')))
     contacts.scrollTop = top
   }
   async function list(more = false) {
@@ -178,6 +183,7 @@ export function mountPrivate(
       before = null
       historyMore = false
       history.replaceChildren()
+      profiles.clear()
       sticker.node.open = false
       tools.close()
     }
@@ -188,15 +194,14 @@ export function mountPrivate(
     renderContacts()
     history.setAttribute('aria-busy', 'true')
     try {
-      const page = parsePrivatePage(
-        await controller.connection.call('privateHistory', {
-          uid: peer.uid,
-          ...(more && before !== null ? { before } : {}),
-        }),
-        uid,
-        peer.uid,
-      )
+      const response = await controller.connection.call('privateHistory', {
+        uid: peer.uid,
+        ...(more && before !== null ? { before } : {}),
+      })
       if (disposed || runId !== generation) return
+      const page = parsePrivatePage(response, uid, peer.uid)
+      for (const [id, profile] of privateMessageProfiles(response, uid, peer.uid))
+        profiles.set(id, profile)
       const merged = new Map((more ? messages : []).map((message) => [message.id, message]))
       page.messages.forEach((message) => merged.set(message.id, message))
       messages = [...merged.values()].sort((a, b) => a.time - b.time)
@@ -214,17 +219,21 @@ export function mountPrivate(
       const nodes = messages
         .filter((message) => !more || !existing.has(message.id))
         .map((message) => {
-          const node = messageNode(message, message.senderId === uid)
-          node.dataset.messageId = message.id
-          for (const link of message.invitations)
-            node.append(
-              button(
-                '加入多人房间',
-                () =>
-                  void run(() => controller.enter('join', invitation({ ...link, role: 'guest' }))),
-              ),
-            )
-          return node
+          const mine = message.senderId === uid,
+            profile = profiles.get(message.senderId)
+          return privateMessageNode(
+            message,
+            mine,
+            {
+              uid: message.senderId,
+              nickname:
+                profile?.nickname ||
+                (mine ? controller.state.account?.nickname || t('我') : peer.nickname),
+              avatar: profile?.avatar || (mine ? '' : peer.avatar),
+            },
+            (link) =>
+              void run(() => controller.enter('join', invitation({ ...link, role: 'guest' }))),
+          )
         })
       if (more) history.prepend(...nodes)
       else history.replaceChildren(...nodes)
@@ -278,7 +287,7 @@ export function mountPrivate(
   })
   const refreshButton = iconButton(
     controller.folium.ui,
-    '刷新私信',
+    t('刷新私信'),
     'refresh',
     () =>
       void run(async () => {
@@ -311,12 +320,13 @@ export function mountPrivate(
       selected = null
       messages = []
       peers.clear()
+      profiles.clear()
       contacts.replaceChildren()
       history.replaceChildren()
       draft.value = ''
       sticker.node.open = false
       tools.close()
-      title.textContent = '选择一个私信会话'
+      title.textContent = t('选择一个私信会话')
       before = null
       offset = 0
       contactsMore = historyMore = listing = reading = false

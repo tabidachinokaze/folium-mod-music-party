@@ -56,6 +56,7 @@ let handlers = new Map(),
   topCounts = { 200: 2, 201: 0 },
   promoted = null,
   privatePages = false,
+  privateLayout = false,
   stickerPages = false,
   deletedStickers = new Set()
 const self = { userId: 9, nickname: '晚风' },
@@ -85,6 +86,7 @@ function reset() {
   topCounts = { 200: 2, 201: 0 }
   promoted = null
   privatePages = false
+  privateLayout = false
   stickerPages = false
   deletedStickers = new Set()
 }
@@ -103,9 +105,9 @@ const snapshot = () => ({
   multiLtRoomUserAgg: {
     onlineNums: 3,
     onlineUserInfos: [
-      { uid: 9, nickname: '晚风', avatar: `${origin}/cover.svg` },
-      { uid: 10, nickname: '小岛', avatar: `${origin}/cover.svg` },
-      { uid: 11, nickname: '远山', avatar: `${origin}/cover.svg` },
+      { uid: 9, nickname: '晚风', avatar: 'https://p1.music.126.net/fixture/avatar.jpg' },
+      { uid: 10, nickname: '小岛', avatar: 'https://p1.music.126.net/fixture/avatar.jpg' },
+      { uid: 11, nickname: '远山', avatar: 'https://p1.music.126.net/fixture/avatar.jpg' },
     ],
   },
   multiRoomInfoDTO: { chatRoomId: '888' },
@@ -170,6 +172,10 @@ const server = createServer(async (req, res) => {
       privatePages = true
       return json({ ok: true })
     }
+    if (url.pathname === '/test/private-layout') {
+      privateLayout = true
+      return json({ ok: true })
+    }
     if (url.pathname === '/test/state')
       return json({
         calls,
@@ -191,6 +197,39 @@ const server = createServer(async (req, res) => {
           msgType: 0,
           imChatRoomMsgBody: { text },
         })
+      return json({ ok: true })
+    }
+    if (url.pathname === '/test/room-layout') {
+      const records = [
+        {
+          nickname: 'tabidachinokaze',
+          sendUid: '9',
+          msgType: 3,
+          text: 'tabidachinokazeUP了《黄金数》',
+        },
+        {
+          nickname: '名前'.repeat(40),
+          sendUid: '10',
+          msgType: 1,
+          text: `${'名前'.repeat(40)}来了，带来歌曲 ${'お兄ちゃんはおしまい！'.repeat(15)} - 阿知波大輔`,
+        },
+        {
+          nickname: '小岛',
+          sendUid: '10',
+          msgType: 0,
+          text: 'https://example.com/' + 'unbrokentext'.repeat(45),
+        },
+        {
+          nickname: '晚风',
+          sendUid: '9',
+          msgType: 0,
+          text: '(๑•̀ㅂ•́)و✧',
+          avatarUrl: 'https://p1.music.126.net/fixture/avatar.jpg',
+        },
+      ]
+      records.forEach(({ text, ...record }, index) =>
+        messages.push({ ...record, sendTime: Date.now() + index, imChatRoomMsgBody: { text } }),
+      )
       return json({ ok: true })
     }
     if (url.pathname === '/test/room-image') {
@@ -340,6 +379,35 @@ const server = createServer(async (req, res) => {
     }
     if (url.pathname === '/msg/private/history') {
       calls.push(`history:${args.uid}:${args.before || 0}`)
+      if (privateLayout) {
+        const me = { ...self, avatarUrl: 'https://p1.music.126.net/fixture/me.jpg' }
+        const rows = [
+          {
+            fromUser: peer,
+            toUser: me,
+            msg: JSON.stringify({
+              msg: 'https://example.com/' + 'verylongword'.repeat(40),
+              type: 1,
+            }),
+          },
+          { fromUser: peer, toUser: me, msg: JSON.stringify({ msg: '今晚听这首', type: 1 }) },
+          { fromUser: me, toUser: peer, msg: JSON.stringify({ msg: '好呀', type: 1 }) },
+          {
+            fromUser: peer,
+            toUser: me,
+            msg: JSON.stringify({
+              msg: '图片',
+              pics: [{ url: 'https://p1.music.126.net/fixture/photo.jpg' }],
+            }),
+          },
+          { ...privateMessage(), fromUser: peer, toUser: me },
+        ].map((message, index) => ({
+          ...message,
+          id: 501 + index,
+          time: 1790600000000 + index * 1000,
+        }))
+        return json({ code: 200, msgs: rows, more: false })
+      }
       if (!privatePages) return json({ code: 200, msgs: [privateMessage()], more: false })
       const before = Number(args.before || 1790600000001)
       const msgs = Array.from({ length: 25 }, (_, i) => ({
@@ -408,6 +476,7 @@ const server = createServer(async (req, res) => {
             ...(Object.hasOwn(topCounts, String(i + 200))
               ? { upCnt: topCounts[String(i + 200)] }
               : {}),
+            uped: String(i + 200) === promoted,
           },
           rcmdUid: i % 2 ? '10' : '9',
           nickname: i % 2 ? '小岛' : '晚风',

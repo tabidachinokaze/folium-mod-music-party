@@ -3,6 +3,8 @@ import { parseChatPage, mergeChat } from '@party/shared/chat'
 import type { ChatMessage, Method, RoomQueueEntry } from '@party/shared/types'
 import { withPromotionCount } from './queue-counts'
 
+import { t } from './i18n'
+
 // src/client/room-data.ts
 export type Call = (method: Method, args?: Record<string, unknown>) => Promise<any>
 export async function loadQueue(
@@ -18,15 +20,21 @@ export async function loadQueue(
     const response = await call(method, { roomId, ...(cursor ? { cursor } : {}) })
     const page = parseRoomQueue(response)
     if (!current()) return []
-    page.entries.forEach((row, index) =>
+    page.entries.forEach((row, index) => {
+      const item = response.data.songLists[index]
+      // The official resource model puts the viewer's own promotion flag inside songInfo.
+      const uped = item?.songInfo?.uped
       rows.set(
         row.songBizId,
-        withPromotionCount(row, response.data.songLists[index]?.songInfo?.upCnt),
-      ),
-    )
+        withPromotionCount(
+          { ...row, uped: typeof uped === 'boolean' ? uped : row.uped },
+          item?.songInfo?.upCnt,
+        ),
+      )
+    })
     if (!page.more) return [...rows.values()]
     if (!page.cursor || seen.has(page.cursor) || seen.size >= 1000)
-      throw new Error('歌曲列表分页异常，请刷新')
+      throw new Error(t('歌曲列表分页异常，请刷新'))
     seen.add(page.cursor)
     cursor = page.cursor
   } while (current())

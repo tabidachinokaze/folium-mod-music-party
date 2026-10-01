@@ -216,6 +216,68 @@
 .mp-member-list > .mp-muted {
   padding: 0 8px;
 }
+.mp-member-equalizer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  gap: 2px;
+  width: 20px;
+  height: 20px;
+  color: var(--muted);
+}
+.mp-member-equalizer i {
+  width: 2px;
+  height: 12px;
+  border-radius: 2px;
+  background: currentColor;
+  transform: scaleY(0.35);
+  animation: mp-member-level 950ms ease-in-out infinite alternate;
+  animation-play-state: paused;
+}
+.mp-member-equalizer i:nth-child(2) {
+  height: 18px;
+  animation-delay: -350ms;
+}
+.mp-member-equalizer i:nth-child(3) {
+  height: 14px;
+  animation-delay: -650ms;
+}
+.mp-member-equalizer i:nth-child(4) {
+  height: 10px;
+  animation-delay: -200ms;
+}
+.mp-member-equalizer[data-playing='true'] {
+  color: var(--accent);
+}
+.mp-member-equalizer[data-playing='true'] i {
+  animation-play-state: running;
+}
+.mp-actions .mp-promoted {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.mp-top-count {
+  margin-right: 2px;
+}
+.mp-track-status {
+  color: var(--accent);
+  font-size: 9px;
+}
+@keyframes mp-member-level {
+  from {
+    transform: scaleY(0.3);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mp-member-equalizer i {
+    animation: none;
+    transform: scaleY(0.65);
+  }
+}
 .mp-chat-view > .mp-muted {
   margin: 0 0 8px;
 }

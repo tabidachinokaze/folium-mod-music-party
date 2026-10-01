@@ -2,6 +2,8 @@ import { parseStickerGroups, stickerKey, type SavedSticker } from '@party/shared
 import type { PartyController } from './controller'
 import { button, el, picture } from './dom'
 import { imageInput, uploadImage, type PrivateRun } from './private-tools'
+import { mountDetailsPopup } from './popup-position'
+import { t } from './i18n'
 
 // src/client/sticker-view.ts
 export function createStickerPicker(
@@ -11,12 +13,12 @@ export function createStickerPicker(
   run: PrivateRun = (task) => controller.run(task),
 ) {
   const box = el('details', 'mp-stickers')
-  box.append(el('summary', '', '表情包'))
+  box.append(el('summary', '', t('表情包')))
   const content = el('div', 'mp-sticker-content'),
     header = el('header', 'mp-picker-header'),
     grid = el('div', 'mp-sticker-grid')
   const select = el('select')
-  select.setAttribute('aria-label', '表情分组')
+  select.setAttribute('aria-label', t('表情分组'))
   let loaded = false,
     disposed = false,
     loading = false,
@@ -36,19 +38,19 @@ export function createStickerPicker(
         await initialize()
       }),
   )
-  const uploadButton = button('上传', () => upload.click())
-  uploadButton.setAttribute('aria-label', '上传表情包')
-  const organize = button('整理', () => {
+  const uploadButton = button(t('上传'), () => upload.click())
+  uploadButton.setAttribute('aria-label', t('上传表情包'))
+  const organize = button(t('整理'), () => {
     editing = true
     render()
   })
-  const cancel = button('取消', () => {
+  const cancel = button(t('取消'), () => {
     editing = false
     selected.clear()
     render()
   })
   const remove = button(
-    '删除',
+    t('删除'),
     () =>
       void mutate(async () => {
         const ids = [...selected]
@@ -61,9 +63,10 @@ export function createStickerPicker(
     'danger',
   )
   const status = el('p', 'mp-muted')
-  header.append(el('strong', '', '表情包'), uploadButton, organize, remove, cancel)
+  header.append(el('strong', '', t('表情包')), uploadButton, organize, remove, cancel)
   content.append(header, select, status, grid, upload)
   box.append(content)
+  const popup = mountDetailsPopup(box, content)
   async function mutate(task: () => Promise<unknown>) {
     if (mutating || disposed) return
     mutating = true
@@ -85,7 +88,7 @@ export function createStickerPicker(
     organize.hidden = editing
     cancel.hidden = !editing
     remove.hidden = !editing || !selected.size
-    remove.textContent = `删除 (${selected.size})`
+    remove.textContent = t('删除 ({count})', { count: selected.size })
     select.disabled = editing || mutating || loading
     grid.replaceChildren(
       ...[...items].map(([key, item]) => {
@@ -101,8 +104,8 @@ export function createStickerPicker(
           })
         })
         pick.dataset.stickerKey = key
-        pick.title = item.restricted ? item.restriction : item.emojiName
-        pick.setAttribute('aria-label', item.emojiName || '发送表情')
+        pick.title = item.restricted ? t(item.restriction) : item.emojiName
+        pick.setAttribute('aria-label', item.emojiName || t('发送表情'))
         if (editing) pick.setAttribute('aria-pressed', String(selected.has(item.emojiId)))
         pick.disabled = editing ? item.emojiId === '0' : item.restricted
         pick.append(picture(item.emojiImgUrl, item.emojiName))
@@ -111,11 +114,11 @@ export function createStickerPicker(
     )
     content.setAttribute('aria-busy', String(loading))
     status.textContent = loading
-      ? '正在加载表情…'
+      ? t('正在加载表情…')
       : !items.size
-        ? '暂无表情包，可以上传图片或 GIF。'
+        ? t('暂无表情包，可以上传图片或 GIF。')
         : editing
-          ? '选择要从网易云收藏中删除的表情包'
+          ? t('选择要从网易云收藏中删除的表情包')
           : ''
     status.hidden = !status.textContent
   }
@@ -227,14 +230,6 @@ export function createStickerPicker(
     render()
     box.open = false
   })
-  const outside = (event: Event) => {
-    if (!event.composedPath().includes(box)) box.open = false
-  }
-  const escape = (event: KeyboardEvent) => {
-    if (event.key === 'Escape') box.open = false
-  }
-  document.addEventListener('pointerdown', outside)
-  document.addEventListener('keydown', escape)
   render()
   return {
     node: box,
@@ -242,8 +237,7 @@ export function createStickerPicker(
       disposed = true
       epoch++
       stopAccount()
-      document.removeEventListener('pointerdown', outside)
-      document.removeEventListener('keydown', escape)
+      popup.dispose()
     },
   }
 }

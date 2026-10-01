@@ -85,7 +85,9 @@ test('private viewport, scroll pagination, compact media and sticker management'
   await expect(home.locator('.mp-contact')).toHaveCount(20)
   await expect(history.locator('.mp-message')).toHaveCount(25)
   await expect(history.locator('.mp-message').last().locator('.mp-bubble')).toHaveCount(0)
-  await expect(history.locator('.mp-message').last().getByRole('img')).toBeVisible()
+  await expect(
+    history.locator('.mp-message').last().locator('.mp-message-content > img'),
+  ).toBeVisible()
   await expect(home.getByRole('button', { name: '更多会话' })).toHaveCount(0)
   await expect(home.getByRole('button', { name: '更早的消息' })).toHaveCount(0)
   expect(await home.evaluate((node) => node.scrollHeight <= node.clientHeight + 1)).toBe(true)
@@ -182,6 +184,66 @@ test('private tools upload targets, isolated feedback and narrow theme layout', 
   await page.screenshot({ path: 'test-results/private-light-narrow.png' })
 })
 
+test('private message cards show sender avatars, compact bubbles and integrated invitations', async ({
+  page,
+  request,
+}) => {
+  await request.post('/test/private-layout')
+  await restore(page)
+  await page.getByRole('button', { name: '私信', exact: true }).click()
+  await page.getByRole('button', { name: '小岛 · 1 未读', exact: true }).click()
+  const history = page.getByLabel('聊天消息')
+  await expect(history.locator('.mp-message')).toHaveCount(5)
+  await expect(history.locator('.mp-message-avatar img')).toHaveCount(5)
+  const mine = history.locator('.mp-message.is-mine'),
+    received = history
+      .locator('.mp-message')
+      .filter({ has: page.getByText('今晚听这首', { exact: true }) })
+  await expect(mine.locator('.mp-bubble')).toHaveText('好呀')
+  await expect(received.locator('.mp-meta')).toContainText('小岛')
+  await expect(mine.locator('.mp-meta')).toContainText('晚风')
+  await expect(mine.locator('.mp-meta time')).toHaveText(/^\d{2}-\d{2} \d{2}:\d{2}$/)
+  const ownAvatar = (await mine.locator('.mp-message-avatar').boundingBox())!,
+    ownBubble = (await mine.locator('.mp-bubble').boundingBox())!,
+    peerAvatar = (await received.locator('.mp-message-avatar').boundingBox())!,
+    peerBubble = (await received.locator('.mp-bubble').boundingBox())!
+  expect(ownAvatar.x).toBeGreaterThan(ownBubble.x + ownBubble.width)
+  expect(peerAvatar.x + peerAvatar.width).toBeLessThan(peerBubble.x)
+  expect(ownBubble.width).toBeLessThan(150)
+  await expect(history.locator('[data-message-id="server:504"] .mp-bubble')).toHaveCount(0)
+  await expect(
+    history.locator('[data-message-id="server:504"] .mp-message-content > img'),
+  ).toBeVisible()
+  await expect(
+    history
+      .locator('[data-message-id="server:505"] .mp-message-content')
+      .getByRole('button', { name: '加入多人房间' }),
+  ).toBeVisible()
+  await history.evaluate((node) => {
+    node.scrollTop = node.scrollHeight
+  })
+  await page.screenshot({ path: 'test-results/private-message-cards.png', animations: 'disabled' })
+  for (const theme of ['light', 'blue']) {
+    await page.getByRole('combobox', { name: '预览主题' }).selectOption(theme)
+    await page.setViewportSize({ width: 420, height: 760 })
+    await expect
+      .poll(() => history.evaluate((node) => node.scrollWidth <= node.clientWidth + 1))
+      .toBe(true)
+    await expect
+      .poll(() =>
+        page
+          .locator('.mp-private-home')
+          .evaluate((node) => node.scrollHeight <= node.clientHeight + 1),
+      )
+      .toBe(true)
+  }
+  await page.screenshot({
+    path: 'test-results/private-message-cards-narrow.png',
+    animations: 'disabled',
+  })
+  expect((await (await request.get('/test/state')).json()).calls).not.toContain('privateSend')
+})
+
 test('room overview and member recommendation history with own-only deletion', async ({
   page,
   request,
@@ -191,7 +253,18 @@ test('room overview and member recommendation history with own-only deletion', a
   await expect(page.getByRole('button', { name: '请求下一首' })).toHaveCount(0)
   await page.getByRole('tab', { name: '成员', exact: true }).click()
   const view = page.locator('section[aria-label="成员"]')
-  await expect(view.getByRole('heading', { name: '3 人一起听' })).toBeVisible()
+  await expect(view.locator('.mp-member-header .mp-member-name')).toHaveText('晚风')
+  await expect(view.getByRole('button', { name: '刷新', exact: true })).toBeVisible()
+  await expect(view.locator('.mp-member-header .mp-avatar img')).toBeVisible()
+  const equalizer = view.locator('.mp-member-equalizer')
+  await expect(equalizer).toHaveAttribute('data-playing', 'true')
+  await page.evaluate(() => (window as any).partyTest.pause())
+  await expect(equalizer).toHaveAttribute('data-playing', 'false')
+  await page.evaluate(() => (window as any).partyTest.play())
+  await expect(equalizer).toHaveAttribute('data-playing', 'true')
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await expect(equalizer.locator('i').first()).toHaveCSS('animation-name', 'none')
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
   await expect(view.getByRole('button', { name: '查看 晚风 的推荐' })).toContainText('推荐 9 首')
   await view.getByRole('button', { name: '查看 小岛 的推荐' }).click()
   await expect(view.getByText('共推荐 6 首')).toBeVisible()
@@ -202,6 +275,9 @@ test('room overview and member recommendation history with own-only deletion', a
   await view.getByRole('button', { name: '返回', exact: true }).click()
   await view.getByRole('button', { name: '查看 晚风 的推荐' }).click()
   await expect(view.getByRole('heading', { name: '正在播放', exact: true })).toHaveCount(0)
+  await expect(view.getByRole('heading', { name: '已播歌曲 · 4', exact: true })).toBeVisible()
+  await expect(view.locator('[data-current="true"] .mp-track-name')).toHaveText('晚风与海')
+  await expect(view.locator('[data-current="true"] .mp-actions')).toHaveText('0 赞')
   await expect(view.getByRole('button', { name: '删除', exact: true })).toHaveCount(5)
   await view.getByRole('button', { name: '删除', exact: true }).first().click()
   await expect(view.getByRole('button', { name: '删除', exact: true })).toHaveCount(4)
@@ -385,6 +461,63 @@ test('rematching uses the selected song without changing current playback or rec
   await expect(page.locator('.mp-match-song-summary')).toContainText('晚风与海')
 })
 
+test('sidebar pickers open to the left, dismiss on navigation and stay inside narrow windows', async ({
+  page,
+}) => {
+  await restore(page)
+  await page.locator('#panel').evaluate((node) => {
+    node.style.margin = '24px 16px 24px auto'
+    node.style.overflow = 'hidden'
+  })
+  const panel = page.locator('#panel')
+  const expectLeft = async (popup: import('@playwright/test').Locator) => {
+    await expect(popup).toBeVisible()
+    await expect
+      .poll(async () => {
+        const a = (await panel.boundingBox())!,
+          b = (await popup.boundingBox())!
+        return b.x >= 0 && b.x + b.width <= a.x - 8 && b.y >= 0 && b.y + b.height <= 1020
+      })
+      .toBe(true)
+  }
+  await page.getByRole('button', { name: '切换歌曲', exact: true }).click()
+  const match = page.getByRole('dialog', { name: '选择匹配歌曲' })
+  await expectLeft(match)
+  await page.getByRole('tab', { name: '聊天', exact: true }).click()
+  await expect(match).toBeHidden()
+  const chat = page.locator('.mp-chat-view')
+  for (const name of ['Emoji', '颜文字', '表情包', '图片']) {
+    await chat
+      .locator('summary')
+      .filter({ hasText: new RegExp(`^${name}$`) })
+      .click()
+    const popup = chat.getByRole('dialog', { name, exact: true })
+    await expectLeft(popup)
+    await page.screenshot({ path: `test-results/side-popup-${name}.png`, animations: 'disabled' })
+    await page.keyboard.press('Escape')
+    await expect(popup).toBeHidden()
+  }
+  await chat
+    .locator('summary')
+    .filter({ hasText: /^Emoji$/ })
+    .click()
+  await page.getByRole('tab', { name: '成员', exact: true }).click()
+  await expect(chat.getByRole('dialog', { name: 'Emoji', exact: true })).toBeHidden()
+  await page.getByRole('tab', { name: '聊天', exact: true }).click()
+  await page.setViewportSize({ width: 360, height: 720 })
+  await chat
+    .locator('summary')
+    .filter({ hasText: /^Emoji$/ })
+    .click()
+  const popup = chat.getByRole('dialog', { name: 'Emoji', exact: true })
+  const bounds = (await popup.boundingBox())!
+  expect(bounds.x).toBeGreaterThanOrEqual(0)
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(360)
+  expect(bounds.y + bounds.height).toBeLessThanOrEqual(720)
+  await page.getByRole('heading', { name: '一起听', exact: true }).click()
+  await expect(popup).toBeHidden()
+})
+
 test('room mentions select members, retain drafts and highlight only the full current nickname', async ({
   page,
   request,
@@ -429,6 +562,48 @@ test('room mentions select members, retain drafts and highlight only the full cu
   await expect(draft).toHaveValue('@')
 })
 
+test('room chat wraps long content with avatars and does not duplicate UP actors', async ({
+  page,
+  request,
+}) => {
+  await request.post('/test/room-layout')
+  await restore(page)
+  await page.getByRole('tab', { name: '聊天', exact: true }).click()
+  const history = page.getByLabel('房间聊天记录')
+  await expect(history.locator('[data-activity="promote"] .mp-activity-body')).toHaveText(
+    'tabidachinokazeUP了《黄金数》',
+  )
+  await expect(history.locator('.mp-message-primary .mp-message-avatar')).toHaveCount(3)
+  await expect(history.locator('.mp-message-primary .mp-message-avatar img')).toHaveCount(3)
+  await expect(history.locator('.mp-message-secondary .mp-message-avatar')).toHaveCount(0)
+  await expect(history.locator('.mp-message-primary .mp-meta time').first()).toHaveText(
+    /^\d{2}-\d{2} \d{2}:\d{2}$/,
+  )
+  await expect(history.locator('.mp-message.is-mine .mp-meta time')).toHaveText(/^\d{2}:\d{2}$/)
+  for (const width of [1100, 360, 280]) {
+    await page.setViewportSize({ width, height: 800 })
+    await expect
+      .poll(() => history.evaluate((node) => node.scrollWidth <= node.clientWidth + 1))
+      .toBe(true)
+    const outside = await history.evaluate((node) => {
+      const bounds = node.getBoundingClientRect()
+      return [...node.querySelectorAll('.mp-bubble, .mp-activity-body, .mp-message-avatar')].some(
+        (item) => {
+          const rect = item.getBoundingClientRect()
+          return rect.left < bounds.left - 1 || rect.right > bounds.right + 1
+        },
+      )
+    })
+    expect(outside).toBe(false)
+  }
+  await history.evaluate((node) => {
+    node.scrollTop = node.scrollHeight
+  })
+  await page
+    .locator('#panel')
+    .screenshot({ path: 'test-results/room-chat-wrapped.png', animations: 'disabled' })
+})
+
 test('room composer shares emoji tools and sends images to the captured room', async ({
   page,
   request,
@@ -460,13 +635,17 @@ test('room composer shares emoji tools and sends images to the captured room', a
   })
   await expect.poll(() => uploads.length).toBe(1)
   expect(uploads[0].target).toEqual({ kind: 'room', roomId: 'official_room' })
-  await expect(chat.locator('.mp-history .mp-message.is-mine img')).toHaveCount(1)
+  await expect(chat.locator('.mp-history .mp-message.is-mine .mp-message-content img')).toHaveCount(
+    1,
+  )
   await expect(chat.locator('.mp-history .mp-message.is-mine .mp-bubble')).toHaveCount(0)
   await expect(draft).toHaveValue('好听 😊(≧▽≦)')
   await expect(chat.getByRole('button', { name: /加载更早|加载更多/ })).toHaveCount(0)
   await chat.locator('summary').filter({ hasText: '表情包' }).click()
   await chat.getByRole('button', { name: '开心', exact: true }).click()
-  await expect(chat.locator('.mp-history .mp-message.is-mine img')).toHaveCount(2)
+  await expect(chat.locator('.mp-history .mp-message.is-mine .mp-message-content img')).toHaveCount(
+    2,
+  )
   await expect(draft).toHaveValue('好听 😊(≧▽≦)')
 })
 
@@ -539,11 +718,24 @@ test('promotion counts distinguish zero from missing data and update in queue an
   const members = page.locator('.mp-members-view')
   await members.getByRole('button', { name: '查看 晚风 的推荐', exact: true }).click()
   await expect(members.locator('[data-biz-id="200"] .mp-top-count')).toHaveText('3')
+  const up = members
+    .locator('[data-biz-id="200"]')
+    .getByRole('button', { name: '置顶', exact: true })
+  await expect(up).toHaveAttribute('aria-pressed', 'true')
+  await expect(
+    members.locator('[data-biz-id="201"]').getByRole('button', { name: '置顶', exact: true }),
+  ).toHaveCount(0)
+  const countBox = (await members.locator('[data-biz-id="200"] .mp-top-count').boundingBox())!
+  const buttonBox = (await up.boundingBox())!
+  expect(countBox.x + countBox.width).toBeLessThanOrEqual(buttonBox.x)
   await expect(members.locator('[data-biz-id="202"] .mp-top-count')).toHaveCount(0)
-  await expect(members.locator('[data-biz-id="700"] .mp-actions')).toHaveText('置顶 4 · 3 赞')
+  await expect(members.locator('[data-biz-id="700"] .mp-actions')).toHaveText('3 赞')
   await members.getByRole('button', { name: '返回', exact: true }).click()
   await members.getByRole('button', { name: '查看 小岛 的推荐', exact: true }).click()
   await expect(members.locator('[data-biz-id="201"] .mp-top-count')).toHaveText('0')
+  await expect(
+    members.locator('[data-biz-id="201"]').getByRole('button', { name: '置顶', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'false')
   await expect(
     members.locator('[data-biz-id="201"]').getByRole('button', { name: '删除', exact: true }),
   ).toHaveCount(0)
@@ -574,4 +766,88 @@ test('notification bridge initializes and closes without exposing credentials or
       throw new Error('SDK persisted data')
   })
   expect(errors).toEqual([])
+})
+
+test('English follows the host locale across room, member, chat and private surfaces', async ({
+  page,
+  request,
+}) => {
+  await page.goto('/')
+  await page.getByRole('combobox', { name: 'Preview language' }).selectOption('en')
+  await expect(page.getByRole('button', { name: 'Resume current room', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Find a room', exact: true })).toBeVisible()
+  await expect(page.getByRole('switch', { name: 'Let others match into this room' })).toBeVisible()
+  await page.getByRole('button', { name: 'Resume current room', exact: true }).click()
+  await expect(page.locator('.mp-panel > .mp-header .mp-pill')).toHaveText('3 listening together')
+  await page.getByRole('button', { name: 'Change song', exact: true }).click()
+  const picker = page.getByRole('dialog', { name: 'Choose a matching song' })
+  await picker.getByRole('searchbox', { name: 'Search NetEase songs' }).fill('山海')
+  await picker.getByRole('button', { name: 'Search', exact: true }).click()
+  await expect(
+    picker.getByRole('button', { name: 'Choose 山海之间 · 晚风', exact: true }),
+  ).toBeVisible()
+  await page.keyboard.press('Escape')
+  await page.getByRole('tab', { name: 'Members', exact: true }).click()
+  await page.getByRole('button', { name: 'View recommendations from 晚风', exact: true }).click()
+  await expect(page.locator('.mp-members-view')).toContainText('Now playing')
+  await expect(page.locator('.mp-members-view')).toContainText('Up next')
+  await page.getByRole('tab', { name: 'Chat', exact: true }).click()
+  await expect(page.getByText('这首歌适合在海边听。', { exact: true })).toBeVisible()
+  await page.getByRole('textbox', { name: 'Room message' }).fill('REJECT')
+  await page.getByRole('button', { name: 'Send', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('You are sending too quickly')
+  for (const [label, expected] of [
+    ['Kaomoji', '(๑•̀ㅂ•́)و✧'],
+    ['Stickers', '开心'],
+    ['Image', 'Choose an image'],
+  ]) {
+    await page.locator('summary:visible').filter({ hasText: label }).click()
+    if (label === 'Image') await expect(page.getByText(expected, { exact: true })).toBeVisible()
+    else if (label === 'Stickers')
+      await expect(page.getByRole('button', { name: expected, exact: true })).toBeVisible()
+    else await expect(page.locator('.mp-text-picker:visible button').first()).toBeVisible()
+    await page.keyboard.press('Escape')
+  }
+  await page.getByRole('button', { name: 'Mention a member', exact: true }).click()
+  await expect(page.getByRole('option').filter({ hasText: '小岛' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: 'Direct messages', exact: true }).click()
+  await page.getByRole('button', { name: '小岛 · 1 unread', exact: true }).click()
+  const home = page.locator('.mp-private-home')
+  await expect(home.getByRole('heading', { name: 'Direct messages', exact: true })).toBeVisible()
+  await expect(home.getByRole('button', { name: 'Refresh messages', exact: true })).toBeVisible()
+  await expect(home.getByRole('button', { name: 'Invite to listen', exact: true })).toBeVisible()
+  await expect(home.getByRole('textbox', { name: 'Message', exact: true })).toBeVisible()
+  await expect(home.getByText('一起听这首吧', { exact: true })).toBeVisible()
+  await page.setViewportSize({ width: 420, height: 780 })
+  await page.screenshot({ path: 'test-results/private-english-narrow.png' })
+  expect(await home.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true)
+  expect(
+    (await home.getByRole('button', { name: 'Send', exact: true }).boundingBox())!.y,
+  ).toBeLessThan(760)
+  await page.getByRole('combobox', { name: 'Preview language' }).selectOption('zh-CN')
+  await expect(page.getByRole('heading', { name: '私信', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: '一起听', exact: true }).click()
+  await expect(page.getByRole('tab', { name: '成员', exact: true })).toBeVisible()
+  expect(await page.evaluate(() => (window as any).partyTest.state.state)).toBe('playing')
+  const state = await (await request.get('/test/state')).json()
+  expect(state.operations).toHaveLength(0)
+  expect(state.calls).not.toContain('privateSend')
+})
+
+test('matching progress follows language changes without restarting the match', async ({
+  page,
+  request,
+}) => {
+  await request.post('/test/empty')
+  await page.goto('/')
+  await page.getByRole('combobox', { name: 'Preview language' }).selectOption('en')
+  await page.getByRole('button', { name: 'Find a room', exact: true }).click()
+  await expect(page.getByRole('status')).toHaveText('Finding a room…')
+  await page.getByRole('combobox', { name: 'Preview language' }).selectOption('zh-CN')
+  await expect(page.getByRole('status')).toHaveText('正在寻找房间…')
+  expect(await page.evaluate(() => (window as any).partyTest.state.state)).toBe('playing')
+  expect((await (await request.get('/test/state')).json()).matchSongs).toHaveLength(1)
+  await page.getByRole('button', { name: '取消匹配', exact: true }).click()
+  await expect(page.getByRole('button', { name: '匹配房间', exact: true })).toBeVisible()
 })

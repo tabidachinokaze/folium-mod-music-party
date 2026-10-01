@@ -1,6 +1,9 @@
 /* src/client/messages.css */
 .mp-history {
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-width: 0;
+  max-width: 100%;
   min-height: 100px;
   padding: 2px 0;
   overscroll-behavior: contain;
@@ -9,11 +12,41 @@
   margin: 12px 0;
   width: fit-content;
   max-width: 86%;
+  min-width: 0;
   overflow-wrap: anywhere;
 }
 .mp-message.is-mine {
   margin-left: auto;
   text-align: right;
+}
+.mp-message.mp-message-primary {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 100%;
+}
+.mp-message-primary.is-mine {
+  flex-direction: row-reverse;
+}
+.mp-message-content {
+  min-width: 0;
+  flex: 1;
+}
+.mp-meta time {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.mp-message .mp-message-avatar {
+  width: 28px;
+  height: 28px;
+  font-size: 10px;
+}
+.mp-message .mp-message-avatar .mp-image {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  border-radius: 50%;
 }
 .mp-bubble {
   width: fit-content;
@@ -122,6 +155,7 @@
   line-height: 1.7;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  padding-right: 4px;
 }
 .mp-activity-text {
   color: var(--muted);
@@ -151,6 +185,8 @@
   font: inherit;
   color: inherit;
   text-align: inherit;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 .mp-button.mp-message-author:hover {
   background: none;

@@ -7,6 +7,8 @@ import type {
 } from '../../vendor/folium/contract'
 import type { Method, Reply } from '@party/shared/types'
 
+import { t } from './i18n'
+
 // src/client/host.ts
 export type HostSong = FoliumSong
 export interface PlaybackState {
@@ -54,7 +56,7 @@ export async function searchMatchSongs(folium: Folium, query: string): Promise<H
   if (!text) return []
   const omni = folium.internals.omni
   if (typeof omni?.searchProviderSongs !== 'function')
-    throw new Error('当前 Folia 暂不支持歌曲搜索，请升级宿主后重试')
+    throw new Error(t('当前 Folia 暂不支持歌曲搜索，请升级宿主后重试'))
   const page = await omni.searchProviderSongs('netease', text, { limit: 30, offset: 0 })
   const result: HostSong[] = [],
     seen = new Set<string>()
@@ -73,7 +75,7 @@ export async function searchMatchSongs(folium: Folium, query: string): Promise<H
       id,
       source: 'netease',
       ref: null,
-      title: typeof item.name === 'string' ? item.name : `歌曲 ${id}`,
+      title: typeof item.name === 'string' ? item.name : t('歌曲 {id}', { id }),
       artist: Array.isArray(item.artists)
         ? item.artists
             .map((artist: any) => (typeof artist?.name === 'string' ? artist.name : ''))
@@ -104,35 +106,35 @@ export class AccountConnection {
     const epoch = ++this.epoch
     const cookie = this.readCookie()
     const port = await this.readPort()
-    if (!cookie) throw new Error('请先在 Folia 设置中登录网易云账号，再连接一起听')
-    if (!port) throw new Error('Folia 内置网易云服务尚未启动，请稍后重试')
-    if (epoch !== this.epoch) throw new Error('连接已取消')
+    if (!cookie) throw new Error(t('请先在 Folia 设置中登录网易云账号，再连接一起听'))
+    if (!port) throw new Error(t('Folia 内置网易云服务尚未启动，请稍后重试'))
+    if (epoch !== this.epoch) throw new Error(t('连接已取消'))
     await this.folium.rpc.call('connect', cookie, port)
-    if (epoch !== this.epoch) throw new Error('连接已取消')
+    if (epoch !== this.epoch) throw new Error(t('连接已取消'))
     this.cookie = cookie
     this.port = port
     const body = await this.call('account')
     const profile = body?.data?.profile
-    if (!profile?.userId) throw new Error('网易云登录已失效，请在 Folia 重新登录')
-    return { uid: String(profile.userId), nickname: String(profile.nickname || '网易云用户') }
+    if (!profile?.userId) throw new Error(t('网易云登录已失效，请在 Folia 重新登录'))
+    return { uid: String(profile.userId), nickname: String(profile.nickname || t('网易云用户')) }
   }
   async call(method: Method, args: Record<string, unknown> = {}) {
     const epoch = this.epoch
     if (!this.cookie || this.readCookie() !== this.cookie)
-      throw Object.assign(new Error('网易云账号已变化，请重新连接一起听'), { code: 302 })
+      throw Object.assign(new Error(t('网易云账号已变化，请重新连接一起听')), { code: 302 })
     const port = await this.readPort()
     if (epoch !== this.epoch || this.readCookie() !== this.cookie)
-      throw Object.assign(new Error('账号已变化'), { code: 302 })
-    if (!port) throw new Error('Folia 网易云服务暂不可用')
+      throw Object.assign(new Error(t('账号已变化')), { code: 302 })
+    if (!port) throw new Error(t('Folia 网易云服务暂不可用'))
     if (port !== this.port) {
       await this.folium.rpc.call('connect', this.cookie, port)
       this.port = port
     }
     const reply = await this.folium.rpc.call<Reply>('call', { method, args })
     if (epoch !== this.epoch || this.readCookie() !== this.cookie)
-      throw Object.assign(new Error('账号已变化'), { code: 302 })
+      throw Object.assign(new Error(t('账号已变化')), { code: 302 })
     if (!reply.ok)
-      throw Object.assign(new Error(reply.error || '请求失败'), {
+      throw Object.assign(new Error(reply.error || t('请求失败')), {
         code: reply.code,
         deliveryUnknown: reply.deliveryUnknown,
       })
@@ -142,11 +144,11 @@ export class AccountConnection {
     if (name === 'matchClose') return this.folium.rpc.call(name, id)
     if (name === 'matchOpen') await this.call('account')
     const epoch = this.epoch
-    if (!this.cookie || this.readCookie() !== this.cookie) throw new Error('账号已变化')
+    if (!this.cookie || this.readCookie() !== this.cookie) throw new Error(t('账号已变化'))
     const result = await this.folium.rpc.call(name, id)
     if (epoch !== this.epoch || this.readCookie() !== this.cookie) {
       void this.folium.rpc.call('matchClose', id).catch(() => {})
-      throw new Error('账号已变化')
+      throw new Error(t('账号已变化'))
     }
     return result
   }
@@ -155,9 +157,9 @@ export class AccountConnection {
     await this.call('account')
     const epoch = this.epoch
     const reply = await this.folium.rpc.call(name, payload)
-    if (epoch !== this.epoch || this.readCookie() !== this.cookie) throw new Error('账号已变化')
+    if (epoch !== this.epoch || this.readCookie() !== this.cookie) throw new Error(t('账号已变化'))
     if (name === 'media' && !reply?.ok)
-      throw Object.assign(new Error(reply?.error || '图片发送失败'), {
+      throw Object.assign(new Error(reply?.error || t('图片发送失败')), {
         code: reply?.code,
         deliveryUnknown: reply?.deliveryUnknown === true,
       })

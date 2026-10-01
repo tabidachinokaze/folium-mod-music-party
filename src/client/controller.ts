@@ -20,6 +20,8 @@ import {
 import { RoomPlayer } from './player'
 import { loadQueue, loadChat } from './room-data'
 
+import { t } from './i18n'
+
 // src/client/controller.ts
 export interface PartyState {
   ready: boolean
@@ -127,7 +129,7 @@ export class PartyController {
     if (now - (this.lastToast.get(key) ?? -Infinity) < (type === 'error' ? 10000 : 800)) return
     this.lastToast.set(key, now)
     if (this.lastToast.size > 80) this.lastToast.delete(this.lastToast.keys().next().value!)
-    this.folium.ui.toast(message, { type, durationMs: type === 'error' ? 5000 : 2500 })
+    this.folium.ui.toast(t(message), { type, durationMs: type === 'error' ? 5000 : 2500 })
   }
   patch(value: Partial<PartyState>) {
     if (this.disposed) return
@@ -155,8 +157,8 @@ export class PartyController {
       this.handleAccountError(error)
       this.patch({
         error: error.deliveryUnknown
-          ? '发送结果未确认，请刷新消息后再决定是否重试。'
-          : error.message || '操作失败，请重试',
+          ? t('发送结果未确认，请刷新消息后再决定是否重试。')
+          : error.message || t('操作失败，请重试'),
       })
     } finally {
       this.patch({ busy: false })
@@ -169,7 +171,7 @@ export class PartyController {
     }
   }
   async connect() {
-    if (this.state.room) throw new Error('请先退出当前房间')
+    if (this.state.room) throw new Error(t('请先退出当前房间'))
     const epoch = this.epoch
     const account = await this.connection.connect()
     if (this.disposed || epoch !== this.epoch) return
@@ -188,7 +190,7 @@ export class PartyController {
     } catch (error: any) {
       if (epoch === this.epoch) {
         this.handleAccountError(error)
-        this.patch({ error: `检查当前房间失败：${error.message}` })
+        this.patch({ error: t('检查当前房间失败：{error}', { error: t(error.message) }) })
       }
     } finally {
       if (epoch === this.epoch) this.patch({ checkingRoom: false })
@@ -197,12 +199,12 @@ export class PartyController {
   async match() {
     if (this.state.matching || this.matchPreparing || this.disposed) return
     const generation = this.epoch
-    if (!this.state.account) throw new Error('请先登录网易云账号')
+    if (!this.state.account) throw new Error(t('请先登录网易云账号'))
     // Capture the chosen ID before any async leave/status request. Changing room playback
     // during those requests must not silently change the song used for this match attempt.
     const song = this.getMatchSong()
     if (song?.source !== 'netease' || !/^[1-9]\d*$/.test(song.id || ''))
-      throw new Error('请选择一首网易云歌曲，再匹配房间')
+      throw new Error(t('请选择一首网易云歌曲，再匹配房间'))
     const songId = song.id!
     this.matchPreparing = true
     this.patch({ matchSong: { ...song } })
@@ -214,7 +216,7 @@ export class PartyController {
       } else {
         await this.checkAvailableRoom()
         if (generation !== this.epoch || this.disposed) return
-        if (this.state.availableRoom) throw new Error('账号已有房间，请先恢复后重新匹配')
+        if (this.state.availableRoom) throw new Error(t('账号已有房间，请先恢复后重新匹配'))
       }
       await this.matcher.start(songId)
     } finally {
@@ -233,7 +235,7 @@ export class PartyController {
         id: roomId,
         source: 'netease',
         ref: null,
-        title: track?.name || `歌曲 ${roomId}`,
+        title: track?.name || t('歌曲 {id}', { id: roomId }),
         artist: track?.artist || '',
         album: track?.album || null,
       }
@@ -241,11 +243,11 @@ export class PartyController {
     return playback?.source === 'netease' && /^[1-9]\d*$/.test(playback.id || '') ? playback : null
   }
   selectMatchSong(song: HostSong | null) {
-    if (this.disposed || !this.state.account) throw new Error('请先登录网易云账号')
+    if (this.disposed || !this.state.account) throw new Error(t('请先登录网易云账号'))
     if (this.state.busy || this.state.matching || this.matchPreparing)
-      throw new Error('请等待当前操作完成后再切换歌曲')
+      throw new Error(t('请等待当前操作完成后再切换歌曲'))
     if (song && (song.source !== 'netease' || !/^[1-9]\d*$/.test(song.id || '')))
-      throw new Error('请选择有效的网易云歌曲')
+      throw new Error(t('请选择有效的网易云歌曲'))
     this.patch({ matchSong: song ? { ...song } : null })
   }
   async cancelMatch() {
@@ -257,19 +259,21 @@ export class PartyController {
     await this.checkAvailableRoom()
   }
   private begin() {
-    if (this.disposed) throw new Error('账号连接已关闭')
+    if (this.disposed) throw new Error(t('账号连接已关闭'))
     if (!this.player)
-      throw new Error('此 Folia 尚未提供 Music Party 播放适配接口 v2，请按插件说明安装适配版 Folia')
-    if (!this.state.account) throw new Error('请先连接网易云账号')
-    if (this.state.room) throw new Error('请先退出当前房间')
+      throw new Error(
+        t('此 Folia 尚未提供 Music Party 播放适配接口 v2，请按插件说明安装适配版 Folia'),
+      )
+    if (!this.state.account) throw new Error(t('请先连接网易云账号'))
+    if (this.state.room) throw new Error(t('请先退出当前房间'))
     this.player.start((intent) => this.intent(intent))
   }
   async enter(kind: 'restore' | 'join' | 'create', input = '', allowStrangerMatch = false) {
-    if (this.state.matching) throw new Error('请先取消匹配')
+    if (this.state.matching) throw new Error(t('请先取消匹配'))
     const invite = kind === 'join' ? parseInvitation(input) : null
     const song = this.folium.playback.getState().song
     if (kind === 'create' && (song?.source !== 'netease' || !/^[1-9]\d*$/.test(song.id || ''))) {
-      throw new Error('请先在 Folia 播放一首网易云歌曲，再创建多人房间')
+      throw new Error(t('请先在 Folia 播放一首网易云歌曲，再创建多人房间'))
     }
     const epoch = ++this.epoch
     try {
@@ -277,7 +281,7 @@ export class PartyController {
       const status = await this.connection.call('multiStatus')
       let raw = status.data?.multiLtRoomSnapshot
       if (kind !== 'restore') {
-        if (raw?.roomId) throw new Error('账号已经在多人房间中，请使用“恢复当前房间”')
+        if (raw?.roomId) throw new Error(t('账号已经在多人房间中，请使用“恢复当前房间”'))
         const result = await this.connection.call(
           kind === 'join' ? 'multiJoin' : 'multiCreate',
           invite
@@ -287,7 +291,7 @@ export class PartyController {
         raw = result.data?.multiLtRoomSnapshot
       }
       if (epoch !== this.epoch || this.disposed) return
-      if (!raw) throw new Error('账号当前没有官方多人房间')
+      if (!raw) throw new Error(t('账号当前没有官方多人房间'))
       const snapshot = parseSnapshot(raw, (started + this.now()) / 2)
       this.begin()
       this.activateRoom(snapshot, epoch)
@@ -302,7 +306,7 @@ export class PartyController {
       availableRoom: null,
       matching: false,
       notice: '',
-      health: '正在同步…',
+      health: t('正在同步…'),
     })
     this.transition = new RoomTransition(
       () => this.state.room?.playback || null,
@@ -356,7 +360,10 @@ export class PartyController {
     const changed =
       snapshot.playback?.song?.songBizId !== previous?.song?.songBizId ||
       snapshot.playback?.waitSongCount !== previous?.waitSongCount
-    this.patch({ room: snapshot, health: `已同步 · ${new Date().toLocaleTimeString()}` })
+    this.patch({
+      room: snapshot,
+      health: t('已同步 · {time}', { time: new Date().toLocaleTimeString() }),
+    })
     if (snapshot.playback) void this.player?.apply(snapshot.playback)
     this.transition?.changed()
     if (changed) void this.refreshQueue()
@@ -372,7 +379,7 @@ export class PartyController {
       const raw = body.data?.multiLtRoomSnapshot
       if (raw?.roomId !== room.roomId) {
         this.detach()
-        this.patch({ notice: '账号已离开或切换房间，请重新恢复。' })
+        this.patch({ notice: t('账号已离开或切换房间，请重新恢复。') })
         return
       }
       this.apply(parseSnapshot(raw, (started + this.now()) / 2))
@@ -412,7 +419,10 @@ export class PartyController {
       this.detach()
       if (error.code !== 488) this.patch({ account: null })
     } else this.player?.suspend()
-    this.patch({ health: `同步暂不可用：${error.message}`, error: error.message })
+    this.patch({
+      health: t('同步暂不可用：{error}', { error: t(error.message) }),
+      error: error.message,
+    })
   }
   async refreshQueue() {
     if (this.queueTask) {
@@ -482,7 +492,7 @@ export class PartyController {
       } catch (error: any) {
         if (epoch === this.epoch) {
           this.handleAccountError(error)
-          this.patch({ error: `聊天刷新失败：${error.message}` })
+          this.patch({ error: t('聊天刷新失败：{error}', { error: t(error.message) }) })
         }
       }
     })()
@@ -504,19 +514,19 @@ export class PartyController {
     await this.refreshChat()
   }
   requireRoom() {
-    if (!this.state.room) throw new Error('请先加入多人房间')
+    if (!this.state.room) throw new Error(t('请先加入多人房间'))
     return this.state.room
   }
   async recommend(id: string) {
     await this.connection.call('multiAdd', { roomId: this.requireRoom().roomId, songId: id })
-    this.patch({ notice: '已推荐到房间待播列表' })
+    this.patch({ notice: t('已推荐到房间待播列表') })
     await this.refreshQueue()
   }
   async operate(
     action: 'multiNext' | 'multiLike' | 'multiUp' | 'multiRemove',
     entry = this.requireRoom().playback?.song,
   ) {
-    if (!entry) throw new Error('房间当前没有歌曲')
+    if (!entry) throw new Error(t('房间当前没有歌曲'))
     await this.connection.call(action, {
       roomId: this.requireRoom().roomId,
       songId: entry.songId,
@@ -524,10 +534,10 @@ export class PartyController {
     })
     this.patch({
       notice: {
-        multiNext: '已请求下一首',
-        multiLike: '已为房间歌曲点赞',
-        multiUp: '已提交置顶',
-        multiRemove: '已删除自己的推荐',
+        multiNext: t('已请求下一首'),
+        multiLike: t('已为房间歌曲点赞'),
+        multiUp: t('已提交置顶'),
+        multiRemove: t('已删除自己的推荐'),
       }[action],
     })
     await this.refresh()
@@ -558,12 +568,12 @@ export class PartyController {
           bizId: song.songBizId,
         })
         if (epoch !== this.epoch) return
-        this.patch({ notice: '已为房间歌曲点赞', error: '' })
+        this.patch({ notice: t('已为房间歌曲点赞'), error: '' })
         await this.refresh()
       } catch (error: any) {
         if (epoch !== this.epoch) return
         if ([301, 302, 488].includes(error.code)) this.connectionError(error)
-        else this.patch({ error: error.message || '点赞失败，请重试' })
+        else this.patch({ error: error.message || t('点赞失败，请重试') })
       }
     })
     return this.likeTail
@@ -594,7 +604,7 @@ export class PartyController {
   async leave() {
     await this.connection.call('multiLeave', { roomId: this.requireRoom().roomId })
     this.detach(true)
-    this.patch({ notice: '已退出房间，当前音乐继续播放。' })
+    this.patch({ notice: t('已退出房间，当前音乐继续播放。') })
   }
   private intent(event: Intent) {
     if (!this.state.room) return
@@ -609,7 +619,7 @@ export class PartyController {
     }
     if (event.type === 'seek' || event.type === 'previous') {
       this.player?.align(true)
-      this.patch({ notice: '多人房间跟随服务端进度，暂不支持回到上一首或修改房间进度。' })
+      this.patch({ notice: t('多人房间跟随服务端进度，暂不支持回到上一首或修改房间进度。') })
       return
     }
     if (event.type === 'next') {
@@ -618,19 +628,19 @@ export class PartyController {
     }
     if (event.type === 'playback-error') {
       this.folium.playback.pause()
-      this.patch({ error: '当前房间歌曲播放失败，请重新同步或请求下一首。' })
+      this.patch({ error: t('当前房间歌曲播放失败，请重新同步或请求下一首。') })
       return
     }
     const songs = event.type === 'enqueue' ? event.songs : event.type === 'play' ? [event.song] : []
     if (!songs.length) return
     if (songs.some((song) => song.source !== 'netease' || !song.id)) {
-      this.patch({ error: '多人房间只能推荐网易云歌曲，请先退出房间再播放其他来源。' })
+      this.patch({ error: t('多人房间只能推荐网易云歌曲，请先退出房间再播放其他来源。') })
       return
     }
     void this.run(async () => {
       const roomId = this.requireRoom().roomId
       for (const song of songs) await this.connection.call('multiAdd', { roomId, songId: song.id })
-      this.patch({ notice: `已推荐 ${songs.length} 首歌曲到房间` })
+      this.patch({ notice: t('已推荐 {count} 首歌曲到房间', { count: songs.length }) })
       await this.refreshQueue()
     })
   }

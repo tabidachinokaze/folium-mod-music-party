@@ -1,10 +1,12 @@
 import { createMatchChannel, type MatchChannel, type MatchNotice } from './match-channel'
 import type { AccountConnection } from './host'
 
+import { t } from './i18n'
+
 // src/client/room-match.ts
 function cancellable<T>(task: Promise<T>, signal: AbortSignal): Promise<T> {
   return new Promise((resolve, reject) => {
-    const cancel = () => reject(new Error('匹配已取消'))
+    const cancel = () => reject(new Error(t('匹配已取消')))
     if (signal.aborted) {
       void task.catch(() => {})
       cancel()
@@ -38,7 +40,7 @@ export class RoomMatch {
       if (!this.live(generation)) return
       const started = this.started
       this.close()
-      this.fail(new Error('匹配超时，请重试；当前音乐会继续播放。'))
+      this.fail(new Error(t('匹配超时，请重试；当前音乐会继续播放。')))
       if (started) void this.connection.call('multiMatchCancel').catch(() => {})
     }, ms)
   }
@@ -56,7 +58,7 @@ export class RoomMatch {
           () => {
             if (!this.live(generation)) return
             void this.cancel().catch(() => {})
-            this.fail(new Error('匹配通知连接已断开，请重试'))
+            this.fail(new Error(t('匹配通知连接已断开，请重试')))
           },
         ),
         abort.signal,
@@ -81,7 +83,11 @@ export class RoomMatch {
       this.close()
       if (started) void this.connection.call('multiMatchCancel').catch(() => {})
       this.fail(
-        new Error(`匹配失败：${error instanceof Error ? error.message : '无法连接官方匹配服务'}`),
+        new Error(
+          t('匹配失败：{error}', {
+            error: error instanceof Error ? t(error.message) : t('无法连接官方匹配服务'),
+          }),
+        ),
       )
     }
   }
@@ -89,7 +95,9 @@ export class RoomMatch {
     if (!this.live(generation) || !this.started) return
     if (event.kind === 'failed') {
       this.close()
-      this.fail(new Error(`官方匹配未成功（${event.reason}），请重试或换一首歌`))
+      this.fail(
+        new Error(t('官方匹配未成功（{reason}），请重试或换一首歌', { reason: event.reason })),
+      )
       return
     }
     if (this.acknowledging) return
@@ -104,13 +112,13 @@ export class RoomMatch {
       })
       if (!this.live(generation)) return
       const raw = result.data?.multiLtRoomSnapshot
-      if (raw?.roomId !== event.roomId) throw new Error('匹配确认未返回对应房间')
+      if (raw?.roomId !== event.roomId) throw new Error(t('匹配确认未返回对应房间'))
       this.close()
       this.accept(raw)
     } catch (error) {
       if (this.live(generation)) {
         this.close()
-        this.fail(error instanceof Error ? error : new Error('匹配确认失败'))
+        this.fail(error instanceof Error ? error : new Error(t('匹配确认失败')))
       }
     }
   }

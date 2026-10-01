@@ -12,10 +12,11 @@
   background: var(--hover);
 }
 .mp-sticker-content {
-  position: absolute;
-  bottom: 36px;
-  left: 0;
-  width: min(320px, 100%);
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: 320px;
+  max-width: calc(100dvw - 16px);
   max-height: min(340px, 50dvh);
   overflow: auto;
   padding: 12px;
@@ -25,6 +26,14 @@
   box-shadow: 0 8px 24px #0003;
   z-index: 4;
   animation: mp-enter 0.15s ease-out;
+}
+.mp-floating-popup {
+  color: inherit;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+.mp-floating-popup::backdrop {
+  background: transparent;
 }
 .mp-picker-header {
   display: flex;

@@ -6,11 +6,11 @@ Music Party for Folia · [插件仓库](https://github.com/tabidachinokaze/foliu
 
 ## 兼容性：请先看这里
 
-**正式配套：Folia 0.7.13 + 插件 0.3.8。** 请先升级宿主，再安装并重新启用插件。新版使用播放会话接口 v2。
+**正式配套：Folia 0.7.14 + 插件 0.3.9。** 请先升级宿主，再安装并重新启用插件。新版使用播放会话接口 v2。
 
 | 宿主                                      | 插件  | 状态                   |
 | ----------------------------------------- | ----- | ---------------------- |
-| Folia 0.7.13                              | 0.3.8 | 推荐配套，完整聊天工具 |
+| Folia 0.7.14                              | 0.3.9 | 推荐配套，专属侧栏图标 |
 | Folia 0.7.12                              | 0.3.4 | 旧版配套，原生侧栏风格 |
 | Folia 0.7.11                              | 0.3.0 | 推荐配套，接口 v2      |
 | 已发布 Folia 0.7.10 安装包                | 0.2.0 | 既有配套，接口 v1      |
@@ -18,11 +18,11 @@ Music Party for Folia · [插件仓库](https://github.com/tabidachinokaze/foliu
 | Folia 0.7.10 源码应用本仓库 v2 补丁后重建 | 0.3.0 | 仅开发兼容             |
 | 已发布 Folia 0.7.9                        | 0.1.0 | 旧接口配套             |
 
-manifest 声明 `experimental: ["playback.sessions"]` 与 `playback.control`，本版版本范围为已验证的 0.7.13。范围内仍需提供接口 v2；插件会检查接口版本并显示升级提示。插件更新使用相同 ID，安装新版 ZIP 后需要重新启用。
+manifest 声明 `experimental: ["playback.sessions"]` 与 `playback.control`，本版支持 Folia 0.7.13–0.7.14；侧栏专属图标需要 0.7.14。范围内仍需提供接口 v2；插件会检查接口版本并显示升级提示。插件更新使用相同 ID，安装新版 ZIP 后需要重新启用。
 
 ## 安装
 
-1. 安装 [Folia 0.7.13](https://github.com/tabidachinokaze/folia-major/releases/tag/v0.7.13)。也可从主分支源码运行：
+1. 安装 [Folia 0.7.14](https://github.com/tabidachinokaze/folia-major/releases/tag/v0.7.14)。也可从主分支源码运行：
 
    ```bash
    git clone git@github.com:tabidachinokaze/folia-major.git
@@ -31,7 +31,7 @@ manifest 声明 `experimental: ["playback.sessions"]` 与 `playback.control`，�
    npm run dev:electron
    ```
 
-2. 下载 [插件 0.3.8 ZIP](https://github.com/tabidachinokaze/folium-mod-music-party/releases/tag/v0.3.8)。也可从主分支构建：
+2. 下载 [插件 0.3.9 ZIP](https://github.com/tabidachinokaze/folium-mod-music-party/releases/tag/v0.3.9)。也可从主分支构建：
 
    ```bash
    git clone git@github.com:tabidachinokaze/folium-mod-music-party.git
@@ -40,7 +40,7 @@ manifest 声明 `experimental: ["playback.sessions"]` 与 `playback.control`，�
    npm run build
    ```
 
-3. 在 Folia 的「设置 → 实验室」开启模组系统，将 `folium-mod-music-party-0.3.8.zip` 拖入模组面板并启用。在 Folia 登录网易云后，点击播放栏的一起听图标或执行「打开网易云多人一起听」。
+3. 在 Folia 的「设置 → 实验室」开启模组系统，将 `folium-mod-music-party-0.3.9.zip` 拖入模组面板并启用。在 Folia 登录网易云后，点击播放栏的一起听图标或执行「打开网易云多人一起听」。
 4. 登录网易云且当前音乐来源为网易云时，私信和一起听入口自动显示，无需手动连接。恢复检测到的房间、粘贴官方邀请链接，或播放网易云歌曲后创建房间。私信可以直接从首页顶部胶囊进入，无需先加入房间。
 
 Folia 0.7.11 已包含宿主接口，无需打补丁。若从本 fork 的 0.7.10 源码（基线 `76e1dfe`）适配，可执行 `node scripts/apply-host-patch.mjs /path/to/folia-major`，再重新构建桌面版。补丁不能修改已安装应用的 ASAR，也不适用于上游原版 0.7.9。
@@ -88,6 +88,16 @@ Folia 0.7.11 已包含宿主接口，无需打补丁。若从本 fork 的 0.7.10
 房间输入区提供 @、Emoji、颜文字、官方表情包与图片上传。输入 `@` 可搜索成员，点击消息昵称可快速提及；按官方格式发送 `@昵称` 文本，收到完整昵称匹配的提及时在本地高亮。聊天历史向上滚动加载，表情包列表向下滚动加载，均无“加载更多”按钮。
 
 匹配卡片可通过宿主 Omni 搜索并选择网易云歌曲，也可恢复使用当前歌曲；选择只影响下一次匹配，不改变当前播放或向房间推歌。待播队列的置顶按钮旁、成员推荐列表显示接口返回的被置顶次数；未返回统计时不以零代替。
+
+## 0.3.9：侧栏弹窗、聊天布局与英文支持
+
+选歌、Emoji、颜文字、表情包及图片弹窗优先显示在侧栏左侧；空间不足时自动调整位置，切换页面和关闭侧栏时同步关闭。普通聊天显示头像，长昵称、歌曲及连续文本自动换行；修复 UP 动态重复昵称。
+
+成员列表顶部显示当前歌曲推荐者和播放状态动画；当前歌曲归入推荐者的已播列表。已播只显示点赞数，待播置顶次数位于按钮左侧，官方 `songInfo.uped` 状态用于高亮自己置顶过的歌曲。配套 Folia 0.7.14 后，一起听页签改为双人图标。
+
+私信采用头像与内容分列、发送与接收左右对齐的紧凑消息卡片，邀请整合为单张卡片。房间聊天、动态和私信统一显示消息时间：今天仅显示时分，历史消息显示日期，跨年消息包含年份。
+
+插件界面跟随 Folia 的语言设置，提供简体中文和英文，覆盖房间、成员、聊天、私信、弹窗、操作提示及常见错误。昵称、歌曲名和消息原文保持原样。切换语言不退出房间或中断播放。
 
 ## 已实现
 
