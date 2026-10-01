@@ -27,7 +27,7 @@ export class RoomMatch {
     private update: (matching: boolean, phase: string) => void,
     private accept: (raw: any) => void,
     private fail: (error: Error) => void,
-    private channelFactory = createMatchChannel,
+    private channelFactory = () => createMatchChannel(connection),
   ) {}
   private live(generation: number) {
     return generation === this.generation && !!this.channel
@@ -50,14 +50,8 @@ export class RoomMatch {
     this.update(true, '正在连接匹配服务…')
     this.timeout(20000, generation)
     try {
-      const credentials = await cancellable(
-        this.connection.attachment('matchCredentials', undefined),
-        abort.signal,
-      )
-      if (!this.live(generation)) return
       await cancellable(
         channel.connect(
-          credentials,
           (event) => void this.notice(event, generation),
           () => {
             if (!this.live(generation)) return
@@ -76,7 +70,10 @@ export class RoomMatch {
       channel.confirmStart(Number(result.data?.startMatchTimeMills))
       if (!this.live(generation)) return
       const wait = Number(result.data?.maxWaitTimeMills)
-      this.timeout(Number.isFinite(wait) && wait > 0 ? Math.min(wait, 120000) : 60000, generation)
+      this.timeout(
+        Number.isFinite(wait) && wait > 0 ? Math.min(wait + 10000, 120000) : 60000,
+        generation,
+      )
       this.pollStatus(generation)
     } catch (error) {
       if (!this.live(generation)) return
@@ -97,6 +94,8 @@ export class RoomMatch {
     }
     if (this.acknowledging) return
     this.acknowledging = true
+    // Allow the confirmation request to finish even when notification arrives near the match deadline.
+    this.timeout(20000, generation)
     this.update(true, '已找到房间，正在加入…')
     try {
       const result = await this.connection.call('multiJoin', {

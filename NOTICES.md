@@ -8,4 +8,4 @@
 
 `vendor/folium/contract.ts` 是宿主公开契约的类型快照，用于插件的编译期校验，来自 Folia 同名开发分支；来源提交和文件校验值见同目录 `provenance.json`。它沿用 Folia 的 AGPL-3.0 许可证，构建时仅使用类型，不执行该模块。
 
-多人匹配通知使用网易云信官方 `nim-web-sdk-ng` 10.11.0（包元数据声明 ISC 许可证，作者 yunxin）。仅将匹配所需的登录和自定义通知模块打包进客户端；原始版权标记随 SDK 保留。官方 Android 资料仅用于核对接口与通知字段，未复制其实现代码。
+多人匹配通知由 `src/main/mini-codec.ts` 和 `src/main/mini-notifications.ts` 实现音乐专用 mini 通道的协议兼容。官方 Android 资料用于核对公开应用标识、公开服务器公钥、帧格式和字段，未打包反编译代码。使用 Node.js 自带的网络、加密和压缩模块；RC4 仅用于兼容该服务的既有流协议。0.3.6 起不再分发 `nim-web-sdk-ng`。

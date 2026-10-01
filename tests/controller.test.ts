@@ -6,7 +6,7 @@ import { fakeHost, rawSnapshot } from './fixtures'
 const notifications = vi.hoisted(() => ({ receive: (_event: any) => {} }))
 vi.mock('../src/client/match-channel', () => ({
   createMatchChannel: () => ({
-    connect: vi.fn(async (_credentials, receive) => {
+    connect: vi.fn(async (receive) => {
       notifications.receive = receive
     }),
     arm: vi.fn(),

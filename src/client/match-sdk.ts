@@ -1,56 +1,55 @@
+import type { AccountConnection } from './host'
+import type { MatchNotice } from '../shared/match-notice'
+
 // src/client/match-sdk.ts
+// Only validated matching notices cross RPC. Authentication and the socket stay in main.
 export interface MatchNotification {
-  receiverId: string
   timestamp: number
-  content: string
+  notice: MatchNotice
 }
-export async function createMatchSdk() {
-  const { NIM, V2NIMNotificationService, browserAdapters, setAdapters } =
-    await import('nim-web-sdk-ng/dist/esm/nim.js')
-  const memory = new Map<string, string>()
-  setAdapters(() => ({
-    ...browserAdapters(),
-    localStorage: {
-      getItem: (key: string) => memory.get(key) ?? null,
-      setItem: (key: string, value: string) => {
-        memory.set(key, value)
-      },
-      removeItem: (key: string) => {
-        memory.delete(key)
-      },
-      clear: () => memory.clear(),
-    },
-  }))
-  NIM.registerService(V2NIMNotificationService, 'V2NIMNotificationService')
-  // Public production application identifier used by the official mini-notification client.
-  const nim = new NIM(
-    { appkey: '363481542d57b7a75c6bd20de2e3d8db', apiVersion: 'v2', debugLevel: 'off' },
-    {
-      loggerConfig: { debugLevel: 'off', storageEnable: false },
-    },
-  )
-  let closed = false
-  return {
-    login: (account: string, token: string) =>
-      nim.V2NIMLoginService.login(account, token, {
-        authType: 0,
-        forceMode: false,
-        retryCount: 1,
-        timeout: 12000,
-      }),
-    onNotification: (receive: (event: MatchNotification) => void) =>
-      nim.V2NIMNotificationService.on('onReceiveCustomNotifications', (events) =>
-        events.forEach(receive),
-      ),
-    onDisconnect: (callback: () => void) => nim.V2NIMLoginService.on('onKickedOffline', callback),
-    close() {
+export async function createMatchSdk(connection: Pick<AccountConnection, 'matchTransport'>) {
+  const id = crypto.randomUUID()
+  let closed = false,
+    timer: ReturnType<typeof setTimeout> | undefined
+  let receive = (_event: MatchNotification) => {},
+    disconnected = () => {}
+  const close = () => {
+    if (closed) return
+    closed = true
+    clearTimeout(timer)
+    void connection.matchTransport('matchClose', id).catch(() => {})
+  }
+  const poll = async () => {
+    try {
+      const events = (await connection.matchTransport('matchPoll', id)) as MatchNotification[]
       if (closed) return
-      closed = true
-      // destroy is supplied by the SDK's runtime login mixin (omitted from its class declaration).
-      void (nim as typeof nim & { destroy(): Promise<void> })
-        .destroy()
-        .catch(() => {})
-        .finally(() => memory.clear())
+      for (const event of events) {
+        if (!closed) receive(event)
+      }
+      if (!closed) timer = setTimeout(() => void poll(), 300)
+    } catch {
+      if (!closed) {
+        close()
+        disconnected()
+      }
+    }
+  }
+  return {
+    async login() {
+      if (closed) throw new Error('匹配已取消')
+      await connection.matchTransport('matchOpen', id)
+      if (closed) {
+        await connection.matchTransport('matchClose', id).catch(() => {})
+        return
+      }
+      void poll()
     },
+    onNotification: (callback: typeof receive) => {
+      receive = callback
+    },
+    onDisconnect: (callback: typeof disconnected) => {
+      disconnected = callback
+    },
+    close,
   }
 }

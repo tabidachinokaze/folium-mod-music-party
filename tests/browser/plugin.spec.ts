@@ -308,7 +308,7 @@ test('room chat opens at latest and scrolls older history without jumping or pro
   await expect(history.getByText('聊天消息 79', { exact: true })).toBeInViewport()
 })
 
-test('real official notification SDK initializes and destroys without login or persistent storage', async ({
+test('notification bridge initializes and closes without exposing credentials or persistent storage', async ({
   page,
 }) => {
   await page.goto('/')
@@ -317,7 +317,13 @@ test('real official notification SDK initializes and destroys without login or p
   await page.evaluate(async () => {
     const before = Object.keys(localStorage).sort()
     const { createMatchSdk } = await import('/sdk-probe.mjs' as string)
-    const sdk = await createMatchSdk()
+    const calls: unknown[] = []
+    const sdk = await createMatchSdk({
+      matchTransport: async (...args: unknown[]) => {
+        calls.push(args)
+        return []
+      },
+    })
     sdk.onNotification(() => {})
     sdk.onDisconnect(() => {})
     sdk.close()

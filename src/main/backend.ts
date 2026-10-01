@@ -1,3 +1,4 @@
+import { MiniNotifications } from './mini-notifications'
 import { MediaSender } from '@party/main/media-send'
 import { ApiService } from '@party/main/service'
 import { createHttpInvoker } from '@party/main/transport'
@@ -27,7 +28,11 @@ const needsToken = new Set([
   'multiUp',
   'multiLike',
 ])
-export function createBackend(fetcher: typeof fetch = fetch) {
+export function createBackend(
+  fetcher: typeof fetch = fetch,
+  makeNotifications: () => Pick<MiniNotifications, 'open' | 'poll' | 'close'> = () =>
+    new MiniNotifications(),
+) {
   let current: {
     key: string
     service: ApiService
@@ -35,6 +40,16 @@ export function createBackend(fetcher: typeof fetch = fetch) {
     invoke: (endpoint: string, args: Record<string, unknown>) => Promise<{ body: any }>
   } | null = null
   let epoch = 0
+  let matching: {
+    id: string
+    notifications: Pick<MiniNotifications, 'open' | 'poll' | 'close'>
+  } | null = null
+  const closeMatch = (id?: string) => {
+    if (matching && (!id || matching.id === id)) {
+      matching.notifications.close()
+      matching = null
+    }
+  }
   return {
     connect(cookie: string, port: number) {
       if (!Number.isInteger(port) || port < 1 || port > 65535)
@@ -48,6 +63,7 @@ export function createBackend(fetcher: typeof fetch = fetch) {
       }
       const key = `${port}:${cookie}`
       if (current?.key === key) return
+      closeMatch()
       epoch++
       const mine = epoch
       const standard = createHttpInvoker(`http://127.0.0.1:${port}`, fetcher)
@@ -96,26 +112,46 @@ export function createBackend(fetcher: typeof fetch = fetch) {
           : {}),
       }
     },
-    async matchCredentials() {
-      const session = current
-      if (!session) throw new Error('请先登录网易云')
-      // Dedicated RPC: credentials never enter ApiService traces or view state.
-      const { body } = await session.invoke('api', {
-        uri: '/api/middle/im/token/get',
-        crypto: 'eapi',
-        data: { bizTag: 'platform' },
-      })
-      if (session !== current) throw new Error('账号已变化')
-      const data = body?.data
-      if (
-        body?.code !== 200 ||
-        typeof data?.accId !== 'string' ||
-        typeof data?.token !== 'string' ||
-        !data.accId ||
-        !data.token
-      )
-        throw new Error('未取得官方匹配通知凭据，请重新登录网易云后重试')
-      return { accId: data.accId, token: data.token }
+    async matchOpen(id: string) {
+      if (typeof id !== 'string' || !/^[a-zA-Z0-9-]{16,64}$/.test(id))
+        throw new Error('匹配会话标识无效')
+      closeMatch()
+      const active = { id, notifications: makeNotifications() }
+      matching = active
+      try {
+        const session = current
+        if (!session) throw new Error('请先登录网易云')
+        // Credentials stay in the main process and never enter RPC results or ApiService traces.
+        const { body } = await session.invoke('api', {
+          uri: '/api/middle/im/token/get',
+          crypto: 'eapi',
+          data: { bizTag: 'platform' },
+        })
+        if (session !== current) throw new Error('账号已变化')
+        const data = body?.data
+        if (
+          body?.code !== 200 ||
+          typeof data?.accId !== 'string' ||
+          typeof data?.token !== 'string' ||
+          !data.accId ||
+          !data.token
+        )
+          throw new Error('未取得官方匹配通知凭据，请重新登录网易云后重试')
+        if (matching !== active) throw new Error('匹配已取消')
+        await active.notifications.open({ accId: data.accId, token: data.token })
+        if (matching !== active || session !== current) throw new Error('匹配已取消')
+      } catch (error) {
+        if (matching === active) matching = null
+        active.notifications.close()
+        throw error
+      }
+    },
+    matchPoll(id: string) {
+      if (!matching || matching.id !== id) throw new Error('匹配通知连接已关闭')
+      return matching.notifications.poll()
+    },
+    matchClose(id: string) {
+      closeMatch(id)
     },
     async media(value: any) {
       if (!current) return { ok: false, error: '请先连接网易云账号' }
@@ -153,6 +189,7 @@ export function createBackend(fetcher: typeof fetch = fetch) {
         throw new Error(body?.data?.toast || body?.message || '表情删除未确认，请刷新后重试')
     },
     close() {
+      closeMatch()
       epoch++
       current = null
     },

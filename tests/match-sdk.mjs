@@ -9,7 +9,17 @@ export async function createMatchSdk() {
         const event = await fetch('/test/match-notification')
           .then((r) => r.json())
           .catch(() => null)
-        if (!closed && event?.content) receive(event)
+        if (!closed && event?.content) {
+          const envelope = JSON.parse(event.content),
+            ext = JSON.parse(envelope.serverExt)
+          receive({
+            timestamp: event.timestamp,
+            notice:
+              ext.subType === 'STRANGER_MULTI_MATCH_WAIT_ACK'
+                ? { kind: 'ready', roomId: ext.data.roomId }
+                : { kind: 'failed', reason: ext.data.failedType },
+          })
+        }
       }, 50)
     },
     onNotification(callback) {

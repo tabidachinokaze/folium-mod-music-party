@@ -109,19 +109,49 @@ it('maps stranger creation and rematching to the official parameters', async () 
   })
 })
 
-it('fetches mini-notification credentials through a dedicated RPC without adding them to traces', async () => {
+it('keeps notification credentials in main and closes only the matching attempt', async () => {
   const requests: any[] = []
-  const backend = createBackend(async (_url, init) => {
-    requests.push(JSON.parse(String(init?.body)))
-    return response({ code: 200, data: { accId: '9', token: 'fake-mini-token' } })
-  })
+  const transport = { open: vi.fn(async () => {}), poll: vi.fn(() => []), close: vi.fn() }
+  const backend = createBackend(
+    async (_url, init) => {
+      requests.push(JSON.parse(String(init?.body)))
+      return response({ code: 200, data: { accId: '9', token: 'fake-mini-token' } })
+    },
+    () => transport,
+  )
   backend.connect('MUSIC_U=fake-session', 4176)
-  expect(await backend.matchCredentials()).toEqual({ accId: '9', token: 'fake-mini-token' })
+  expect(await backend.matchOpen('matching-attempt-one')).toBeUndefined()
+  expect(transport.open).toHaveBeenCalledWith({ accId: '9', token: 'fake-mini-token' })
   expect(requests[0]).toMatchObject({
     uri: '/api/middle/im/token/get',
     crypto: 'eapi',
     data: { bizTag: 'platform' },
   })
+  backend.matchClose('stale-attempt-id')
+  expect(transport.close).not.toHaveBeenCalled()
+  expect(backend.matchPoll('matching-attempt-one')).toEqual([])
+  backend.connect('MUSIC_U=other-session', 4176)
+  expect(transport.close).toHaveBeenCalledOnce()
+  expect(() => backend.matchPoll('matching-attempt-one')).toThrow('关闭')
   backend.close()
-  await expect(backend.matchCredentials()).rejects.toThrow('登录')
+  await expect(backend.matchOpen('matching-attempt-two')).rejects.toThrow('登录')
+})
+
+it('does not open a notification socket when cancelled during credential fetch', async () => {
+  let resolve!: (response: Response) => void
+  const transport = { open: vi.fn(async () => {}), poll: vi.fn(() => []), close: vi.fn() }
+  const backend = createBackend(
+    () =>
+      new Promise((r) => {
+        resolve = r
+      }),
+    () => transport,
+  )
+  backend.connect('MUSIC_U=fake-session', 4176)
+  const pending = backend.matchOpen('matching-attempt-one')
+  backend.matchClose('matching-attempt-one')
+  resolve(response({ code: 200, data: { accId: '9', token: 'fake-mini-token' } }))
+  await expect(pending).rejects.toThrow('取消')
+  expect(transport.open).not.toHaveBeenCalled()
+  backend.close()
 })

@@ -35,7 +35,7 @@ it('accepts only official multiplayer matching notices with validated room ident
 function setup() {
   let receive = (_notice: MatchNotice) => {}
   const channel = {
-    connect: vi.fn(async (_credentials: unknown, callback: (event: MatchNotice) => void) => {
+    connect: vi.fn(async (callback: (event: MatchNotice) => void) => {
       receive = callback
     }),
     arm: vi.fn(),
@@ -110,5 +110,29 @@ it('a failed official notice immediately ends matching instead of waiting for po
     expect.objectContaining({ message: expect.stringContaining('NO_MATCH') }),
   )
   expect(x.accept).not.toHaveBeenCalled()
+  x.match.close()
+})
+
+it('allows a notification at the server deadline and gives the ACK its own time budget', async () => {
+  vi.useFakeTimers()
+  const x = setup()
+  let finish!: (value: unknown) => void
+  x.connection.call.mockImplementation(async (method) => {
+    if (method === 'multiMatch') return { data: { success: true, maxWaitTimeMills: 30000 } }
+    if (method === 'multiJoin')
+      return new Promise((resolve) => {
+        finish = resolve
+      })
+    return { data: {} }
+  })
+  await x.match.start('1')
+  await vi.advanceTimersByTimeAsync(30001)
+  expect(x.fail).not.toHaveBeenCalled()
+  x.receive({ kind: 'ready', roomId: 'official_room' })
+  await vi.advanceTimersByTimeAsync(15000)
+  finish({ data: { multiLtRoomSnapshot: rawSnapshot() } })
+  await vi.advanceTimersByTimeAsync(0)
+  expect(x.accept).toHaveBeenCalledOnce()
+  expect(x.fail).not.toHaveBeenCalled()
   x.match.close()
 })

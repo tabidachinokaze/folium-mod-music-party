@@ -100,7 +100,19 @@ export class AccountConnection {
       })
     return reply.data
   }
-  async attachment(name: 'media' | 'removeStickers' | 'matchCredentials', payload: unknown) {
+  async matchTransport(name: 'matchOpen' | 'matchPoll' | 'matchClose', id: string) {
+    if (name === 'matchClose') return this.folium.rpc.call(name, id)
+    if (name === 'matchOpen') await this.call('account')
+    const epoch = this.epoch
+    if (!this.cookie || this.readCookie() !== this.cookie) throw new Error('账号已变化')
+    const result = await this.folium.rpc.call(name, id)
+    if (epoch !== this.epoch || this.readCookie() !== this.cookie) {
+      void this.folium.rpc.call('matchClose', id).catch(() => {})
+      throw new Error('账号已变化')
+    }
+    return result
+  }
+  async attachment(name: 'media' | 'removeStickers', payload: unknown) {
     // Recheck the current Folia account and service port before every upload/mutation.
     await this.call('account')
     const epoch = this.epoch
