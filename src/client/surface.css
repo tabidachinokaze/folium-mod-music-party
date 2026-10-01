@@ -253,15 +253,36 @@ input::placeholder {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
-:where(.mp-member-list, .mp-history, .mp-contacts, .mp-sticker-content) {
+:where(
+  .mp-member-list,
+  .mp-history,
+  .mp-contacts,
+  .mp-sticker-content,
+  .mp-match-song-results,
+  .mp-match-song-popup
+) {
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, currentColor 22%, transparent) transparent;
 }
-:where(.mp-member-list, .mp-history, .mp-contacts, .mp-sticker-content)::-webkit-scrollbar {
+:where(
+  .mp-member-list,
+  .mp-history,
+  .mp-contacts,
+  .mp-sticker-content,
+  .mp-match-song-results,
+  .mp-match-song-popup
+)::-webkit-scrollbar {
   width: 4px;
   height: 4px;
 }
-:where(.mp-member-list, .mp-history, .mp-contacts, .mp-sticker-content)::-webkit-scrollbar-thumb {
+:where(
+  .mp-member-list,
+  .mp-history,
+  .mp-contacts,
+  .mp-sticker-content,
+  .mp-match-song-results,
+  .mp-match-song-popup
+)::-webkit-scrollbar-thumb {
   border-radius: 8px;
   background: color-mix(in srgb, currentColor 22%, transparent);
 }

@@ -2,6 +2,7 @@ import type { Member, RoomQueueEntry } from '@party/shared/types'
 import type { PartyController } from './controller'
 import { loadQueue } from './room-data'
 import { button, el, iconButton, picture } from './dom'
+import { promotionCount } from './queue-counts'
 
 // src/client/members-view.ts
 export function mountMembers(container: HTMLElement, controller: PartyController) {
@@ -106,7 +107,15 @@ export function mountMembers(container: HTMLElement, controller: PartyController
           el('div', 'mp-muted', entry.track.artist),
         )
         row.append(picture(entry.track.cover, ''), info, actions)
-        if (!canOperate) actions.append(el('span', 'mp-muted', `${entry.likeCount} 赞`))
+        const upCount = promotionCount(entry)
+        if (!canOperate)
+          actions.append(
+            el(
+              'span',
+              'mp-muted',
+              `${upCount !== undefined ? `置顶 ${upCount} · ` : ''}${entry.likeCount} 赞`,
+            ),
+          )
         else {
           const operate = (method: 'multiUp' | 'multiRemove') =>
             void controller.run(async () => {
@@ -118,6 +127,12 @@ export function mountMembers(container: HTMLElement, controller: PartyController
           const up = iconButton(controller.folium.ui, '置顶', 'top', () => operate('multiUp'))
           up.disabled = controller.state.busy
           actions.append(up)
+          if (upCount !== undefined) {
+            const count = el('span', 'mp-muted mp-top-count', String(upCount))
+            count.title = `已被置顶 ${upCount} 次`
+            count.setAttribute('aria-label', count.title)
+            actions.append(count)
+          }
           if (entry.songRcmdUid === controller.state.account?.uid) {
             const remove = iconButton(
               controller.folium.ui,

@@ -10,7 +10,13 @@ import { mergeChat } from '@party/shared/chat'
 import { invitation, parseInvitation } from '@party/shared/protocol'
 import { RoomTransition } from '@party/renderer/src/room-transition'
 import type { ChatMessage, RoomQueueEntry, RoomSnapshot } from '@party/shared/types'
-import { AccountConnection, getPlaybackBridge, type Folium, type Intent } from './host'
+import {
+  AccountConnection,
+  getPlaybackBridge,
+  type Folium,
+  type HostSong,
+  type Intent,
+} from './host'
 import { RoomPlayer } from './player'
 import { loadQueue, loadChat } from './room-data'
 
@@ -22,6 +28,7 @@ export interface PartyState {
   checkingRoom: boolean
   matching: boolean
   matchPhase: string
+  matchSong: HostSong | null
   room: RoomSnapshot | null
   busy: boolean
   error: string
@@ -41,6 +48,7 @@ export class PartyController {
   private epoch = 0
   private disposed = false
   private matcher: RoomMatch
+  private matchPreparing = false
   private timers: ReturnType<typeof setTimeout>[] = []
   private chatTask: Promise<void> | null = null
   private lastToast = new Map<string, number>()
@@ -63,6 +71,7 @@ export class PartyController {
       checkingRoom: false,
       matching: false,
       matchPhase: '',
+      matchSong: null,
       room: null,
       busy: false,
       error: '',
@@ -122,6 +131,8 @@ export class PartyController {
   }
   patch(value: Partial<PartyState>) {
     if (this.disposed) return
+    if (value.account !== undefined && value.account?.uid !== this.state.account?.uid)
+      value = { ...value, matchSong: null }
     if (value.notice) this.notify(value.notice, 'success')
     if (value.error) this.notify(value.error, 'error')
     this.state = { ...this.state, ...value, notice: '' }
@@ -184,23 +195,58 @@ export class PartyController {
     }
   }
   async match() {
-    if (this.state.matching || this.disposed) return
+    if (this.state.matching || this.matchPreparing || this.disposed) return
     const generation = this.epoch
-    const songId =
-      this.state.room?.playback?.song?.songId || this.folium.playback.getState().song?.id
-    const source = this.state.room ? 'netease' : this.folium.playback.getState().song?.source
-    if (source !== 'netease' || !/^[1-9]\d*$/.test(songId || ''))
-      throw new Error('请先播放一首网易云歌曲，再匹配房间')
-    if (this.state.room) {
-      await this.connection.call('multiRematchLeave', { roomId: this.state.room.roomId })
-      if (generation !== this.epoch || this.disposed) return
-      this.detach(true)
-    } else {
-      await this.checkAvailableRoom()
-      if (generation !== this.epoch || this.disposed) return
-      if (this.state.availableRoom) throw new Error('账号已有房间，请先恢复后重新匹配')
+    if (!this.state.account) throw new Error('请先登录网易云账号')
+    // Capture the chosen ID before any async leave/status request. Changing room playback
+    // during those requests must not silently change the song used for this match attempt.
+    const song = this.getMatchSong()
+    if (song?.source !== 'netease' || !/^[1-9]\d*$/.test(song.id || ''))
+      throw new Error('请选择一首网易云歌曲，再匹配房间')
+    const songId = song.id!
+    this.matchPreparing = true
+    this.patch({ matchSong: { ...song } })
+    try {
+      if (this.state.room) {
+        await this.connection.call('multiRematchLeave', { roomId: this.state.room.roomId })
+        if (generation !== this.epoch || this.disposed) return
+        this.detach(true)
+      } else {
+        await this.checkAvailableRoom()
+        if (generation !== this.epoch || this.disposed) return
+        if (this.state.availableRoom) throw new Error('账号已有房间，请先恢复后重新匹配')
+      }
+      await this.matcher.start(songId)
+    } finally {
+      this.matchPreparing = false
     }
-    await this.matcher.start(songId!)
+  }
+  getMatchSong(): HostSong | null {
+    return this.state.matchSong || this.currentMatchSong()
+  }
+  currentMatchSong(): HostSong | null {
+    const playback = this.folium.playback.getState().song
+    const roomId = this.state.room?.playback?.song?.songId
+    if (roomId && (playback?.source !== 'netease' || playback.id !== roomId)) {
+      const track = this.state.queue.find((entry) => entry.songId === roomId)?.track
+      return {
+        id: roomId,
+        source: 'netease',
+        ref: null,
+        title: track?.name || `歌曲 ${roomId}`,
+        artist: track?.artist || '',
+        album: track?.album || null,
+      }
+    }
+    return playback?.source === 'netease' && /^[1-9]\d*$/.test(playback.id || '') ? playback : null
+  }
+  selectMatchSong(song: HostSong | null) {
+    if (this.disposed || !this.state.account) throw new Error('请先登录网易云账号')
+    if (this.state.busy || this.state.matching || this.matchPreparing)
+      throw new Error('请等待当前操作完成后再切换歌曲')
+    if (song && (song.source !== 'netease' || !/^[1-9]\d*$/.test(song.id || '')))
+      throw new Error('请选择有效的网易云歌曲')
+    this.patch({ matchSong: song ? { ...song } : null })
   }
   async cancelMatch() {
     try {

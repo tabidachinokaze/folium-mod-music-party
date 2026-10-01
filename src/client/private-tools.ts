@@ -6,7 +6,7 @@ export type PrivateRun = (task: () => Promise<unknown>) => Promise<void>
 export async function uploadImage(
   controller: PartyController,
   file: File,
-  target: { kind: 'sticker' } | { kind: 'private'; uid: string },
+  target: { kind: 'sticker' } | { kind: 'private'; uid: string } | { kind: 'room'; roomId: string },
 ) {
   if (
     !['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(file.type) ||
@@ -15,6 +15,12 @@ export async function uploadImage(
   )
     throw new Error('请选择 20 MB 以内的 PNG、JPEG、GIF 或 WebP 图片')
   const account = controller.state.account?.uid
+  const destination = { ...target }
+  const checkRoom = () => {
+    if (destination.kind === 'room' && controller.state.room?.roomId !== destination.roomId)
+      throw new Error('房间已变化，请重新选择图片')
+  }
+  checkRoom()
   const url = URL.createObjectURL(file)
   try {
     const img = new Image()
@@ -28,9 +34,10 @@ export async function uploadImage(
     })
     if (!account || controller.state.account?.uid !== account)
       throw new Error('账号已变化，请重新选择图片')
+    checkRoom()
     return await controller.connection.attachment('media', {
       requestId: crypto.randomUUID(),
-      target,
+      target: destination,
       file: {
         kind: 'image',
         name: file.name,
@@ -62,6 +69,16 @@ export function createPrivateTools(
   run: PrivateRun,
   send: (task: (uid: string) => Promise<unknown>) => Promise<void>,
 ) {
+  return createComposerTools(controller, draft, run, (file) =>
+    send((uid) => uploadImage(controller, file, { kind: 'private', uid })),
+  )
+}
+export function createComposerTools(
+  controller: PartyController,
+  draft: HTMLTextAreaElement,
+  run: PrivateRun,
+  onImage: (file: File) => Promise<unknown>,
+) {
   const popups: HTMLDetailsElement[] = []
   const create = (label: string, values: string[]) => {
     const box = el('details', 'mp-stickers'),
@@ -73,8 +90,11 @@ export function createPrivateTools(
     values.forEach((value) =>
       grid.append(
         button(value, () => {
-          if (draft.value.length + value.length > draft.maxLength) return
+          const length =
+            draft.value.length - (draft.selectionEnd - draft.selectionStart) + value.length
+          if (draft.maxLength >= 0 && length > draft.maxLength) return
           draft.setRangeText(value, draft.selectionStart, draft.selectionEnd, 'end')
+          draft.dispatchEvent(new Event('input', { bubbles: true, composed: true }))
           draft.focus()
           box.open = false
         }),
@@ -128,7 +148,8 @@ export function createPrivateTools(
   const input = imageInput(
     (file) =>
       void run(async () => {
-        await send((uid) => uploadImage(controller, file, { kind: 'private', uid }))
+        if (!controller.state.account) throw new Error('请先登录网易云账号')
+        await onImage(file)
         image.open = false
       }),
   )

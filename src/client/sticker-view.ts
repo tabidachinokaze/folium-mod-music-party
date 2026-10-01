@@ -24,7 +24,9 @@ export function createStickerPicker(
     epoch = 0,
     cursor = '',
     groupId = '',
-    editing = false
+    editing = false,
+    hasMore = false,
+    lastTop = 0
   const items = new Map<string, SavedSticker>(),
     selected = new Set<string>()
   const upload = imageInput(
@@ -58,10 +60,9 @@ export function createStickerPicker(
       }),
     'danger',
   )
-  const more = button('加载更多表情', () => void run(load))
   const status = el('p', 'mp-muted')
   header.append(el('strong', '', '表情包'), uploadButton, organize, remove, cancel)
-  content.append(header, select, status, grid, more, upload)
+  content.append(header, select, status, grid, upload)
   box.append(content)
   async function mutate(task: () => Promise<unknown>) {
     if (mutating || disposed) return
@@ -75,13 +76,17 @@ export function createStickerPicker(
     }
   }
   function render() {
-    uploadButton.disabled = organize.disabled = cancel.disabled = remove.disabled = mutating
-    grid.inert = mutating
+    uploadButton.disabled =
+      organize.disabled =
+      cancel.disabled =
+      remove.disabled =
+        mutating || loading
+    grid.inert = mutating || loading
     organize.hidden = editing
     cancel.hidden = !editing
     remove.hidden = !editing || !selected.size
     remove.textContent = `删除 (${selected.size})`
-    select.disabled = editing || mutating
+    select.disabled = editing || mutating || loading
     grid.replaceChildren(
       ...[...items].map(([key, item]) => {
         const pick = button('', () => {
@@ -104,18 +109,21 @@ export function createStickerPicker(
         return pick
       }),
     )
-    status.textContent = !items.size
-      ? '暂无表情包，可以上传图片或 GIF。'
-      : editing
-        ? '选择要从网易云收藏中删除的表情包'
-        : ''
+    content.setAttribute('aria-busy', String(loading))
+    status.textContent = loading
+      ? '正在加载表情…'
+      : !items.size
+        ? '暂无表情包，可以上传图片或 GIF。'
+        : editing
+          ? '选择要从网易云收藏中删除的表情包'
+          : ''
     status.hidden = !status.textContent
   }
   async function load() {
-    if (loading || !groupId) return
+    if (disposed || loading || !groupId || !hasMore) return
     const current = epoch
     loading = true
-    more.disabled = true
+    render()
     try {
       const body = await controller.connection.call('stickerPage', {
         groupId,
@@ -123,16 +131,18 @@ export function createStickerPicker(
       })
       if (disposed || current !== epoch) return
       for (const item of body.data?.emojis || []) items.set(stickerKey(item), item)
-      more.hidden =
-        body.data?.page?.more !== true ||
-        !body.data?.page?.cursor ||
-        body.data.page.cursor === cursor
+      hasMore =
+        body.data?.page?.more === true &&
+        typeof body.data?.page?.cursor === 'string' &&
+        !!body.data.page.cursor &&
+        body.data.page.cursor !== cursor
       cursor = String(body.data?.page?.cursor || '')
       render()
     } finally {
-      if (current === epoch) {
+      if (!disposed && current === epoch) {
         loading = false
-        more.disabled = false
+        render()
+        lastTop = content.scrollTop
       }
     }
   }
@@ -141,14 +151,19 @@ export function createStickerPicker(
     loaded = false
     loading = true
     cursor = ''
+    hasMore = true
+    content.scrollTop = lastTop = 0
     items.clear()
     selected.clear()
-    more.hidden = true
+    render()
     let groups
     try {
       groups = parseStickerGroups(await controller.connection.call('stickerGroups', { scope }))
     } finally {
-      if (current === epoch) loading = false
+      if (!disposed && current === epoch) {
+        loading = false
+        render()
+      }
     }
     if (disposed || current !== epoch) return
     select.replaceChildren(
@@ -162,17 +177,40 @@ export function createStickerPicker(
     select.hidden = groups.length < 2
     render()
     await load()
-    loaded = true
+    if (!disposed && current === epoch) loaded = true
   }
   select.addEventListener('change', () => {
+    if (loading || mutating || editing) {
+      select.value = groupId
+      return
+    }
     epoch++
     loading = false
     groupId = select.value
     cursor = ''
+    hasMore = true
+    content.scrollTop = lastTop = 0
     items.clear()
     selected.clear()
     void run(load)
   })
+  const loadMore = () => {
+    if (!box.open || !loaded || disposed || loading || mutating || editing || !hasMore) return
+    if (content.scrollHeight - content.scrollTop - content.clientHeight < 48) void run(load)
+  }
+  content.addEventListener('scroll', () => {
+    const top = content.scrollTop,
+      down = top > lastTop
+    lastTop = top
+    if (down) loadMore()
+  })
+  content.addEventListener(
+    'wheel',
+    (event) => {
+      if (event.deltaY > 0) loadMore()
+    },
+    { passive: true },
+  )
   box.addEventListener('toggle', () => {
     if (box.open && !loaded && !loading && controller.state.account) void run(initialize)
   })
@@ -181,7 +219,7 @@ export function createStickerPicker(
     if (accountUid === controller.state.account?.uid) return
     accountUid = controller.state.account?.uid
     epoch++
-    loaded = loading = editing = false
+    loaded = loading = editing = hasMore = false
     cursor = ''
     groupId = ''
     items.clear()
@@ -198,7 +236,6 @@ export function createStickerPicker(
   document.addEventListener('pointerdown', outside)
   document.addEventListener('keydown', escape)
   render()
-  more.hidden = true
   return {
     node: box,
     dispose() {

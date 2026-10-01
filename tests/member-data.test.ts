@@ -3,6 +3,7 @@ import { loadQueue } from '../src/client/room-data'
 import { multiPayload } from '../vendor/music-party/src/main/multi-api'
 import { validate } from '../vendor/music-party/src/main/service'
 import { parseSnapshot } from '../vendor/music-party/src/shared/multiplayer'
+import { promotionCount } from '../src/client/queue-counts'
 
 // tests/member-data.test.ts
 it('uses the official played history endpoint payload and retains separate occurrences', async () => {
@@ -20,6 +21,7 @@ it('uses the official played history endpoint payload and retains separate occur
             resourceId: '10',
             bizId: args.cursor ? '2' : '1',
             zanCnt: args.cursor ? 5 : 3,
+            upCnt: args.cursor ? '2' : 0,
           },
           rcmdUid: '9',
         },
@@ -32,8 +34,36 @@ it('uses the official played history endpoint payload and retains separate occur
     ['1', 3],
     ['2', 5],
   ])
+  expect(rows.map(promotionCount)).toEqual([0, 2])
   expect(call.mock.calls.every(([method]) => method === 'multiPlayed')).toBe(true)
   expect(await loadQueue(call, 'room', () => false, 'multiPlayed')).toEqual([])
+})
+it('distinguishes missing or malformed promotion totals from a reported zero in queue and played history', async () => {
+  const values = [undefined, null, '', -1, 1.5, Infinity, 'unknown', true, 0, '4']
+  const call = vi.fn(async () => ({
+    data: {
+      songLists: values.map((upCnt, index) => ({
+        songInfo: { resourceId: '10', bizId: String(index + 1), upCnt },
+        rcmdUid: '9',
+      })),
+      page: { more: false },
+    },
+  }))
+  for (const method of ['multiQueue', 'multiPlayed'] as const) {
+    const rows = await loadQueue(call, 'room', () => true, method)
+    expect(rows.map(promotionCount)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      0,
+      4,
+    ])
+  }
 })
 it('preserves room details and filters malformed tags without inventing metadata', () => {
   const room = parseSnapshot(

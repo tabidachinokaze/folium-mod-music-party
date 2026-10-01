@@ -48,6 +48,44 @@ export function getPlaybackBridge(folium: Folium): ExternalPlayback | null {
   }
 }
 
+/** Search only through the pinned host Omni adapter; these DTOs cannot start playback. */
+export async function searchMatchSongs(folium: Folium, query: string): Promise<HostSong[]> {
+  const text = query.trim()
+  if (!text) return []
+  const omni = folium.internals.omni
+  if (typeof omni?.searchProviderSongs !== 'function')
+    throw new Error('当前 Folia 暂不支持歌曲搜索，请升级宿主后重试')
+  const page = await omni.searchProviderSongs('netease', text, { limit: 30, offset: 0 })
+  const result: HostSong[] = [],
+    seen = new Set<string>()
+  for (const item of Array.isArray(page?.items) ? page.items : []) {
+    const source = item?.sourceRef
+    const id = String(source?.mediaId ?? item?.id ?? '')
+    if (
+      source?.kind !== 'online' ||
+      source.providerId !== 'netease' ||
+      !/^[1-9]\d*$/.test(id) ||
+      seen.has(id)
+    )
+      continue
+    seen.add(id)
+    result.push({
+      id,
+      source: 'netease',
+      ref: null,
+      title: typeof item.name === 'string' ? item.name : `歌曲 ${id}`,
+      artist: Array.isArray(item.artists)
+        ? item.artists
+            .map((artist: any) => (typeof artist?.name === 'string' ? artist.name : ''))
+            .filter(Boolean)
+            .join(' / ')
+        : '',
+      album: typeof item.album?.name === 'string' ? item.album.name : null,
+    })
+  }
+  return result
+}
+
 /** The pinned adapter is the only client module that knows Folia's session storage. */
 export class AccountConnection {
   private cookie = ''
@@ -118,7 +156,11 @@ export class AccountConnection {
     const epoch = this.epoch
     const reply = await this.folium.rpc.call(name, payload)
     if (epoch !== this.epoch || this.readCookie() !== this.cookie) throw new Error('账号已变化')
-    if (name === 'media' && !reply?.ok) throw new Error(reply?.error || '图片发送失败')
+    if (name === 'media' && !reply?.ok)
+      throw Object.assign(new Error(reply?.error || '图片发送失败'), {
+        code: reply?.code,
+        deliveryUnknown: reply?.deliveryUnknown === true,
+      })
     return reply
   }
   close() {

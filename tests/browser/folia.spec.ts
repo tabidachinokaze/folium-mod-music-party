@@ -146,6 +146,18 @@ test('actual Folium registration and host audio: restore, native next, local pau
       { timeout: 20000 },
     )
     .toBeGreaterThan(0)
+  await page.getByRole('button', { name: '切换歌曲', exact: true }).click()
+  const matchPicker = page.getByRole('dialog', { name: '选择匹配歌曲' })
+  await matchPicker.getByRole('searchbox', { name: '搜索网易云歌曲' }).fill('下一站')
+  await matchPicker.getByRole('button', { name: '搜索', exact: true }).click()
+  await matchPicker
+    .getByRole('button', { name: '选择 下一站 · 20 · 岛屿来信', exact: true })
+    .click()
+  await expect(page.locator('.mp-match-song-summary')).toContainText('下一站 · 20')
+  expect((await (await request.get('/test/state')).json()).operations).toHaveLength(0)
+  expect(
+    await page.evaluate(() => (window as any).partyHost.api.playback.getState().song?.id),
+  ).toBe('1')
   await page.evaluate(() => (window as any).partyRemote({ type: 'seek', time: 25 }))
   await expect
     .poll(() => page.evaluate(() => (window as any).partyHost.api.playback.getState().position))

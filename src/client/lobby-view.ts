@@ -1,5 +1,6 @@
 import type { PartyController } from './controller'
 import { button, el } from './dom'
+import { mountMatchSongPicker } from './match-song-picker'
 
 // src/client/lobby-view.ts
 export function mountLobby(controller: PartyController) {
@@ -20,6 +21,7 @@ export function mountLobby(controller: PartyController) {
     ),
   )
   const discover = card('开启一场一起听', '用当前网易云歌曲创建房间，或寻找同样喜欢音乐的人。')
+  const songPicker = mountMatchSongPicker(controller)
   const toggle = el('label', 'mp-stranger-toggle')
   const checkbox = el('input')
   checkbox.type = 'checkbox'
@@ -40,7 +42,7 @@ export function mountLobby(controller: PartyController) {
   const progress = el('p', 'mp-muted')
   progress.setAttribute('role', 'status')
   actions.append(create, match, cancel)
-  discover.append(toggle, actions, progress)
+  discover.append(songPicker.node, toggle, actions, progress)
   const link = card('加入朋友的房间', '粘贴朋友分享的多人一起听邀请链接。')
   const input = el('textarea', 'mp-invite')
   input.placeholder = '粘贴邀请链接…'
@@ -90,6 +92,8 @@ export function mountLobby(controller: PartyController) {
         control.disabled = state.busy || state.checkingRoom
       checkbox.disabled = state.busy
       if (state.availableRoom && !state.room) create.disabled = match.disabled = true
+      songPicker.render()
     },
+    dispose: () => songPicker.dispose(),
   }
 }

@@ -2,6 +2,9 @@ import type { ChatMessage } from '@party/shared/types'
 import type { PartyController } from './controller'
 import { el, messageNode } from './dom'
 import { createStickerPicker } from './sticker-view'
+import { mountMentionComposer } from './mention-composer'
+import { decorateRoomMessage } from './room-message'
+import { createComposerTools, uploadImage } from './private-tools'
 
 // src/client/room-chat.ts
 export function mountRoomChat(container: HTMLElement, controller: PartyController) {
@@ -13,6 +16,12 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
   draft.maxLength = 100
   draft.placeholder = '聊聊这首歌…'
   draft.setAttribute('aria-label', '房间聊天内容')
+  const mentions = mountMentionComposer({
+    draft,
+    composer,
+    members: () => controller.state.room?.members || [],
+    notify: (message) => controller.notify(message),
+  })
   const sticker = createStickerPicker(
     controller,
     (emoji) => controller.send(`[${emoji.emojiName}]`, emoji),
@@ -20,7 +29,27 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
   )
   const send = el('button', 'mp-button primary', '发送')
   send.type = 'submit'
-  composer.append(draft, sticker.node, send)
+  const tools = createComposerTools(
+    controller,
+    draft,
+    (task) => controller.run(task),
+    async (file) => {
+      const room = controller.requireRoom(),
+        account = controller.state.account?.uid
+      await uploadImage(controller, file, { kind: 'room', roomId: room.roomId })
+      if (
+        controller.state.account?.uid === account &&
+        controller.state.room?.roomId === room.roomId
+      ) {
+        await controller.refreshChat()
+        followLatest = true
+        toLatest()
+      }
+    },
+  )
+  const actions = el('div', 'mp-composer-tools')
+  actions.append(mentions.button, ...tools.nodes, sticker.node, tools.image, send)
+  composer.append(draft, actions)
   container.append(history, composer)
   let visible = false,
     disposed = false,
@@ -90,10 +119,15 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
   const render = () => {
     const state = controller.state
     send.disabled = state.busy || !state.room
+    mentions.button.disabled = !state.room
+    tools.image.inert = state.busy || !state.room
     if (state.room?.roomId !== roomId) {
       roomId = state.room?.roomId || ''
       previous = []
       followLatest = true
+      draft.value = ''
+      mentions.close()
+      tools.close()
     }
     if (previous === state.messages) return
     const top = history.scrollTop,
@@ -101,7 +135,11 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
     const prepended =
       previous.length > 0 && state.messages.findIndex((m) => m.id === previous[0].id) > 0
     history.replaceChildren(
-      ...state.messages.map((message) => messageNode(message, message.uid === state.account?.uid)),
+      ...state.messages.map((message) => {
+        const row = messageNode(message, message.uid === state.account?.uid, controller.folium.ui)
+        decorateRoomMessage(row, message, state.account?.nickname || '', mentions.mention)
+        return row
+      }),
     )
     if (!state.messages.length) history.append(el('p', 'mp-empty', '还没有聊天消息'))
     previous = state.messages
@@ -121,6 +159,9 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
       if (visible) {
         followLatest = true
         toLatest()
+      } else {
+        mentions.close()
+        tools.close()
       }
     },
     dispose() {
@@ -128,6 +169,8 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
       stop()
       cancelAnimationFrame(frame)
       sticker.dispose()
+      mentions.dispose()
+      tools.dispose()
     },
   }
 }

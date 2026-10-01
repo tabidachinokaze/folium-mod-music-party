@@ -4,6 +4,7 @@ import type {
   FoliumSong,
 } from '../../vendor/folium/contract'
 import type { PartyState } from './controller'
+import { promotionCount } from './queue-counts'
 
 // src/client/native-queue.ts
 // Occurrences use official business IDs, even when the same recording was recommended twice.
@@ -29,6 +30,7 @@ export function nativeQueue(state: PartyState, resolved: FoliumSong | null): Fol
           label: { 'zh-CN': '置顶', en: 'Move to top' },
           icon: 'arrow-up-to-line',
           disabled: state.busy,
+          count: promotionCount(entry),
         },
         ...(entry.songRcmdUid === state.account?.uid
           ? [

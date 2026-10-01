@@ -1,6 +1,7 @@
 import { parseRoomQueue } from '@party/shared/playback-queue'
 import { parseChatPage, mergeChat } from '@party/shared/chat'
 import type { ChatMessage, Method, RoomQueueEntry } from '@party/shared/types'
+import { withPromotionCount } from './queue-counts'
 
 // src/client/room-data.ts
 export type Call = (method: Method, args?: Record<string, unknown>) => Promise<any>
@@ -14,9 +15,15 @@ export async function loadQueue(
   const seen = new Set<string>()
   let cursor = ''
   do {
-    const page = parseRoomQueue(await call(method, { roomId, ...(cursor ? { cursor } : {}) }))
+    const response = await call(method, { roomId, ...(cursor ? { cursor } : {}) })
+    const page = parseRoomQueue(response)
     if (!current()) return []
-    page.entries.forEach((row) => rows.set(row.songBizId, row))
+    page.entries.forEach((row, index) =>
+      rows.set(
+        row.songBizId,
+        withPromotionCount(row, response.data.songLists[index]?.songInfo?.upCnt),
+      ),
+    )
     if (!page.more) return [...rows.values()]
     if (!page.cursor || seen.has(page.cursor) || seen.size >= 1000)
       throw new Error('歌曲列表分页异常，请刷新')

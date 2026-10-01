@@ -1,0 +1,101 @@
+/* src/client/match-song-picker.css */
+.mp-match-song {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0;
+}
+.mp-match-song-summary,
+.mp-match-result-meta {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  text-align: left;
+}
+.mp-match-song-summary strong,
+.mp-match-result-meta strong {
+  font-size: 11px;
+  font-weight: 500;
+}
+.mp-match-song-summary > *,
+.mp-match-result-meta > * {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.mp-match-song > .mp-button {
+  flex: none;
+  padding: 5px 8px;
+  font-size: 10px;
+}
+.mp-match-song-popup {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--popup);
+  color: inherit;
+  box-shadow: 0 8px 24px #0003;
+  max-width: calc(100dvw - 16px);
+  max-height: calc(100dvh - 16px);
+  overflow: auto;
+}
+.mp-match-song-popup:popover-open {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mp-match-song-popup::backdrop {
+  background: transparent;
+}
+.mp-match-song-popup .mp-picker-header {
+  padding: 0;
+  position: static;
+}
+.mp-match-search {
+  display: flex;
+  gap: 6px;
+}
+.mp-match-search input {
+  flex: 1;
+  width: 0;
+  min-width: 0;
+  font-size: 11px;
+}
+.mp-match-search .mp-button {
+  flex: none;
+}
+.mp-match-song-popup .mp-match-current {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  font-size: 10px;
+}
+.mp-match-song-popup p[role='status'] {
+  margin: 0;
+}
+.mp-match-song-results {
+  min-height: 0;
+  max-height: min(240px, 38dvh);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.mp-match-song-results:empty {
+  display: none;
+}
+.mp-match-song-results .mp-match-song-result {
+  display: flex;
+  width: 100%;
+  min-height: 42px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: transparent;
+}
+.mp-match-song-result[aria-pressed='true'] {
+  background: var(--hover);
+}

@@ -52,8 +52,11 @@ let handlers = new Map(),
   unread = 1,
   likes = 0,
   operations = [],
+  matchSongs = [],
+  topCounts = { 200: 2, 201: 0 },
   promoted = null,
   privatePages = false,
+  stickerPages = false,
   deletedStickers = new Set()
 const self = { userId: 9, nickname: '晚风' },
   peer = { userId: 10, nickname: '小岛', avatarUrl: 'https://p1.music.126.net/fixture/avatar.jpg' }
@@ -78,8 +81,11 @@ function reset() {
   unread = 1
   likes = 0
   operations = []
+  matchSongs = []
+  topCounts = { 200: 2, 201: 0 }
   promoted = null
   privatePages = false
+  stickerPages = false
   deletedStickers = new Set()
 }
 reset()
@@ -165,13 +171,57 @@ const server = createServer(async (req, res) => {
       return json({ ok: true })
     }
     if (url.pathname === '/test/state')
-      return json({ calls, current, version, joined, matching, likes, operations })
+      return json({
+        calls,
+        current,
+        version,
+        joined,
+        matching,
+        likes,
+        operations,
+        matchSongs,
+        messages,
+      })
+    if (url.pathname === '/test/room-mentions') {
+      for (const text of ['@晚风 这首歌很适合你 😊', '@晚风向海 欢迎'])
+        messages.push({
+          sendUid: '10',
+          sendTime: Date.now() + messages.length,
+          nickname: '小岛',
+          msgType: 0,
+          imChatRoomMsgBody: { text },
+        })
+      return json({ ok: true })
+    }
+    if (url.pathname === '/test/room-image') {
+      messages.push({
+        sendUid: '9',
+        sendTime: Date.now() + messages.length,
+        nickname: '晚风',
+        msgType: 0,
+        emoji: {
+          emojiId: '0',
+          emojiGroupId: '0',
+          emojiName: 'test.gif',
+          emojiImgUrl: 'https://p1.music.126.net/fixture/upload.gif',
+          width: 1,
+          height: 1,
+          format: 'gif',
+        },
+        imChatRoomMsgBody: { text: '[test.gif]' },
+      })
+      return json({ ok: true })
+    }
     if (url.pathname === '/test/match-mode') {
       matchMode = args.value
       return json({ ok: true })
     }
     if (url.pathname === '/test/chat-pages') {
       chatPages = true
+      return json({ ok: true })
+    }
+    if (url.pathname === '/test/sticker-pages') {
+      stickerPages = true
       return json({ ok: true })
     }
     if (url.pathname === '/test/match-notification') {
@@ -317,6 +367,7 @@ const server = createServer(async (req, res) => {
       if (uri.endsWith('/im/token/get'))
         return json({ code: 200, data: { accId: '9', token: 'fake-test-token' } })
       if (uri.endsWith('/multi/match')) {
+        matchSongs.push(String(data.songId))
         notificationSent = false
         matching = true
         return json({ code: 200, data: { success: true } })
@@ -354,6 +405,9 @@ const server = createServer(async (req, res) => {
             title: `待播歌曲 ${i + 1}`,
             artistName: ['岛屿来信'],
             coverUrl: `${origin}/cover.svg`,
+            ...(Object.hasOwn(topCounts, String(i + 200))
+              ? { upCnt: topCounts[String(i + 200)] }
+              : {}),
           },
           rcmdUid: i % 2 ? '10' : '9',
           nickname: i % 2 ? '小岛' : '晚风',
@@ -380,6 +434,7 @@ const server = createServer(async (req, res) => {
             title: `已播歌曲 ${i + 1}`,
             artistName: ['歌手'],
             zanCnt: i + 3,
+            ...(i === 0 ? { upCnt: 4 } : {}),
           },
           rcmdUid: i % 2 ? '10' : '9',
         }))
@@ -395,7 +450,10 @@ const server = createServer(async (req, res) => {
         calls.push(`operate:${data.operate}`)
         operations.push(data)
         if (data.operate === 3) likes++
-        if (data.operate === 2) promoted = data.bizId
+        if (data.operate === 2) {
+          promoted = data.bizId
+          topCounts[data.bizId] = (topCounts[data.bizId] || 0) + 1
+        }
         if (data.operate === 4) {
           current = String(Number(current) + 1)
           version++
@@ -460,13 +518,15 @@ const server = createServer(async (req, res) => {
         })
       if (uri.endsWith('/chatroom/send')) {
         const text = JSON.parse(data.msgBody).msg
+        const emoji = JSON.parse(data.clientExt || '{}').emoji
         if (text === 'REJECT') return json({ code: 405, message: '发送太频繁，请稍后重试' })
         messages.push({
           sendUid: '9',
-          sendTime: Date.now(),
+          sendTime: Date.now() + messages.length,
           nickname: '晚风',
           msgType: 0,
           imChatRoomMsgBody: { text },
+          ...(emoji ? { emoji } : {}),
         })
         return json({ code: 200, data: { success: true } })
       }
@@ -483,8 +543,31 @@ const server = createServer(async (req, res) => {
       if (uri.endsWith('/emoji/groups'))
         return json({
           code: 200,
-          data: { emojiGroups: [{ id: '1', name: '我的表情', edit: true }] },
+          data: {
+            emojiGroups: [
+              { id: '1', name: '我的表情', edit: true },
+              ...(stickerPages ? [{ id: '2', name: '更多表情', edit: true }] : []),
+            ],
+          },
         })
+      if (uri.endsWith('/detail/page') && stickerPages) {
+        calls.push(`stickers:${data.cursor || 'first'}`)
+        return json({
+          code: 200,
+          data: {
+            emojis: Array.from({ length: data.cursor ? 8 : 24 }, (_, i) => ({
+              emojiId: String((data.cursor ? 24 : 0) + i + 1),
+              emojiGroupId: '1',
+              emojiName: `表情 ${(data.cursor ? 24 : 0) + i + 1}`,
+              emojiImgUrl: 'https://p1.music.126.net/fixture/1.jpg',
+              width: 100,
+              height: 100,
+              format: 'jpg',
+            })),
+            page: { more: !data.cursor, cursor: data.cursor ? '' : 'next' },
+          },
+        })
+      }
       if (uri.endsWith('/detail/page'))
         return json({
           code: 200,

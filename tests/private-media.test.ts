@@ -81,7 +81,7 @@ it('sends the image to the captured peer with a single image message body', asyn
 })
 it('rejects invalid uploads before network access and cancels on account change', async () => {
   const { backend, fetcher, calls } = environment()
-  expect((await backend.media(image({ kind: 'room', roomId: 'test' }))).ok).toBe(false)
+  expect((await backend.media(image({ kind: 'unknown', roomId: 'test' }))).ok).toBe(false)
   expect(
     (await backend.media({ ...image({ kind: 'sticker' }), file: { base64: 'bad input' } })).ok,
   ).toBe(false)

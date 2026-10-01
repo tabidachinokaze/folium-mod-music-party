@@ -163,7 +163,10 @@ export function createBackend(
         !/^[A-Za-z0-9+/]*={0,2}$/.test(encoded)
       )
         return { ok: false, error: '图片数据无效或超过 20 MB' }
-      if (value?.file?.kind !== 'image' || !['private', 'sticker'].includes(value?.target?.kind))
+      if (
+        value?.file?.kind !== 'image' ||
+        !['private', 'sticker', 'room'].includes(value?.target?.kind)
+      )
         return { ok: false, error: '不支持的图片用途' }
       return current.media.send(
         { ...value, file: { ...value.file, data: new Uint8Array(Buffer.from(encoded, 'base64')) } },

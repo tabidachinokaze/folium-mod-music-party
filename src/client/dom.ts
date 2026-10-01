@@ -1,7 +1,7 @@
 import type { Folium } from './host'
 import { mediaUrl } from '@party/shared/message-content'
 import type { ChatMessage, PrivateMessage } from '@party/shared/types'
-import { roomActivityText } from './room-activity'
+import { roomActivityPresentation } from './room-activity-presentation'
 
 // src/client/dom.ts
 export function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = '') {
@@ -62,13 +62,56 @@ export function picture(url: string, label = '') {
   img.referrerPolicy = 'no-referrer'
   return img
 }
-export function messageNode(message: ChatMessage | PrivateMessage, mine: boolean) {
+const activityIcons = new WeakMap<Folium['ui'], Map<string, Promise<SVGSVGElement | null>>>()
+function activityIcon(ui: Folium['ui'] | undefined, name: string) {
+  const node = el('span', 'mp-activity-icon')
+  node.setAttribute('aria-hidden', 'true')
+  if (ui) {
+    let cache = activityIcons.get(ui)
+    if (!cache) activityIcons.set(ui, (cache = new Map()))
+    let icon = cache.get(name)
+    if (!icon) {
+      icon = ui.icon(name, { size: 13, strokeWidth: 1.8 }).catch(() => null)
+      cache.set(name, icon)
+    }
+    void icon.then((svg) => {
+      if (svg) node.append(svg.cloneNode(true))
+    })
+  }
+  return node
+}
+export function messageNode(
+  message: ChatMessage | PrivateMessage,
+  mine: boolean,
+  ui?: Folium['ui'],
+) {
   const secondary =
     'roomId' in message && !message.emoji && message.kind !== 'text' && message.kind !== 'image'
   if (secondary) {
+    const activity = roomActivityPresentation(message)
     const row = el('article', 'mp-message mp-message-secondary')
     row.dataset.messageId = message.id
-    row.append(el('span', '', roomActivityText(message)))
+    row.dataset.activity = activity.type
+    const content = el('div', 'mp-activity-content'),
+      heading = el('div', 'mp-activity-heading'),
+      body = el('p', 'mp-activity-body')
+    heading.append(el('span', 'mp-activity-type', activity.label))
+    const date = new Date(message.time)
+    if (Number.isFinite(date.getTime())) {
+      const time = el(
+        'time',
+        'mp-activity-time',
+        date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      )
+      time.dateTime = date.toISOString()
+      time.title = date.toLocaleString()
+      heading.append(time)
+    }
+    for (const part of activity.parts) {
+      body.append(el('span', `mp-activity-${part.kind}`, part.text))
+    }
+    content.append(heading, body)
+    row.append(activityIcon(ui, activity.icon), content)
     return row
   }
   const row = el('article', `mp-message ${mine ? 'is-mine' : ''}`)

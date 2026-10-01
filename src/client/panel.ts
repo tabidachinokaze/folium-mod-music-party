@@ -109,6 +109,7 @@ export function mountPanel(
     stopSong()
     chat.dispose()
     membersView.dispose()
+    lobby.dispose()
     disposeSurface()
   }
 }

@@ -73,15 +73,107 @@
   background: transparent;
 }
 .mp-message.mp-message-secondary {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
   width: auto;
   max-width: 100%;
-  margin: 6px 0;
-  padding: 2px 4px;
+  margin: 8px 0;
+  padding: 4px 2px;
+  text-align: left;
+}
+.mp-activity-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  border-radius: 6px;
+  background: var(--soft);
+  color: var(--muted);
+}
+.mp-activity-icon svg {
+  width: 13px;
+  height: 13px;
+}
+.mp-activity-content {
+  flex: 1;
+  min-width: 0;
+}
+.mp-activity-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 2px;
   color: var(--muted);
   font-size: 10px;
   line-height: 1.5;
-  text-align: center;
+}
+.mp-activity-time {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+.mp-activity-body {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.mp-activity-text {
+  color: var(--muted);
+}
+.mp-activity-actor {
+  color: color-mix(in srgb, currentColor 85%, transparent);
+  font-weight: 500;
+}
+.mp-activity-song {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--soft);
+  color: color-mix(in srgb, currentColor 90%, transparent);
+  font-weight: 500;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 .mp-chat-view .mp-history {
   overflow-anchor: none;
+}
+.mp-button.mp-message-author {
+  display: inline;
+  min-height: 0;
+  padding: 0;
+  border-radius: 2px;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+}
+.mp-button.mp-message-author:hover {
+  background: none;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.mp-button.mp-message-author.mp-activity-actor {
+  color: color-mix(in srgb, currentColor 85%, transparent);
+  font-weight: 500;
+}
+.mp-mention {
+  color: var(--accent);
+  font-weight: 500;
+}
+.mp-mention-self {
+  background: var(--hover);
+  border-radius: 3px;
+}
+.mp-mention-badge {
+  margin-left: 6px;
+  color: var(--accent);
+  font-size: 10px;
+}
+.mp-mentioned .mp-bubble {
+  box-shadow: inset 2px 0 var(--accent);
 }

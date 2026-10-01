@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PartyController } from '../src/client/controller'
 import type { AccountConnection } from '../src/client/host'
-import { fakeHost, rawSnapshot } from './fixtures'
+import { fakeHost, rawSnapshot, song } from './fixtures'
 
 const notifications = vi.hoisted(() => ({ receive: (_event: any) => {} }))
 vi.mock('../src/client/match-channel', () => ({
@@ -376,5 +376,106 @@ it('shows operation feedback through host toast without retaining a notice in th
     expect.objectContaining({ type: 'success', durationMs: 2500 }),
   )
   expect(controller.state.notice).toBe('')
+  controller.dispose()
+})
+
+it('changes the matching song without playing or recommending it, and rematches with the selected ID', async () => {
+  const { controller, host, api } = setup()
+  await controller.connect()
+  await controller.enter('restore')
+  await vi.waitFor(() => expect(host.state.state).toBe('playing'))
+  const before = { ...host.state }
+  host.lease.play.mockClear()
+  api.call.mockClear()
+  controller.selectMatchSong(song('22'))
+  expect(controller.getMatchSong()?.id).toBe('22')
+  expect(host.state).toEqual(before)
+  expect(host.lease.play).not.toHaveBeenCalled()
+  expect(api.call).not.toHaveBeenCalled()
+  api.call.mockImplementation(async () => ({ code: 200, data: { success: true } }) as any)
+  await controller.match()
+  expect(api.call).toHaveBeenCalledWith('multiMatch', { songId: '22' })
+  expect(host.state).toEqual(before)
+  expect(api.call.mock.calls.some(([method]) => method === 'multiAdd')).toBe(false)
+  expect(() => controller.selectMatchSong(song('23'))).toThrow('等待当前操作')
+  controller.dispose()
+})
+
+it('captures the matching song before leaving, rejects changes during that request, and resets on account change', async () => {
+  const { controller, host, api } = setup()
+  await controller.connect()
+  await controller.enter('restore')
+  controller.selectMatchSong(song('22'))
+  let finish!: () => void
+  api.call.mockImplementation(async (method) => {
+    if (method === 'multiRematchLeave')
+      await new Promise<void>((resolve) => {
+        finish = resolve
+      })
+    return { code: 200, data: { success: true } } as any
+  })
+  const task = controller.match()
+  expect(() => controller.selectMatchSong(song('23'))).toThrow('等待当前操作')
+  host.state.song = song('24')
+  finish()
+  await task
+  expect(api.call).toHaveBeenCalledWith('multiMatch', { songId: '22' })
+  controller.patch({ account: null })
+  expect(controller.state.matchSong).toBeNull()
+  controller.dispose()
+})
+
+it('keeps creation tied to current playback while a different matching song is selected', async () => {
+  const { controller, host, api } = setup()
+  api.call.mockImplementation(
+    async (method) =>
+      ({
+        code: 200,
+        data: {
+          success: true,
+          multiLtRoomSnapshot: method === 'multiCreate' ? rawSnapshot() : null,
+          songLists: [],
+          records: [],
+          page: { more: false },
+        },
+      }) as any,
+  )
+  await controller.connect()
+  host.state.song = song('1')
+  controller.selectMatchSong(song('22'))
+  await controller.enter('create')
+  expect(api.call).toHaveBeenCalledWith('multiCreate', { songId: '1', allowStrangerMatch: false })
+  controller.dispose()
+})
+
+it('can restore the current-song default and rejects invalid selections before room mutation', async () => {
+  const { controller, host, api } = setup()
+  await controller.connect()
+  host.state.song = song('1')
+  controller.selectMatchSong(song('22'))
+  controller.selectMatchSong(null)
+  expect(controller.getMatchSong()?.id).toBe('1')
+  expect(() => controller.selectMatchSong({ ...song('2'), source: 'qq' })).toThrow(
+    '有效的网易云歌曲',
+  )
+  expect(() => controller.selectMatchSong(song('0'))).toThrow('有效的网易云歌曲')
+  host.state.song = null
+  api.call.mockClear()
+  await expect(controller.match()).rejects.toThrow('请选择一首网易云歌曲')
+  expect(api.call).not.toHaveBeenCalled()
+  controller.dispose()
+})
+
+it('can match a searched song when nothing is playing without acquiring local playback', async () => {
+  const { controller, host, api } = setup()
+  api.call.mockImplementation(
+    async () => ({ code: 200, data: { success: true, multiLtRoomSnapshot: null } }) as any,
+  )
+  await controller.connect()
+  controller.selectMatchSong(song('22'))
+  await controller.match()
+  expect(api.call).toHaveBeenCalledWith('multiMatch', { songId: '22' })
+  expect(host.state.song).toBeNull()
+  expect(host.bridge.acquire).not.toHaveBeenCalled()
   controller.dispose()
 })

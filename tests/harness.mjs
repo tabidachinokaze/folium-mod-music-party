@@ -14,6 +14,7 @@ const events = new Map(),
     position: 5,
   }
 const emit = (name, value) => events.get(name)?.forEach((fn) => fn(value))
+const searchCalls = []
 let panel, home, mounted, intent, queue
 const panelNode = document.querySelector('#panel')
 const homeNode = document.createElement('div')
@@ -212,9 +213,21 @@ const folium = {
   },
   internals: {
     omni: {
-      searchProviderSongs: async () => ({
-        items: [{ id: 20, name: '山海之间', artists: [{ name: '晚风' }] }],
-      }),
+      searchProviderSongs: async (provider, query) => {
+        searchCalls.push({ provider, query })
+        return {
+          items: [
+            {
+              id: 20,
+              name: '山海之间',
+              artists: [{ name: '晚风' }],
+              album: { name: '沿途' },
+              sourceRef: { kind: 'online', providerId: 'netease', mediaId: '20' },
+            },
+          ],
+          hasMore: false,
+        }
+      },
     },
   },
   events: {
@@ -279,8 +292,23 @@ const folium = {
           'M3 21v-5h5',
         ],
         'arrow-left': ['m12 19-7-7 7-7', 'M5 12h14'],
+        x: ['M18 6 6 18', 'm6 6 12 12'],
         'arrow-up-to-line': ['M5 3h14', 'm18 13-6-6-6 6', 'M12 7v14'],
         'trash-2': ['M3 6h18', 'M19 6v14H5V6', 'M9 6V3h6v3', 'M10 10v6', 'M14 10v6'],
+        'user-plus': [
+          'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2',
+          'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8',
+          'M20 8v6',
+          'M23 11h-6',
+        ],
+        'music-2': [
+          'M9 18V5l12-2v13',
+          'M9 18a3 3 0 1 1-3-3 3 3 0 0 1 3 3',
+          'M21 16a3 3 0 1 1-3-3 3 3 0 0 1 3 3',
+        ],
+        'thumbs-up': ['M7 10v12H3V10z', 'M7 10l5-8a3 3 0 0 1 2 4l-1 4h6a2 2 0 0 1 2 2l-2 8H7'],
+        'log-out': ['M9 21H3V3h6', 'm16 17 5-5-5-5', 'M21 12H9'],
+        info: ['M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20', 'M12 11v6', 'M12 7h.01'],
         users: [
           'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2',
           'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8',
@@ -324,10 +352,19 @@ function renderQueue() {
   for (const entry of queue?.entries ?? []) {
     const row = document.createElement('div')
     row.className = 'native-queue-entry'
+    row.dataset.entryId = entry.id
     row.textContent = entry.track.title
     for (const action of entry.actions) {
       const button = document.createElement('button')
       button.textContent = action.label['zh-CN']
+      button.setAttribute('aria-label', action.label['zh-CN'])
+      button.dataset.action = action.id
+      if (action.count !== undefined) {
+        const count = document.createElement('span')
+        count.className = 'native-action-count'
+        count.textContent = String(action.count)
+        button.append(count)
+      }
       button.disabled = action.disabled ?? false
       button.onclick = () =>
         intent({ type: 'queue-action', entryId: entry.id, actionId: action.id })
@@ -348,6 +385,7 @@ window.partyTest = {
   openQueue: () => folium.ui.openQueue(),
   next: () => intent({ type: 'next' }),
   state,
+  searchCalls,
   queue: () => queue,
   intent: (event) => intent(event),
   dispose() {
