@@ -1,18 +1,17 @@
-import styles from './panel.css'
+import { mountSurface } from './surface'
+import type { FoliumPanelContext } from '../../vendor/folium/contract'
 import type { PartyController } from './controller'
-import { button, el } from './dom'
+import { el } from './dom'
 import { mountPrivate } from './private-view'
 
 // src/client/private-home.ts
-export function mountPrivateHome(container: HTMLElement, controller: PartyController) {
-  const host = el('div', 'mp-private-host')
-  host.style.cssText = 'height:100%;min-height:0;overflow:hidden'
-  container.append(host)
-  const root = host.attachShadow({ mode: 'open' }),
-    css = el('style')
-  css.textContent = styles
-  const page = el('div', 'mp mp-private-home'),
-    header = el('header', 'mp-header')
+export function mountPrivateHome(
+  container: HTMLElement,
+  controller: PartyController,
+  context?: FoliumPanelContext,
+) {
+  const { page, dispose: disposeSurface } = mountSurface(container, 'mp-private-home', context)
+  const header = el('header', 'mp-header')
   const feedback = el('div', 'mp-private-feedback')
   feedback.hidden = true
   const report = (text: string, error = false) => {
@@ -21,20 +20,16 @@ export function mountPrivateHome(container: HTMLElement, controller: PartyContro
     feedback.setAttribute('role', error ? 'alert' : 'status')
     feedback.classList.toggle('mp-error', error)
   }
-  const connect = button('连接网易云账号', () => {
-    void controller.connect().catch((error) => report(error.message, true))
-  })
   const body = el('section', 'mp-private-layout')
   body.setAttribute('aria-label', '私信会话')
   const view = mountPrivate(body, controller, report)
-  header.append(el('h2', '', '私信'), connect, view.refreshButton)
+  header.append(el('h2', '', '私信'), view.refreshButton)
   page.append(header, feedback, body)
-  root.append(css, page)
   let accountUid: string | null = null
   const render = () => {
     const uid = controller.state.account?.uid ?? null
     body.hidden = !uid
-    connect.hidden = Boolean(uid)
+    page.hidden = !uid
     view.refreshButton.hidden = !uid
     if (accountUid !== uid) {
       view.reset()
@@ -49,6 +44,6 @@ export function mountPrivateHome(container: HTMLElement, controller: PartyContro
   return () => {
     stop()
     view.dispose()
-    host.remove()
+    disposeSurface()
   }
 }

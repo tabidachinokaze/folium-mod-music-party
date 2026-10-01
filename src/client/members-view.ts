@@ -1,7 +1,7 @@
 import type { Member, RoomQueueEntry } from '@party/shared/types'
 import type { PartyController } from './controller'
 import { loadQueue } from './room-data'
-import { button, el, picture } from './dom'
+import { button, el, iconButton, picture } from './dom'
 
 // src/client/members-view.ts
 export function mountMembers(container: HTMLElement, controller: PartyController) {
@@ -52,7 +52,7 @@ export function mountMembers(container: HTMLElement, controller: PartyController
       header.append(el('h3', '', `${room.onlineCount ?? room.members.length} 人一起听`))
     else
       header.append(
-        button('返回', () => {
+        iconButton(controller.folium.ui, '返回', 'back', () => {
           selected = null
           render()
         }),
@@ -60,7 +60,8 @@ export function mountMembers(container: HTMLElement, controller: PartyController
         el('strong', 'mp-member-name', selected.nickname),
         el('span', 'mp-muted', complete ? `共推荐 ${count(selected.uid)} 首` : '推荐数加载中'),
       )
-    if (!selected) header.append(button('刷新', () => void refresh(true)))
+    if (!selected)
+      header.append(iconButton(controller.folium.ui, '刷新', 'refresh', () => void refresh(true)))
     body.replaceChildren()
     if (!selected) {
       room.members.forEach((member) => {
@@ -114,24 +115,23 @@ export function mountMembers(container: HTMLElement, controller: PartyController
               await controller.operate(method, entry)
               await refresh(true)
             })
-          const up = button('置顶', () => operate('multiUp'))
+          const up = iconButton(controller.folium.ui, '置顶', 'top', () => operate('multiUp'))
           up.disabled = controller.state.busy
           actions.append(up)
           if (entry.songRcmdUid === controller.state.account?.uid) {
-            const remove = button('删除', () => operate('multiRemove'), 'danger')
+            const remove = iconButton(
+              controller.folium.ui,
+              '删除',
+              'delete',
+              () => operate('multiRemove'),
+              'danger',
+            )
             remove.disabled = controller.state.busy
             actions.append(remove)
           }
         }
         body.append(row)
       })
-    }
-    if (current?.songRcmdUid === uid) {
-      const song = controller.folium.playback.getState().song
-      body.append(
-        el('h3', 'mp-member-group', '正在播放'),
-        el('p', '', song?.id === current.songId ? song.title : '正在获取歌曲信息…'),
-      )
     }
     group(
       '待播歌曲',

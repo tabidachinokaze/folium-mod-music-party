@@ -1,26 +1,22 @@
+import { mountLobby } from './lobby-view'
 import { mountMembers } from './members-view'
-import styles from './panel.css'
+import { mountSurface } from './surface'
+import type { FoliumPanelContext } from '../../vendor/folium/contract'
 import type { PartyController, PartyState } from './controller'
 import { button, el, messageNode } from './dom'
 import { createStickerPicker } from './sticker-view'
 
 // src/client/panel.ts
-export function mountPanel(container: HTMLElement, controller: PartyController) {
-  const host = el('div')
-  host.style.height = '100%'
-  container.append(host)
-  const root = host.attachShadow({ mode: 'open' }),
-    css = el('style')
-  css.textContent = styles
-  const page = el('div', 'mp')
-  root.append(css, page)
-  const header = el('header', 'mp-header'),
-    title = el('div', 'mp-title'),
-    words = el('div')
-  words.append(el('div', 'mp-eyebrow', 'LISTEN · TOGETHER'), el('div', 'mp-brand', 'Music Party'))
-  title.append(el('span', 'mp-logo', '♫'), words)
-  const badge = el('span', 'mp-pill', '官方多人房间')
-  header.append(title, badge)
+export function mountPanel(
+  container: HTMLElement,
+  controller: PartyController,
+  context?: FoliumPanelContext,
+) {
+  const { root, page, dispose: disposeSurface } = mountSurface(container, 'mp-panel', context)
+  const header = el('header', 'mp-header')
+  header.append(el('h2', '', '一起听'))
+  const badge = el('span', 'mp-pill', '多人房间')
+  header.append(badge)
   const nav = el('nav', 'mp-nav')
   nav.setAttribute('role', 'tablist')
   nav.setAttribute('aria-label', '一起听功能')
@@ -35,6 +31,9 @@ export function mountPanel(container: HTMLElement, controller: PartyController) 
     return node
   })
   const [roomView, memberView, chatView] = sections
+  roomView.classList.add('mp-room-view')
+  memberView.classList.add('mp-members-view')
+  chatView.classList.add('mp-chat-view')
   const membersView = mountMembers(memberView, controller)
   let tab = 0
   const tabs = sections.map((section, i) => {
@@ -47,54 +46,22 @@ export function mountPanel(container: HTMLElement, controller: PartyController) 
     return pick
   })
   function renderTabs() {
+    page.classList.toggle('mp-room-layout', !!controller.state.room && tab === 0)
     membersView.show(tab === 1)
     sections.forEach((section, i) => {
       section.hidden = tab !== i
       tabs[i].setAttribute('aria-selected', String(tab === i))
     })
   }
-  const hero = el('div', 'mp-hero')
-  hero.append(
-    el('p', 'mp-eyebrow', 'A ROOM FOR YOUR MUSIC'),
-    el('h2', '', '好歌，一起听。'),
-    el('p', 'mp-muted', '用 Folia 的歌词与音效，和网易云 App 里的朋友听同一首歌。'),
-  )
-  const account = el('p', 'mp-muted')
-  const connect = button(
-    '连接网易云账号',
-    () => void controller.run(() => controller.connect()),
-    'primary mp-command',
-  )
   const prerequisite = el(
     'div',
     'mp-error',
-    '此 Folia 尚未提供 playback.sessions 接口。请升级到 Folia 0.7.12，并使用 Music Party 0.3.1，详见插件安装说明。',
+    '此 Folia 尚未提供 playback.sessions 接口。请升级到 Folia 0.7.12，并使用 Music Party 0.3.3，详见插件安装说明。',
   )
-  const enter = el('div', 'mp-section')
-  const restore = button(
-    '恢复当前房间',
-    () => void controller.run(() => controller.enter('restore')),
-    'primary mp-command',
-  )
-  const create = button(
-    '用当前歌曲创建',
-    () => void controller.run(() => controller.enter('create')),
-    'mp-command',
-  )
-  const joinInput = el('textarea', 'mp-invite')
-  joinInput.placeholder = '粘贴网易云多人一起听邀请链接…'
-  joinInput.setAttribute('aria-label', '多人邀请链接')
-  const join = button(
-    '通过链接加入',
-    () => void controller.run(() => controller.enter('join', joinInput.value)),
-    'mp-command',
-  )
-  const enterActions = el('div', 'mp-row')
-  enterActions.append(restore, create)
-  enter.append(enterActions, joinInput, join)
-  const active = el('div'),
+  const lobby = mountLobby(controller)
+  const active = el('section', 'mp-lobby-card mp-room-card'),
     roomDetails = el('dl', 'mp-room-details')
-  const share = el('div', 'mp-row mp-section')
+  const share = el('footer', 'mp-row mp-room-footer')
   share.append(
     button(
       '复制邀请链接',
@@ -108,8 +75,8 @@ export function mountPanel(container: HTMLElement, controller: PartyController) 
     button('私信邀请', () => controller.folium.ui.openHomeTab('private')),
     button('退出房间', () => void controller.run(() => controller.leave()), 'danger mp-command'),
   )
-  active.append(el('h2', '', '房间信息'), roomDetails, share)
-  roomView.append(hero, prerequisite, account, connect, enter, active)
+  active.append(el('h3', '', '房间信息'), roomDetails)
+  roomView.append(prerequisite, active, lobby.node, health, share)
 
   const history = el('div', 'mp-history'),
     older = button('加载更早的聊天', () => void controller.run(() => controller.refreshChat(true)))
@@ -140,28 +107,21 @@ export function mountPanel(container: HTMLElement, controller: PartyController) 
     history,
     composer,
   )
-  page.append(header, nav, error, notice, ...sections, health)
+  page.append(header, nav, error, notice, ...sections)
   let previous: PartyState | null = null
   function render() {
     const state = controller.state,
       room = state.room
-    badge.textContent = room
-      ? `${room.onlineCount ?? room.members.length} 人一起听`
-      : '官方多人房间'
+    badge.textContent = room ? `${room.onlineCount ?? room.members.length} 人一起听` : '多人房间'
     error.textContent = state.error
     error.hidden = !state.error
     notice.textContent = state.notice
     notice.hidden = !state.notice
     health.textContent = state.health
     prerequisite.hidden = state.ready
-    account.textContent = state.account
-      ? `已连接 · ${state.account.nickname}`
-      : '复用 Folia 中已登录的网易云账号'
-    connect.hidden = !!room
-    connect.textContent = state.account ? '重新连接账号' : '连接网易云账号'
-    enter.hidden = !!room || !state.account || !state.ready
-    active.hidden = !room
-    hero.hidden = !!room
+    page.hidden = !state.account
+    nav.hidden = !room
+    active.hidden = share.hidden = !room
     tabs[1].disabled = tabs[2].disabled = !room
     if (tab > 0 && !room) tab = 0
     renderTabs()
@@ -173,12 +133,9 @@ export function mountPanel(container: HTMLElement, controller: PartyController) 
       }
       const creator = room.members.find((member) => member.uid === room.creatorId)
       roomDetails.replaceChildren(
-        field('房间状态', '已加入'),
         field('在线成员', `${room.onlineCount ?? room.members.length} 人`),
-        field('房间 ID', room.roomId),
-        ...(room.creatorId ? [field('创建者', creator?.nickname || `用户 ${room.creatorId}`)] : []),
-        ...(room.createdAt ? [field('创建时间', new Date(room.createdAt).toLocaleString())] : []),
-        ...(room.tags?.length ? [field('房间标签', room.tags.join(' · '))] : []),
+        ...(creator?.nickname ? [field('创建者', creator.nickname)] : []),
+        ...(room.tags?.length ? [field('音乐标签', room.tags.join(' · '))] : []),
       )
     }
     older.hidden = !state.chatMore
@@ -195,6 +152,7 @@ export function mountPanel(container: HTMLElement, controller: PartyController) 
     root.querySelectorAll<HTMLButtonElement>('.mp-command').forEach((command) => {
       command.disabled = state.busy
     })
+    lobby.render()
     previous = state
   }
   const stop = controller.subscribe(render),
@@ -205,6 +163,6 @@ export function mountPanel(container: HTMLElement, controller: PartyController) 
     stopSong()
     sticker.dispose()
     membersView.dispose()
-    host.remove()
+    disposeSurface()
   }
 }

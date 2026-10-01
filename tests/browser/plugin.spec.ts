@@ -12,7 +12,6 @@ test.beforeEach(async ({ page, request }) => {
 })
 async function restore(page: import('@playwright/test').Page) {
   await page.goto('/')
-  await page.getByRole('button', { name: '连接网易云账号', exact: true }).click()
   await page.getByRole('button', { name: '恢复当前房间', exact: true }).click()
   await expect(page.getByText('3 人一起听', { exact: true })).toBeVisible()
 }
@@ -69,9 +68,8 @@ test('missing host bridge is visible and does not join rooms', async ({ page, re
   await expect(
     page.getByText('此 Folia 尚未提供 playback.sessions 接口。', { exact: false }),
   ).toBeVisible()
-  await page.getByRole('button', { name: '连接网易云账号', exact: true }).click()
   await expect(page.getByRole('button', { name: '恢复当前房间', exact: true })).not.toBeVisible()
-  expect((await (await request.get('/test/state')).json()).calls).toEqual([])
+  expect((await (await request.get('/test/state')).json()).calls).not.toContain('operate:4')
 })
 
 test('private viewport, scroll pagination, compact media and sticker management', async ({
@@ -205,7 +203,7 @@ test('room overview and member recommendation history with own-only deletion', a
   await expect(view.getByRole('button', { name: '置顶', exact: true })).toHaveCount(4)
   await view.getByRole('button', { name: '返回', exact: true }).click()
   await view.getByRole('button', { name: '查看 晚风 的推荐' }).click()
-  await expect(view.getByRole('heading', { name: '正在播放', exact: true })).toBeVisible()
+  await expect(view.getByRole('heading', { name: '正在播放', exact: true })).toHaveCount(0)
   await expect(view.getByRole('button', { name: '删除', exact: true })).toHaveCount(5)
   await view.getByRole('button', { name: '删除', exact: true }).first().click()
   await expect(view.getByRole('button', { name: '删除', exact: true })).toHaveCount(4)
@@ -215,4 +213,50 @@ test('room overview and member recommendation history with own-only deletion', a
     .poll(async () => (await (await request.get('/test/state')).json()).calls)
     .toContain('operate:2')
   await page.screenshot({ path: 'test-results/member-recommendations.png' })
+})
+
+test('automatic account activation and provider gating without manual connection', async ({
+  page,
+}) => {
+  await page.goto('/?loggedout')
+  await expect(page.getByRole('button', { name: '私信', exact: true })).not.toBeVisible()
+  await expect(page.getByRole('button', { name: '一起听', exact: true })).not.toBeVisible()
+  await expect(page.getByRole('button', { name: '连接网易云账号', exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: '模拟登录网易云' }).click()
+  await expect(page.getByRole('button', { name: '私信', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: '恢复当前房间', exact: true })).toBeVisible()
+  await expect(page.getByRole('tablist', { name: '一起听功能' })).not.toBeVisible()
+  await page.getByRole('button', { name: '恢复当前房间', exact: true }).click()
+  await expect(page.getByRole('tab', { name: '成员', exact: true })).toBeVisible()
+  await page.getByRole('combobox', { name: '模拟音乐来源' }).selectOption('qq')
+  await expect(page.getByRole('button', { name: '私信', exact: true })).not.toBeVisible()
+  await expect(page.getByRole('button', { name: '一起听', exact: true })).not.toBeVisible()
+  await page.getByRole('combobox', { name: '模拟音乐来源' }).selectOption('netease')
+  await expect(page.getByRole('button', { name: '恢复当前房间', exact: true })).toBeVisible()
+  await expect(page.getByRole('tablist', { name: '一起听功能' })).not.toBeVisible()
+  await page.getByRole('button', { name: '私信', exact: true }).click()
+  await expect(page.getByRole('button', { name: '小岛 · 1 未读', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: '模拟退出登录' }).click()
+  await expect(page.locator('.mp-private-home')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '私信', exact: true })).not.toBeVisible()
+})
+
+test('lobby cards show only an existing room and separate link joining from creation', async ({
+  page,
+  request,
+}) => {
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: '继续一起听' })).toBeVisible()
+  await expect(page.getByText('已连接网易云账号，可以创建、加入或恢复多人房间。')).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: '加入朋友的房间' })).toBeVisible()
+  await expect(page.getByRole('switch', { name: '允许陌生人匹配' })).toBeVisible()
+  await request.post('/test/empty')
+  await page.reload()
+  await expect(page.getByRole('button', { name: '匹配房间', exact: true })).toBeEnabled()
+  await expect(page.getByRole('heading', { name: '继续一起听' })).toBeHidden()
+  await expect(page.getByRole('button', { name: '恢复当前房间', exact: true })).toBeHidden()
+  await page.getByRole('button', { name: '匹配房间', exact: true }).click()
+  await expect(page.getByRole('button', { name: '取消匹配', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: '取消匹配', exact: true }).click()
+  await expect(page.getByRole('button', { name: '匹配房间', exact: true })).toBeVisible()
 })

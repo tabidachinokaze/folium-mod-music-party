@@ -2,7 +2,7 @@ import { parseConversations, parsePrivatePage } from '@party/shared/private-mess
 import { invitation } from '@party/shared/protocol'
 import type { Conversation, PrivateMessage } from '@party/shared/types'
 import type { PartyController } from './controller'
-import { button, el, messageNode, picture } from './dom'
+import { button, el, iconButton, messageNode, picture } from './dom'
 import { createStickerPicker } from './sticker-view'
 import { createPrivateTools } from './private-tools'
 
@@ -276,8 +276,10 @@ export function mountPrivate(
     if (top < lastHistoryTop && top < 60 && selected) void run(() => open(selected!, true))
     lastHistoryTop = top
   })
-  const refreshButton = button(
+  const refreshButton = iconButton(
+    controller.folium.ui,
     '刷新私信',
+    'refresh',
     () =>
       void run(async () => {
         await list()

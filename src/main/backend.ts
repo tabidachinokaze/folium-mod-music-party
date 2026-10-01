@@ -18,6 +18,7 @@ const allowed = new Set([
   'stickerPage',
 ])
 const needsToken = new Set([
+  'multiMatch',
   'multiCreate',
   'multiJoin',
   'multiAdd',

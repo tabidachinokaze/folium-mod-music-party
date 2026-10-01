@@ -20,5 +20,11 @@
     "shared/updates.ts": "c3ff9b0f0e9ec289883e0d2546316d29896523a32b8489bdea4f8b1e661a6b76",
     "renderer/src/room-transition.ts": "7b60138fdcc40e10881ea188d1d2a858dec3a38cea4ea8b82a68ccb0027aa26a",
     "main/media-send.ts": "a7350e2ba580da146eef18182409bfd4dcde71ca093ea4fa32b9464a177b5e16"
+  },
+  "localFileHashes": {
+    "main/service.ts": "08a9fd3ab61592d75535643793a9db79b856da5c0bb76abbe6815a1d2a52f060",
+    "main/multi-api.ts": "deafe7605ad594e97c9aa3448697f644e282103d8e5f8d66464fa866b746c9fe",
+    "shared/types.ts": "90e916265bc696078dea052f7d962712cf2c7f9588ad266b8bc0ac6f38e2ca42",
+    "shared/multiplayer.ts": "917ff9283079ac8d977ec9a8418df08f3c2bed9e55888ebd72f54946c95c993b"
   }
 }

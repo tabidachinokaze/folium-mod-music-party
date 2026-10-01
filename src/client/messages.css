@@ -1,0 +1,74 @@
+/* src/client/messages.css */
+.mp-history {
+  overflow: auto;
+  min-height: 100px;
+  padding: 2px 0;
+  overscroll-behavior: contain;
+}
+.mp-message {
+  margin: 12px 0;
+  width: fit-content;
+  max-width: 86%;
+  overflow-wrap: anywhere;
+}
+.mp-message.is-mine {
+  margin-left: auto;
+  text-align: right;
+}
+.mp-bubble {
+  width: fit-content;
+  max-width: 100%;
+  text-align: left;
+  margin: 0;
+  padding: 8px 10px;
+  background: var(--soft);
+  border-radius: 3px 10px 10px;
+  white-space: pre-wrap;
+}
+.is-mine .mp-bubble {
+  margin-left: auto;
+  background: var(--hover);
+  border-radius: 10px 3px 10px 10px;
+}
+.mp-message .mp-image,
+.mp-media {
+  display: block;
+  max-width: 100%;
+  max-height: 220px;
+  border-radius: 8px;
+}
+.mp-message .mp-image {
+  max-width: min(280px, 100%);
+  min-height: 48px;
+}
+.mp-resource {
+  text-align: left;
+  border-left: 2px solid var(--accent);
+  padding: 6px 8px;
+}
+.mp-composer {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.mp-composer textarea {
+  flex-basis: 100%;
+  min-height: 60px;
+  resize: none;
+}
+.mp-composer button[type='submit'] {
+  margin-left: auto;
+}
+.mp-composer-tools {
+  display: flex;
+  width: 100%;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.mp-composer-tools summary {
+  padding: 6px 8px;
+  background: transparent;
+}

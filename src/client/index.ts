@@ -1,12 +1,11 @@
+import type { FoliumPanelContext } from '../../vendor/folium/contract'
 import { mountPrivateHome } from './private-home'
-import type { Folium } from './host'
+import { activeNeteaseSession, type Folium } from './host'
 import { PartyController } from './controller'
 import { mountPanel } from './panel'
 
 // src/client/index.ts
-export default function activate(folium: Folium) {
-  if (folium.env.context !== 'main') return
-  const controller = new PartyController(folium)
+function registerEntries(folium: Folium, controller: PartyController) {
   const open = () => {
     folium.ui.navigate('player')
     folium.ui.openPlayerPanel('room')
@@ -18,7 +17,8 @@ export default function activate(folium: Folium) {
             id: 'private',
             label: { 'zh-CN': '私信', en: 'Messages' },
             order: 200,
-            mount: (container: HTMLElement) => mountPrivateHome(container, controller),
+            mount: (container: HTMLElement, context: FoliumPanelContext) =>
+              mountPrivateHome(container, controller, context),
           }),
         ]
       : []),
@@ -26,7 +26,8 @@ export default function activate(folium: Folium) {
       id: 'room',
       label: { 'zh-CN': '一起听', en: 'Music Party' },
       order: 200,
-      mount: (container: HTMLElement) => mountPanel(container, controller),
+      mount: (container: HTMLElement, context: FoliumPanelContext) =>
+        mountPanel(container, controller, context),
     }),
     folium.registries.commands.register({
       id: 'open',
@@ -45,13 +46,25 @@ export default function activate(folium: Folium) {
         button.setAttribute('aria-label', button.title)
         button.style.cssText =
           'display:grid;place-items:center;width:24px;height:24px;color:inherit;cursor:pointer;background:transparent;border:0'
-        button.append(folium.ui.icon('users', { size: 18 }))
+        let disposed = false
+        void folium.ui
+          .icon('users', { size: 18 })
+          .then((icon) => {
+            if (!disposed && icon) button.append(icon)
+          })
+          .catch(() => {})
         button.onclick = open
         container.append(button)
-        const stop = controller.subscribe(() => {
-          button.style.color = controller.state.room ? '#a3e7c2' : 'inherit'
-        })
+        const render = () => {
+          button.style.color = controller.state.room
+            ? 'var(--folium-accent, currentColor)'
+            : 'inherit'
+          button.setAttribute('aria-pressed', String(!!controller.state.room))
+        }
+        const stop = controller.subscribe(render)
+        render()
         return () => {
+          disposed = true
           stop()
           button.remove()
         }
@@ -66,7 +79,76 @@ export default function activate(folium: Folium) {
   return () => {
     window.removeEventListener('online', online)
     window.removeEventListener('focus', online)
-    controller.dispose()
     handles.forEach((handle) => handle.unregister())
+  }
+}
+
+// Registration follows the selected provider and verified account, including same-window changes.
+export default function activate(folium: Folium) {
+  if (folium.env.context !== 'main') return
+  let session = '',
+    controller: PartyController | null = null,
+    unregister: (() => void) | undefined
+  let disposed = false,
+    connecting = false,
+    generation = 0,
+    retryAt = 0,
+    failures = 0
+  const reset = () => {
+    generation++
+    unregister?.()
+    unregister = undefined
+    controller?.dispose()
+    controller = null
+    connecting = false
+  }
+  const sync = async () => {
+    if (disposed) return
+    const next = activeNeteaseSession()
+    if (next !== session) {
+      reset()
+      session = next
+      retryAt = 0
+      failures = 0
+    }
+    if (!next) return
+    if (unregister && controller?.state.account) return
+    if (unregister) {
+      reset()
+      retryAt = Date.now() + 5000
+    }
+    if (connecting || Date.now() < retryAt) return
+    connecting = true
+    const mine = generation
+    const candidate = controller || new PartyController(folium)
+    controller = candidate
+    try {
+      await candidate.connect()
+      if (disposed || mine !== generation || activeNeteaseSession() !== session) return
+      if (!candidate.state.account) {
+        retryAt = Date.now() + 5000
+        return
+      }
+      unregister = registerEntries(folium, candidate)
+      failures = 0
+    } catch {
+      if (mine === generation) retryAt = Date.now() + Math.min(30000, 5000 * ++failures)
+    } finally {
+      if (mine === generation) connecting = false
+    }
+  }
+  const update = () => void sync()
+  const timer = window.setInterval(update, 750)
+  window.addEventListener('storage', update)
+  window.addEventListener('focus', update)
+  window.addEventListener('online', update)
+  update()
+  return () => {
+    disposed = true
+    window.clearInterval(timer)
+    window.removeEventListener('storage', update)
+    window.removeEventListener('focus', update)
+    window.removeEventListener('online', update)
+    reset()
   }
 }

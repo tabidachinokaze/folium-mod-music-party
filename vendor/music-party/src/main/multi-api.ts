@@ -2,6 +2,9 @@
 // This table is deliberately closed: the renderer cannot choose arbitrary upstream endpoints.
 export const multiEndpoints = {
   multiPreview: '/api/listen/together/multi/landing/info/get',
+  multiMatch: '/api/listen/together/multi/match',
+  multiMatchCancel: '/api/listen/together/multi/match/cancel',
+  multiRematchLeave: '/api/listen/together/multi/match/exit',
   multiCreate: '/api/listen/together/multi/room/create',
   multiJoin: '/api/listen/together/multi/match/ack',
   multiStatus: '/api/listen/together/multi/match/status/get',
@@ -22,8 +25,14 @@ export type MultiMethod = keyof typeof multiEndpoints
 export function multiPayload(method: MultiMethod, args: Record<string, unknown>, checkToken = '') {
   const roomId = args.roomId
   switch (method) {
+    case 'multiMatch':
+      return { songId: args.songId, checkToken }
+    case 'multiMatchCancel':
+      return {}
+    case 'multiRematchLeave':
+      return { roomId, exitType: 'CHANGE_ROOM' }
     case 'multiCreate':
-      return { type: 1, songId: args.songId, groupIds: '[]', inviteUids: '[]', checkToken }
+      return { type: args.allowStrangerMatch === true ? 2 : 1, songId: args.songId, groupIds: '[]', inviteUids: '[]', checkToken }
     case 'multiJoin':
       return { roomId, inviterUid: args.inviterUid, agree: true, checkToken }
     case 'multiPreview':
@@ -75,6 +84,9 @@ export function multiPayload(method: MultiMethod, args: Record<string, unknown>,
   }
 }
 export const multiMutations = new Set([
+  'multiMatch',
+  'multiMatchCancel',
+  'multiRematchLeave',
   'multiCreate',
   'multiJoin',
   'multiAdd',

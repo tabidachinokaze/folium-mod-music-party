@@ -1,3 +1,4 @@
+import type { Folium } from './host'
 import { mediaUrl } from '@party/shared/message-content'
 import type { ChatMessage, PrivateMessage } from '@party/shared/types'
 
@@ -12,6 +13,35 @@ export function button(label: string, action: () => void, className = '') {
   const node = el('button', `mp-button ${className}`, label)
   node.type = 'button'
   node.addEventListener('click', action)
+  return node
+}
+const actionIcons = {
+  refresh: 'refresh-cw',
+  back: 'arrow-left',
+  top: 'arrow-up-to-line',
+  delete: 'trash-2',
+} as const
+export function iconButton(
+  ui: Folium['ui'],
+  label: string,
+  icon: keyof typeof actionIcons,
+  action: () => void,
+  className = '',
+) {
+  const node = button('', action, `mp-icon-button ${className}`)
+  node.setAttribute('aria-label', label)
+  node.title = label
+  void ui
+    .icon(actionIcons[icon], { size: 14 })
+    .then((svg) => {
+      if (svg) {
+        svg.setAttribute('aria-hidden', 'true')
+        node.append(svg)
+      } else node.textContent = label
+    })
+    .catch(() => {
+      node.textContent = label
+    })
   return node
 }
 export function picture(url: string, label = '') {

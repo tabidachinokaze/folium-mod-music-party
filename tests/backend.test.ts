@@ -94,3 +94,17 @@ describe('plugin protocol boundary', () => {
     connection.close()
   })
 })
+
+it('maps stranger creation and rematching to the official parameters', async () => {
+  const { multiPayload } = await import('../vendor/music-party/src/main/multi-api')
+  expect(multiPayload('multiCreate', { songId: '1' }).type).toBe(1)
+  expect(multiPayload('multiCreate', { songId: '1', allowStrangerMatch: true }).type).toBe(2)
+  expect(multiPayload('multiMatch', { songId: '1' }, 'token')).toEqual({
+    songId: '1',
+    checkToken: 'token',
+  })
+  expect(multiPayload('multiRematchLeave', { roomId: 'r' })).toEqual({
+    roomId: 'r',
+    exitType: 'CHANGE_ROOM',
+  })
+})

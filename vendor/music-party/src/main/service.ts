@@ -70,7 +70,10 @@ const fields: Partial<Record<Method, string[]>> = {
   artistSongs: ['id', 'offset'],
   multiPreview: ['roomId', 'inviterUid'],
   multiJoin: ['roomId', 'inviterUid'],
-  multiCreate: ['songId'],
+  multiMatch: ['songId'],
+  multiMatchCancel: [],
+  multiRematchLeave: ['roomId'],
+  multiCreate: ['songId', 'allowStrangerMatch'],
   multiStatus: [],
   multiChatHistory: ['roomId', 'cursor'],
   multiChatSend: ['roomId', 'text', 'emoji', 'requestId'],
@@ -105,7 +108,7 @@ export function validate(request: Request): Record<string, unknown> {
     }
     if (
       value === undefined &&
-      ['kind', 'offset', 'cursor', 'before', 'emoji'].includes(key) &&
+      ['kind', 'offset', 'cursor', 'before', 'emoji', 'allowStrangerMatch'].includes(key) &&
       !(key === 'emoji' && request.method === 'privateSticker')
     )
       continue
@@ -145,7 +148,7 @@ export function validate(request: Request): Record<string, unknown> {
         throw new Error('分页参数无效')
       continue
     }
-    if (key === 'value') {
+    if (key === 'value' || key === 'allowStrangerMatch') {
       if (typeof value !== 'boolean') throw new Error('喜欢状态无效')
       continue
     }
@@ -506,7 +509,7 @@ export class ApiService {
           throw error
         }
         if (
-          ['multiCreate', 'multiJoin', 'multiLeave'].includes(method) &&
+          ['multiCreate', 'multiJoin', 'multiLeave', 'multiMatch', 'multiRematchLeave'].includes(method) &&
           body.data?.success !== true
         )
           throw new Error('多人操作缺少成功确认，请查看观测记录并刷新房间状态')

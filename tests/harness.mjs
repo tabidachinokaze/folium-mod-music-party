@@ -1,7 +1,10 @@
 import activate from '/client.mjs'
 
 // tests/harness.mjs
-localStorage.setItem('online_provider:netease:cookie', 'MUSIC_U=test-only')
+if (!new URL(location.href).searchParams.has('loggedout'))
+  localStorage.setItem('online_provider:netease:cookie', 'MUSIC_U=test-only')
+else localStorage.removeItem('online_provider:netease:cookie')
+localStorage.setItem('active_online_provider_id', 'netease')
 window.electron = { getNeteasePort: async () => 4176 }
 const events = new Map(),
   state = {
@@ -17,15 +20,146 @@ const homeNode = document.createElement('div')
 homeNode.id = 'private-home'
 homeNode.hidden = true
 document.body.append(homeNode)
+const themes = {
+  dark: {
+    backgroundColor: '#101112',
+    primaryColor: '#e9e5e5',
+    secondaryColor: '#999595',
+    accentColor: '#e9e5e5',
+    isDaylight: false,
+  },
+  light: {
+    backgroundColor: '#f7f7f5',
+    primaryColor: '#252525',
+    secondaryColor: '#777777',
+    accentColor: '#3665af',
+    isDaylight: true,
+  },
+  blue: {
+    backgroundColor: '#142331',
+    primaryColor: '#d7e6f2',
+    secondaryColor: '#8dabbf',
+    accentColor: '#85b8e8',
+    isDaylight: false,
+  },
+}
+let currentTheme = themes.dark
+const themeListeners = new Set()
+const context = {
+  locale: 'zh-CN',
+  getTheme: () => currentTheme,
+  subscribe(fn) {
+    themeListeners.add(fn)
+    return () => themeListeners.delete(fn)
+  },
+}
+function setTheme(name) {
+  currentTheme = themes[name]
+  document.body.style.background = currentTheme.backgroundColor
+  document.body.style.color = currentTheme.primaryColor
+  document.body.style.colorScheme = currentTheme.isDaylight ? 'light' : 'dark'
+  for (const node of [panelNode, homeNode]) {
+    for (const [key, value] of Object.entries({
+      bg: currentTheme.backgroundColor,
+      primary: currentTheme.primaryColor,
+      secondary: currentTheme.secondaryColor,
+      accent: currentTheme.accentColor,
+      font: 'system-ui, sans-serif',
+    }))
+      node.style.setProperty(`--folium-${key}`, value)
+  }
+  themeListeners.forEach((fn) => fn())
+}
+setTheme('dark')
 const privateButton = document.createElement('button')
 privateButton.textContent = '私信'
+privateButton.hidden = true
 document.body.prepend(privateButton)
+const roomButton = document.createElement('button')
+roomButton.textContent = '一起听'
+roomButton.hidden = true
+const previewBar = document.createElement('div')
+previewBar.style.cssText =
+  'display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px;font:12px system-ui'
+const label = document.createElement('span')
+label.textContent = '模拟预览'
+const loginButton = document.createElement('button')
+const provider = document.createElement('select')
+provider.setAttribute('aria-label', '模拟音乐来源')
+for (const [value, title] of [
+  ['netease', '网易云'],
+  ['qq', '其他音乐来源'],
+]) {
+  const option = document.createElement('option')
+  option.value = value
+  option.textContent = title
+  provider.append(option)
+}
+const updateLoginLabel = () => {
+  loginButton.textContent = localStorage.getItem('online_provider:netease:cookie')
+    ? '模拟退出登录'
+    : '模拟登录网易云'
+}
+loginButton.onclick = () => {
+  if (localStorage.getItem('online_provider:netease:cookie'))
+    localStorage.removeItem('online_provider:netease:cookie')
+  else localStorage.setItem('online_provider:netease:cookie', 'MUSIC_U=test-only')
+  updateLoginLabel()
+  window.dispatchEvent(new Event('storage'))
+}
+provider.onchange = () => {
+  localStorage.setItem('active_online_provider_id', provider.value)
+  window.dispatchEvent(new Event('storage'))
+}
+updateLoginLabel()
+const themePicker = document.createElement('select')
+themePicker.setAttribute('aria-label', '预览主题')
+for (const [value, text] of [
+  ['dark', '深色主题'],
+  ['light', '浅色主题'],
+  ['blue', '蓝色主题'],
+]) {
+  const option = document.createElement('option')
+  option.value = value
+  option.textContent = text
+  themePicker.append(option)
+}
+themePicker.onchange = () => setTheme(themePicker.value)
+previewBar.append(label, loginButton, provider, themePicker, roomButton, privateButton)
+document.body.prepend(previewBar)
+panelNode.hidden = true
 const register = (name) => ({
   register(def) {
     if (name === 'commands' && !def.label) throw new Error('Command requires label')
-    if (name === 'playerPanelTabs') panel = def
-    if (name === 'homeTabs') home = def
-    return { unregister() {} }
+    if (name === 'playerPanelTabs') {
+      panel = def
+      roomButton.hidden = false
+      panelNode.hidden = false
+      mounted = def.mount(panelNode, context)
+    }
+    if (name === 'homeTabs') {
+      home = def
+      privateButton.hidden = false
+    }
+    return {
+      unregister() {
+        if (name === 'playerPanelTabs') {
+          mounted?.()
+          mounted = undefined
+          panel = undefined
+          panelNode.hidden = true
+          roomButton.hidden = true
+          queueNode.hidden = true
+        }
+        if (name === 'homeTabs') {
+          homeMounted?.()
+          homeMounted = undefined
+          home = undefined
+          homeNode.hidden = true
+          privateButton.hidden = true
+        }
+      },
+    }
   },
 })
 const folium = {
@@ -114,14 +248,49 @@ const folium = {
       homeNode.hidden = false
       homeMounted?.()
       homeNode.replaceChildren()
-      homeMounted = home.mount(homeNode)
+      homeMounted = home.mount(homeNode, context)
     },
     openQueue() {
       queueNode.hidden = false
       renderQueue()
     },
     toast() {},
-    icon: () => document.createElementNS('http://www.w3.org/2000/svg', 'svg'),
+    async icon(name, options = {}) {
+      const paths = {
+        'refresh-cw': [
+          'M3 12a9 9 0 0 1 15.36-6.36L21 8',
+          'M21 3v5h-5',
+          'M21 12a9 9 0 0 1-15.36 6.36L3 16',
+          'M3 21v-5h5',
+        ],
+        'arrow-left': ['m12 19-7-7 7-7', 'M5 12h14'],
+        'arrow-up-to-line': ['M5 3h14', 'm18 13-6-6-6 6', 'M12 7v14'],
+        'trash-2': ['M3 6h18', 'M19 6v14H5V6', 'M9 6V3h6v3', 'M10 10v6', 'M14 10v6'],
+        users: [
+          'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2',
+          'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8',
+          'M22 21v-2a4 4 0 0 0-3-3.87',
+        ],
+      }
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+      for (const [key, value] of Object.entries({
+        viewBox: '0 0 24 24',
+        width: options.size || 14,
+        height: options.size || 14,
+        fill: 'none',
+        stroke: 'currentColor',
+        'stroke-width': 2,
+        'stroke-linecap': 'round',
+        'stroke-linejoin': 'round',
+      }))
+        svg.setAttribute(key, String(value))
+      for (const d of paths[name] || []) {
+        const path = document.createElementNS(svg.namespaceURI, 'path')
+        path.setAttribute('d', d)
+        svg.append(path)
+      }
+      return svg
+    },
   },
   registries: Object.fromEntries(
     ['playerPanelTabs', 'homeTabs', 'commands', 'controlButtons'].map((name) => [
@@ -153,8 +322,13 @@ function renderQueue() {
   }
 }
 privateButton.onclick = () => folium.ui.openHomeTab('private')
+roomButton.onclick = () => {
+  homeNode.hidden = true
+  queueNode.hidden = true
+  panelNode.hidden = false
+}
 const dispose = activate(folium)
-mounted = panel.mount(document.querySelector('#panel'))
+
 window.partyTest = {
   openQueue: () => folium.ui.openQueue(),
   next: () => intent({ type: 'next' }),
@@ -162,7 +336,7 @@ window.partyTest = {
   queue: () => queue,
   intent: (event) => intent(event),
   dispose() {
-    mounted()
+    mounted?.()
     homeMounted?.()
     dispose()
   },

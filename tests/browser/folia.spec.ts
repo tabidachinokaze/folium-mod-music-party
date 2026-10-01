@@ -120,9 +120,9 @@ test('actual Folium registration and host audio: restore, native next, local pau
     api.ui.navigate('player')
     api.ui.openPlayerPanel('room')
   })
-  await page.getByRole('button', { name: '连接网易云账号', exact: true }).click({ timeout: 15000 })
+  await page.getByRole('button', { name: '一起听', exact: true }).click()
   await page.getByRole('button', { name: '恢复当前房间', exact: true }).click()
-  await expect(page.getByText('3 人一起听', { exact: true })).toBeVisible()
+  await expect(page.locator('.mp-panel > .mp-header .mp-pill')).toHaveText('3 人一起听')
   await expect
     .poll(() => page.evaluate(() => (window as any).partyHost.api.playback.getState().state), {
       timeout: 30000,
@@ -250,8 +250,8 @@ test('actual Folium registration and host audio: restore, native next, local pau
   await expect
     .poll(() => page.evaluate(() => (window as any).partyHost.api.playback.getState().state))
     .toBe('paused')
-  await page.evaluate(() => (window as any).partyHost.api.ui.openPlayerPanel('room'))
-  await page.getByRole('button', { name: '重新同步', exact: true }).click()
+  await page.evaluate(() => (window as any).partyHost.api.ui.openQueue())
+  await page.getByRole('button', { name: '同步队列', exact: true }).click()
   expect(await page.evaluate(() => (window as any).partyHost.api.playback.getState().state)).toBe(
     'paused',
   )

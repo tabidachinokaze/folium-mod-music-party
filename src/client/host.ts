@@ -32,7 +32,7 @@ export interface Folium {
     openHomeTab(id: string): void
     openQueue(): void
     toast(message: string, options?: { type: string }): void
-    icon(name: string, options?: any): SVGElement
+    icon(name: string, options?: any): Promise<SVGSVGElement | null>
   }
   registries: Record<string, { register(def: any): { unregister(): void } }>
 }
@@ -111,4 +111,14 @@ export class AccountConnection {
     this.cookie = ''
     void this.folium.rpc.call('disconnect').catch(() => {})
   }
+}
+
+/** Read only session identity here; never pass credentials into view props or diagnostics. */
+export function activeNeteaseSession(): string {
+  if ((localStorage.getItem('active_online_provider_id') || 'netease') !== 'netease') return ''
+  const cookie =
+    localStorage.getItem('online_provider:netease:cookie') ||
+    localStorage.getItem('netease_cookie') ||
+    ''
+  return /(?:^|;\s*)MUSIC_U=[^;\s]+/.test(cookie) ? cookie : ''
 }

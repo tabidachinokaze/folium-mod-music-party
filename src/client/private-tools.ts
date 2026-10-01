@@ -66,6 +66,7 @@ export function createPrivateTools(
   const create = (label: string, values: string[]) => {
     const box = el('details', 'mp-stickers'),
       content = el('div', 'mp-sticker-content mp-text-picker')
+    if (label === '颜文字') content.classList.add('mp-kaomoji')
     box.append(el('summary', '', label))
     content.append(el('h3', '', label))
     const grid = el('div', 'mp-text-grid')

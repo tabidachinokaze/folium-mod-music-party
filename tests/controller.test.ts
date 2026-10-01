@@ -214,3 +214,124 @@ describe('official multiplayer controller', () => {
     controller.dispose()
   })
 })
+
+it('discovers an existing room without taking over playback or showing a connection notice', async () => {
+  const { controller, host } = setup()
+  await controller.connect()
+  expect(controller.state.availableRoom?.roomId).toBe('official_room')
+  expect(controller.state.room).toBeNull()
+  expect(controller.state.notice).toBe('')
+  expect(host.lease.play).not.toHaveBeenCalled()
+  controller.dispose()
+})
+it('starts and cancels matching without acquiring a room from a pending response', async () => {
+  vi.useFakeTimers()
+  const { controller, host, api } = setup()
+  api.call.mockImplementation(
+    async (method: string) =>
+      ({ code: 200, data: { success: true, multiLtRoomSnapshot: null } }) as any,
+  )
+  await controller.connect()
+  host.state.song = {
+    id: '1',
+    source: 'netease',
+    ref: '1',
+    title: 'Song',
+    artist: '',
+    album: null,
+  }
+  await controller.match()
+  expect(controller.state.matching).toBe(true)
+  expect(controller.state.room).toBeNull()
+  await controller.cancelMatch()
+  await vi.advanceTimersByTimeAsync(4000)
+  expect(controller.state.matching).toBe(false)
+  expect(api.call).toHaveBeenCalledWith('multiMatchCancel')
+  controller.dispose()
+})
+
+it('adopts a confirmed matched room and stops the matching loop', async () => {
+  vi.useFakeTimers()
+  const { controller, host, api } = setup()
+  let matched = false
+  api.call.mockImplementation(async (method: string) => {
+    if (method === 'multiStatus')
+      return {
+        code: 200,
+        data: { status: 'RECONNECT_SUCCESS', multiLtRoomSnapshot: matched ? rawSnapshot() : null },
+      } as any
+    return {
+      code: 200,
+      data: { success: true, songLists: [], records: [], page: { more: false } },
+    } as any
+  })
+  await controller.connect()
+  host.state.song = { id: '1', source: 'netease', ref: '1', title: '', artist: '', album: null }
+  await controller.match()
+  matched = true
+  await vi.advanceTimersByTimeAsync(2000)
+  expect(controller.state.room?.roomId).toBe('official_room')
+  expect(controller.state.matching).toBe(false)
+  expect(api.call.mock.calls.some(([method]) => method === 'multiJoin')).toBe(false)
+  controller.dispose()
+})
+
+it('does not activate a late match acknowledgement while cancellation is pending', async () => {
+  vi.useFakeTimers()
+  const { controller, host, api } = setup()
+  let pendingMatch = false
+  let finishAck!: (value: any) => void
+  let finishCancel!: (value: any) => void
+  api.call.mockImplementation(async (method: string) => {
+    if (method === 'multiStatus')
+      return {
+        code: 200,
+        data: { multiLtRoomSnapshot: pendingMatch ? rawSnapshot() : null },
+      } as any
+    if (method === 'multiJoin')
+      return new Promise((resolve) => {
+        finishAck = resolve
+      }) as any
+    if (method === 'multiMatchCancel') {
+      pendingMatch = false
+      return new Promise((resolve) => {
+        finishCancel = resolve
+      }) as any
+    }
+    return { code: 200, data: { success: true } } as any
+  })
+  await controller.connect()
+  host.state.song = { id: '1', source: 'netease', ref: '1', title: '', artist: '', album: null }
+  await controller.match()
+  pendingMatch = true
+  await vi.advanceTimersByTimeAsync(2000)
+  expect(finishAck).toBeTypeOf('function')
+  const cancel = controller.cancelMatch()
+  finishAck({ code: 200, data: { success: true, multiLtRoomSnapshot: rawSnapshot() } })
+  await vi.advanceTimersByTimeAsync(1)
+  expect(controller.state.room).toBeNull()
+  expect(host.lease.play).not.toHaveBeenCalled()
+  finishCancel({ code: 200 })
+  await cancel
+  expect(controller.state.matching).toBe(false)
+  controller.dispose()
+})
+
+it('times out matching even when status requests keep failing', async () => {
+  vi.useFakeTimers()
+  const { controller, host, api } = setup()
+  let failStatus = false
+  api.call.mockImplementation(async (method: string) => {
+    if (method === 'multiStatus' && failStatus) throw new Error('网络中断')
+    return { code: 200, data: { success: true, multiLtRoomSnapshot: null } } as any
+  })
+  await controller.connect()
+  host.state.song = { id: '1', source: 'netease', ref: '1', title: '', artist: '', album: null }
+  await controller.match()
+  failStatus = true
+  await vi.advanceTimersByTimeAsync(62000)
+  expect(api.call).toHaveBeenCalledWith('multiMatchCancel')
+  expect(controller.state.matching).toBe(false)
+  expect(controller.state.error).toContain('匹配超时')
+  controller.dispose()
+})

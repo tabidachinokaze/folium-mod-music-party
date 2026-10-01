@@ -13,6 +13,7 @@ let handlers = new Map(),
   current = '1',
   version = 1,
   joined = true,
+  matching = false,
   removed = new Set(),
   calls = [],
   messages = [],
@@ -32,6 +33,7 @@ function reset() {
     rpc: { handle: (name, fn) => handlers.set(name, fn) },
     lifecycle: { onDeactivate: (fn) => dispose.push(fn) },
   })
+  matching = false
   current = '1'
   version = 1
   joined = true
@@ -151,7 +153,7 @@ const server = createServer(async (req, res) => {
     if (url.pathname === '/' || url.pathname === '/index.html') {
       res.setHeader('Content-Type', 'text/html')
       return res.end(
-        '<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>Music Party test host</title><style>body{margin:0;background:#181c21;color:#e9eceb}#private-home{height:calc(100vh - 45px);--folium-bg:#181c21;--folium-primary:#e9eceb;--folium-accent:#a3e7c2}#panel{width:430px;height:900px;margin:24px auto;border:1px solid #ffffff18;border-radius:20px;overflow:hidden}</style><div id="panel"></div><script type="module" src="/harness.mjs"></script></html>',
+        '<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>Music Party test host</title><style>body{margin:0;background:#101112;color:#e9e5e5;font-family:system-ui,sans-serif}#private-home{height:calc(100vh - 60px);box-sizing:border-box;padding:16px 48px}#panel{box-sizing:border-box;width:320px;max-width:calc(100vw - 24px);max-height:calc(100dvh - 76px);padding:20px;margin:24px auto;background:#ffffff03;border-radius:24px;overflow-y:auto;scrollbar-width:none}@media(max-width:640px){#private-home{padding:12px 16px}}</style><div id="panel"></div><script type="module" src="/harness.mjs"></script></html>',
       )
     }
     if (url.pathname === '/cover.svg') {
@@ -245,8 +247,22 @@ const server = createServer(async (req, res) => {
       const data = typeof args.data === 'string' ? JSON.parse(args.data) : args.data || {},
         uri = args.uri
       calls.push(uri)
+      if (uri.endsWith('/multi/match')) {
+        matching = true
+        return json({ code: 200, data: { success: true } })
+      }
+      if (uri.endsWith('/match/cancel')) {
+        matching = false
+        return json({ code: 200 })
+      }
       if (uri.endsWith('/status/get'))
-        return json({ code: 200, data: { multiLtRoomSnapshot: joined ? snapshot() : null } })
+        return json({
+          code: 200,
+          data: {
+            status: joined ? 'RECONNECT_SUCCESS' : matching ? 'MATCHING' : 'IDLE',
+            multiLtRoomSnapshot: joined ? snapshot() : null,
+          },
+        })
       if (uri.endsWith('/heartbeat'))
         return json({ code: 200, data: { ...snapshot(), heartBeatDuration: 5 } })
       if (uri.endsWith('/room/create') || uri.endsWith('/match/ack')) {
