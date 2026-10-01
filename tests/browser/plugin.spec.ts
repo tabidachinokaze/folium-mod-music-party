@@ -293,8 +293,15 @@ test('room chat opens at latest and scrolls older history without jumping or pro
   await expect(page.getByRole('button', { name: '加载更早的聊天' })).toHaveCount(0)
   await expect(page.getByText('与网易云官方多人房间互通 · 最多 100 字')).toHaveCount(0)
   expect((await (await request.get('/test/state')).json()).calls).not.toContain('chat:older')
-  await expect(history.locator('.mp-message-secondary')).toContainText('为歌曲点赞')
+  await expect(history.locator('.mp-message-secondary')).toHaveText([
+    '小岛 · 为歌曲点赞',
+    '小岛来了，带来歌曲 我们俩 - 郭顶',
+    '小岛推荐了歌曲：《到时说爱我 - 茜拉》',
+  ])
   await expect(history.locator('.mp-message-secondary .mp-bubble')).toHaveCount(0)
+  await expect(history.locator('.mp-bubble').filter({ hasText: '小岛 · 小岛来了' })).toHaveText(
+    '小岛 · 小岛来了，带来歌曲 我们俩 - 郭顶 · 我们俩',
+  )
   await history.evaluate((node) => {
     node.scrollTop = 5
   })

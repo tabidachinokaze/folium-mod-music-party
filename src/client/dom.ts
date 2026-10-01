@@ -1,6 +1,7 @@
 import type { Folium } from './host'
 import { mediaUrl } from '@party/shared/message-content'
 import type { ChatMessage, PrivateMessage } from '@party/shared/types'
+import { roomActivityText } from './room-activity'
 
 // src/client/dom.ts
 export function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = '') {
@@ -67,9 +68,7 @@ export function messageNode(message: ChatMessage | PrivateMessage, mine: boolean
   if (secondary) {
     const row = el('article', 'mp-message mp-message-secondary')
     row.dataset.messageId = message.id
-    row.append(el('span', '', `${message.nickname} · ${message.text}`))
-    const titles = (message.attachments || []).map((item) => item.title).filter(Boolean)
-    if (titles.length) row.append(el('span', '', ` · ${titles.join(' / ')}`))
+    row.append(el('span', '', roomActivityText(message)))
     return row
   }
   const row = el('article', `mp-message ${mine ? 'is-mine' : ''}`)

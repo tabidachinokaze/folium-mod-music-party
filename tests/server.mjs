@@ -412,8 +412,28 @@ const server = createServer(async (req, res) => {
             sendUid: '10',
             sendTime: 1790600000000 + n * 1000,
             nickname: '小岛',
-            msgType: n === 75 ? 1 : 0,
-            imChatRoomMsgBody: { text: n === 75 ? '为歌曲点赞' : `聊天消息 ${n}` },
+            msgType: n === 75 || n === 76 ? 1 : n === 77 ? 2 : 0,
+            imChatRoomMsgBody: {
+              text:
+                n === 75
+                  ? '为歌曲点赞'
+                  : n === 76
+                    ? '小岛来了，带来歌曲 我们俩 - 郭顶'
+                    : n === 77
+                      ? '小岛推荐了歌曲：《到时说爱我 - 茜拉》'
+                      : n === 78
+                        ? '小岛 · 小岛来了，带来歌曲 我们俩 - 郭顶 · 我们俩'
+                        : `聊天消息 ${n}`,
+            },
+            ...(n === 76 || n === 77
+              ? {
+                  resourceInfo: {
+                    resourceId: n === 76 ? '1' : '2',
+                    title: n === 76 ? '我们俩' : '到时说爱我',
+                    artistName: [n === 76 ? '郭顶' : '茜拉'],
+                  },
+                }
+              : {}),
           }
         })
         return json({
