@@ -965,3 +965,67 @@ test('long matching titles and English room tools fit the sidebar without clippi
   }
   expect((await (await request.get('/test/state')).json()).operations).toHaveLength(0)
 })
+
+test('private activity and artist cards stay unified and open the correct destination', async ({
+  page,
+  request,
+}) => {
+  await request.post('/test/private-resources')
+  await restore(page)
+  await page.getByRole('button', { name: '私信', exact: true }).click()
+  await page.getByRole('button', { name: '小岛 · 1 未读', exact: true }).click()
+  const history = page.locator('.mp-private-home .mp-history')
+  await expect(history.locator('.mp-private-resource-message')).toHaveCount(6)
+  await expect(
+    history.locator('.mp-message-content > .mp-bubble, .mp-message-content > .mp-resource'),
+  ).toHaveCount(0)
+  await expect(history.locator('.mp-private-music-cover img')).toHaveCount(6)
+  const album = history.locator('[data-message-id="server:801"]')
+  await expect(album.locator('.mp-private-music-kind')).toHaveText('专辑')
+  await expect(album.locator('.mp-private-music-artist')).toHaveText('示例歌手')
+  const card = history.locator('[data-message-id="server:800"]')
+  await card.getByRole('button', { name: '打开 打开音乐活动', exact: true }).click()
+  expect(await page.evaluate(() => (window as any).partyTest.externalUrls)).toEqual([
+    'https://music.163.com/g/example-activity?id=100',
+  ])
+  await album.getByRole('button', { name: '查看专辑 海边专辑', exact: true }).click()
+  expect(await page.evaluate(() => (window as any).partyTest.openedAlbums)).toEqual([
+    { provider: 'netease', id: '700' },
+  ])
+  await history.getByRole('button', { name: '推荐 海边单曲 到房间', exact: true }).click()
+  await expect
+    .poll(
+      async () =>
+        (await (await request.get('/test/state')).json()).operations.filter(
+          (o: any) => o.operate === 1,
+        ).length,
+    )
+    .toBe(1)
+  expect(await page.evaluate(() => (window as any).partyTest.playedSongs)).toHaveLength(0)
+  await history.getByRole('button', { name: '在网易云打开 未来单曲', exact: true }).click()
+  expect((await page.evaluate(() => (window as any).partyTest.externalUrls))[1]).toContain(
+    'component=rn-appointment',
+  )
+  await expect(history.locator('[data-message-id="server:805"] button')).toHaveCount(0)
+  await page.getByRole('button', { name: '一起听', exact: true }).click()
+  await page.getByRole('button', { name: '退出房间', exact: true }).click()
+  await page.getByRole('button', { name: '私信', exact: true }).click()
+  await page.getByRole('button', { name: '小岛', exact: true }).click()
+  await history.getByRole('button', { name: '播放 海边单曲', exact: true }).click()
+  expect(await page.evaluate(() => (window as any).partyTest.playedSongs)).toEqual(['701'])
+  await page.screenshot({
+    path: 'test-results/private-resources-desktop.png',
+    animations: 'disabled',
+  })
+  await page.setViewportSize({ width: 420, height: 780 })
+  await page.getByRole('combobox', { name: 'Preview language' }).selectOption('en')
+  await page.getByRole('button', { name: '小岛', exact: true }).click()
+  await expect(
+    history.getByRole('button', { name: 'View album 海边专辑', exact: true }),
+  ).toBeVisible()
+  expect(await history.evaluate((n) => n.scrollWidth <= n.clientWidth + 1)).toBe(true)
+  await page.screenshot({
+    path: 'test-results/private-resources-narrow.png',
+    animations: 'disabled',
+  })
+})

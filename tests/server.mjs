@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { build } from 'esbuild'
 import { fileURLToPath } from 'node:url'
+import { privateResourceFixtures } from './private-resource-fixtures.mjs'
 
 // tests/server.mjs
 // All protocol writes in browser tests terminate here, never at NetEase.
@@ -58,6 +59,7 @@ let handlers = new Map(),
   privatePages = false,
   privateLayout = false,
   privateMusic = false,
+  privateResources = false,
   stickerPages = false,
   deletedStickers = new Set()
 const self = { userId: 9, nickname: '晚风' },
@@ -89,6 +91,7 @@ function reset() {
   privatePages = false
   privateLayout = false
   privateMusic = false
+  privateResources = false
   stickerPages = false
   deletedStickers = new Set()
 }
@@ -180,6 +183,10 @@ const server = createServer(async (req, res) => {
     }
     if (url.pathname === '/test/private-music') {
       privateMusic = true
+      return json({ ok: true })
+    }
+    if (url.pathname === '/test/private-resources') {
+      privateResources = true
       return json({ ok: true })
     }
     if (url.pathname === '/test/state')
@@ -350,6 +357,18 @@ const server = createServer(async (req, res) => {
       return json({ code: 200, token: 'fixture-token' })
     if (url.pathname === '/song/detail')
       return json({ code: 200, songs: [rawSong(args.ids || current)] })
+    if (url.pathname === '/album')
+      return json({
+        code: 200,
+        album: {
+          id: Number(args.id),
+          name: '海边专辑',
+          picUrl: 'https://p1.music.126.net/fixture/shared.jpg',
+          artist: { id: 5, name: '示例歌手' },
+          size: 1,
+        },
+        songs: [rawSong('701')],
+      })
     if (url.pathname === '/song/url/v1' || url.pathname === '/song/url')
       return json({
         code: 200,
@@ -391,6 +410,18 @@ const server = createServer(async (req, res) => {
     }
     if (url.pathname === '/msg/private/history') {
       calls.push(`history:${args.uid}:${args.before || 0}`)
+      if (privateResources)
+        return json({
+          code: 200,
+          more: false,
+          msgs: privateResourceFixtures.map((msg, index) => ({
+            id: 800 + index,
+            time: 1790600000000 + index * 1000,
+            fromUser: peer,
+            toUser: self,
+            msg: JSON.stringify(msg),
+          })),
+        })
       if (privateMusic) {
         const album = {
           id: 700,

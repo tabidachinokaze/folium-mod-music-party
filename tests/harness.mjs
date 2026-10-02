@@ -5,7 +5,16 @@ if (!new URL(location.href).searchParams.has('loggedout'))
   localStorage.setItem('online_provider:netease:cookie', 'MUSIC_U=test-only')
 else localStorage.removeItem('online_provider:netease:cookie')
 localStorage.setItem('active_online_provider_id', 'netease')
-window.electron = { getNeteasePort: async () => 4176 }
+const externalUrls = [],
+  openedAlbums = [],
+  playedSongs = []
+window.electron = {
+  getNeteasePort: async () => 4176,
+  openExternalUrl: async (url) => {
+    externalUrls.push(url)
+    return true
+  },
+}
 const events = new Map(),
   state = {
     song: { id: '1', source: 'netease', ref: '1', title: '晚风与海', artist: '岛屿来信' },
@@ -290,6 +299,16 @@ const folium = {
   },
   playback: {
     getState: () => ({ ...state }),
+    async playSong(song) {
+      playedSongs.push(song.id)
+      if (intent) intent({ type: 'play', song })
+      else {
+        state.song = song
+        state.state = 'playing'
+        emit('playback.songChanged', { song })
+      }
+      return true
+    },
     play() {
       state.state = 'playing'
       emit('playback.stateChanged', { state: 'playing' })
@@ -301,6 +320,10 @@ const folium = {
   },
   ui: {
     navigate() {},
+    async openAlbum(provider, id) {
+      openedAlbums.push({ provider, id })
+      return true
+    },
     openPlayerPanel() {},
     openHomeTab() {
       panelNode.hidden = true
@@ -436,6 +459,9 @@ window.partyTest = {
   next: () => intent({ type: 'next' }),
   state,
   searchCalls,
+  externalUrls,
+  openedAlbums,
+  playedSongs,
   pause: () => folium.playback.pause(),
   play: () => folium.playback.play(),
   setCurrentSong(song) {

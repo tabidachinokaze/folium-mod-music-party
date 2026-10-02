@@ -7,6 +7,7 @@ import { createStickerPicker } from './sticker-view'
 import { createPrivateTools } from './private-tools'
 import { privateMessageNode, privateMessageProfiles, type PrivateProfile } from './private-message'
 import { t } from './i18n'
+import { createPrivateResourceActions } from './private-actions'
 
 // src/client/private-view.ts
 export function mountPrivate(
@@ -27,6 +28,11 @@ export function mountPrivate(
     reading = false,
     sending = false
   const peers = new Map<string, Conversation>()
+  const resourceActions = createPrivateResourceActions(
+    controller,
+    () => (!disposed && selected ? selected.uid : null),
+    report,
+  )
   const profiles = new Map<string, PrivateProfile>()
   const contacts = el('div', 'mp-contacts'),
     history = el('div', 'mp-history')
@@ -233,6 +239,7 @@ export function mountPrivate(
             },
             (link) =>
               void run(() => controller.enter('join', invitation({ ...link, role: 'guest' }))),
+            resourceActions,
           )
         })
       if (more) history.prepend(...nodes)

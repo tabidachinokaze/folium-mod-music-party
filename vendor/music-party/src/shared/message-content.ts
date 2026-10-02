@@ -1,5 +1,8 @@
 import type { ChatEmoji, MessageAttachment, MessageTextPart } from './types'
 import { neteaseAssetUrl } from './media'
+import { messageActionTarget, musicMessageWebLink } from './message-action'
+
+export { messageActionTarget, safeMessageActionUrl } from './message-action'
 
 export function messageObject(value: unknown): any {
   if (value && typeof value === 'object' && !Array.isArray(value)) return value
@@ -35,31 +38,7 @@ export function mediaUrl(value: unknown): string | undefined {
   }
 }
 export function musicMessageLink(value: unknown, depth = 0): string | undefined {
-  if (depth > 3 || typeof value !== 'string' || value.length > 4096) return
-  try {
-    const url = new URL(value)
-    if (url.protocol === 'orpheus:') {
-      const type = url.hostname === 'djradio' ? 'radio' : url.hostname
-      const link = resourceLink(type, url.pathname.replace(/^\//, '') || url.searchParams.get('id'))
-      if (link) return link
-      if (url.hostname === 'nm' && ['/redirect', '/webview'].includes(url.pathname.toLowerCase())) {
-        for (const key of ['url2', 'url1', 'url']) {
-          const nested = musicMessageLink(url.searchParams.get(key), depth + 1)
-          if (nested) return nested
-        }
-      }
-      return
-    }
-    if (url.protocol === 'http:') url.protocol = 'https:'
-    if (
-      url.protocol === 'https:' &&
-      !url.username &&
-      !url.password &&
-      !url.port &&
-      (url.hostname === 'music.163.com' || url.hostname.endsWith('.music.163.com'))
-    )
-      return url.href
-  } catch {}
+  return musicMessageWebLink(value, depth)
 }
 const resourceLink = (type: string, id: unknown) => {
   const value = String(id ?? '')
@@ -218,8 +197,16 @@ export function richMessageContent(value: unknown): {
     if (!raw || (key === 'video' && (video.url || video.videoUrl || video.playUrlInfo?.url)))
       continue
     const item = messageObject(raw)
+    const action = messageActionTarget(item.url, item.webUrl, item.targetUrl, item.nativeUrl)
+    const resourceType = type === 'general' ? action?.resourceType || type : type
+    const tag = text(item.tag, 80)
     const rawId = item.id ?? item.resourceId ?? item.userId ?? item.vid ?? item.resId ?? ''
-    const id = typeof rawId === 'number' && !Number.isSafeInteger(rawId) ? '' : String(rawId)
+    const id =
+      type === 'general' && action?.resourceId
+        ? action.resourceId
+        : typeof rawId === 'number' && !Number.isSafeInteger(rawId)
+          ? ''
+          : String(rawId)
     const artists = Array.isArray(item.artists)
       ? item.artists
       : Array.isArray(item.ar)
@@ -227,12 +214,17 @@ export function richMessageContent(value: unknown): {
         : item.artist
           ? [item.artist]
           : []
-    const artist = artists
-      .slice(0, 30)
-      .map((a: any) => text(a?.name))
-      .filter(Boolean)
-      .join(' / ')
-      .slice(0, 1000)
+    const artist =
+      artists
+        .slice(0, 30)
+        .map((a: any) => text(a?.name))
+        .filter(Boolean)
+        .join(' / ')
+        .slice(0, 1000) ||
+      (type === 'general' &&
+      (['song', 'album'].includes(resourceType) || ['歌曲', '专辑'].includes(tag))
+        ? text(item.subTitle?.title || item.subTitle)
+        : '')
     const subtitle =
       text(
         item.description ||
@@ -241,16 +233,16 @@ export function richMessageContent(value: unknown): {
           item.subTitle?.title ||
           item.subTitle ||
           item.creator?.nickname,
-      ) ||
-      artist
+      ) || artist
     attachments.push({
       kind: 'resource',
-      resourceType: type,
+      resourceType,
       resourceId: id,
       title:
         text(item.name || item.title || item.nickname || item.mainTitle?.title || item.mainTitle) ||
         label,
       subtitle: subtitle || label,
+      ...(tag ? { label: tag } : {}),
       ...(artist ? { artist } : {}),
       cover: mediaUrl(
         item.picUrl ||
@@ -262,9 +254,7 @@ export function richMessageContent(value: unknown): {
           item.al?.picUrl ||
           item.album?.picUrl,
       ),
-      actionUrl:
-        musicMessageLink(item.url || item.webUrl || item.targetUrl || item.nativeUrl) ||
-        resourceLink(type, id),
+      actionUrl: action?.url || resourceLink(resourceType, id),
     })
   }
   if (data.file || root.msgType === 49) {

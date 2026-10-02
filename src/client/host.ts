@@ -27,12 +27,18 @@ export interface Folium {
   experimental: { 'playback.sessions'?: ExternalPlayback }
   rpc: { call<T = any>(name: string, ...args: unknown[]): Promise<T> }
   events: { on(name: string, fn: (event: any) => void): () => void }
-  playback: { getState(): PlaybackState; play(): void; pause(): void }
+  playback: {
+    getState(): PlaybackState
+    play(): void
+    pause(): void
+    playSong(song: HostSong): Promise<boolean>
+  }
   ui: {
     navigate(view: 'home' | 'player'): void
     openPlayerPanel(id?: string): void
     openHomeTab(id: string): void
     openQueue(): void
+    openAlbum?(provider: string, albumId: string): Promise<boolean>
     toast(
       message: string,
       options?: { type: 'info' | 'success' | 'error'; durationMs?: number },

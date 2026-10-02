@@ -1030,6 +1030,12 @@ export interface FoliumUiService {
     openHomeTab(tabId: string): void;
     /** Open the native player queue. */
     openQueue(): void;
+    /**
+     * Opens an online provider's album in the native collection view, without changing
+     * playback or the active provider. False when unavailable, missing, or superseded
+     * by another navigation. Invalid arguments and provider request failures reject.
+     */
+    openAlbum(provider: string, albumId: string): Promise<boolean>;
     /** Switches to the home or player view. */
     navigate(view: 'home' | 'player'): void;
     /** Folium 1.3: opens the host volume panel (the command palette's volume command). */

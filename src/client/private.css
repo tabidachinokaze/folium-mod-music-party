@@ -194,6 +194,9 @@
   padding: 8px 10px;
 }
 .mp-private-music-message {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   width: 300px;
   max-width: 100%;
   min-width: 0;
@@ -207,7 +210,7 @@
   background: var(--hover);
 }
 .mp-private-music-caption {
-  margin: 0 0 10px;
+  margin: 0;
   font-size: 12px;
   line-height: 1.6;
   white-space: pre-wrap;
@@ -219,8 +222,23 @@
   gap: 9px;
   min-width: 0;
 }
+button.mp-private-music-resource {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  transition: background 0.15s;
+}
+button.mp-private-music-resource:hover:not(:disabled) {
+  background: var(--hover);
+}
+button.mp-private-music-resource:active:not(:disabled) {
+  background: var(--selected);
+}
 .mp-private-music-resource + .mp-private-music-resource {
-  margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid var(--line);
 }
@@ -262,7 +280,9 @@
   min-width: 0;
 }
 .mp-private-music-kind {
-  flex: none;
+  flex: 0 1 auto;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   padding: 0 4px;
   border-radius: 3px;
   font-size: 9px;

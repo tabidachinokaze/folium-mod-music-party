@@ -242,6 +242,7 @@ export interface MessageAttachment {
   title: string
   subtitle?: string
   artist?: string
+  label?: string
   url?: string
   cover?: string
   resourceType?: string

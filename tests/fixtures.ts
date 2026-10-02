@@ -78,6 +78,7 @@ export function fakeHost() {
     rpc: { call: vi.fn() },
     playback: {
       getState: () => ({ ...state }),
+      playSong: vi.fn(async () => true),
       play: vi.fn(() => {
         state.state = 'playing'
         emit('playback.stateChanged', { state: 'playing' })
@@ -101,6 +102,7 @@ export function fakeHost() {
       openPlayerPanel: vi.fn(),
       openHomeTab: vi.fn(),
       openQueue: vi.fn(),
+      openAlbum: vi.fn(async () => true),
       toast: vi.fn(),
       icon: vi.fn(),
     },

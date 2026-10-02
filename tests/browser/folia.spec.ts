@@ -16,7 +16,7 @@ test('actual Folium registration and host audio: restore, native next, local pau
   await page.addInitScript(() => {
     localStorage.clear()
     localStorage.setItem('i18nextLng', 'zh-CN')
-    localStorage.setItem('folia_last_seen_ponder_onboarding_version', '0.7.16')
+    localStorage.setItem('folia_last_seen_ponder_onboarding_version', '0.7.17')
     localStorage.setItem('online_provider:netease:cookie', 'MUSIC_U=test-only')
     localStorage.setItem('static_mode', 'true')
     localStorage.setItem('player_loop_mode', 'one')
@@ -86,7 +86,7 @@ test('actual Folium registration and host audio: restore, native next, local pau
         id: 'music-party',
         name: 'Music Party',
         permissions: ['playback.control'],
-        folia: '>=0.7.13 <=0.7.16',
+        folia: '>=0.7.13 <=0.7.17',
         experimental: ['playback.sessions'],
       },
       {
@@ -334,6 +334,41 @@ test('actual Folium registration and host audio: restore, native next, local pau
       .evaluate((node) => node.scrollHeight <= node.clientHeight + 1),
   ).toBe(true)
   await page.screenshot({ path: 'test-results/folia-private-home.png', fullPage: true })
+  // A share opens the same native album view as the host library, with private messages behind it.
+  await request.post('/test/private-resources')
+  await page.getByRole('button', { name: '刷新私信', exact: true }).click()
+  const sharedAlbum = page.getByRole('button', { name: '查看专辑 海边专辑', exact: true })
+  await expect(sharedAlbum).toBeVisible()
+  const playbackBeforeAlbum = await page.evaluate(() => {
+    const state = (window as any).partyHost.api.playback.getState()
+    return { id: state.song?.id, source: state.song?.source, state: state.state }
+  })
+  await sharedAlbum.click()
+  const albumView = page.locator('[data-ponder-page-scope="grid-view-page"]')
+  await expect(
+    // The native title includes its accessible expand/collapse indicator.
+    albumView.getByRole('heading', { level: 2, name: /^海边专辑(?:\s|$)/ }),
+  ).toBeVisible()
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const { useCollectionNavigationStore } = await import(
+          /* @vite-ignore */ '/src/stores/useCollectionNavigationStore.ts' as string
+        )
+        return String(useCollectionNavigationStore.getState().snapshot?.stack.at(-1)?.id ?? '')
+      }),
+    )
+    .toBe('700')
+  expect(
+    await page.evaluate(() => {
+      const state = (window as any).partyHost.api.playback.getState()
+      return { id: state.song?.id, source: state.song?.source, state: state.state }
+    }),
+  ).toEqual(playbackBeforeAlbum)
+  await page.screenshot({ path: 'test-results/folia-private-album.png', animations: 'disabled' })
+  await albumView.locator('button:has(svg.lucide-chevron-left)').first().click()
+  await expect(albumView).toHaveCount(0)
+  await expect(sharedAlbum).toBeVisible()
   await page.getByTestId('home-lattice-pill').click()
   await expect(page.locator('.lattice-root')).toBeVisible()
   await expect(
