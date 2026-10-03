@@ -69,6 +69,7 @@ export function popupPosition(
   align: 'start' | 'end' = 'end',
   useViewportHeight = false,
   verticalBounds?: VerticalBounds,
+  preferredSide: 'left' | 'right' = 'left',
 ) {
   const margin = 8,
     gap = 12,
@@ -77,13 +78,15 @@ export function popupPosition(
     minSideWidth = Math.min(240, preferredWidth)
   let width = preferredWidth,
     left = anchor.left
-  if (panel && panel.left - gap - margin >= minSideWidth) {
-    width = Math.min(preferredWidth, panel.left - gap - margin)
-    left = panel.left - gap - width
-  } else if (panel && viewport.width - panel.right - gap - margin >= minSideWidth) {
+  const fitsLeft = panel && panel.left - gap - margin >= minSideWidth,
+    fitsRight = panel && viewport.width - panel.right - gap - margin >= minSideWidth
+  if (panel && fitsRight && (preferredSide === 'right' || !fitsLeft)) {
     width = Math.min(preferredWidth, viewport.width - panel.right - gap - margin)
     left = panel.right + gap
-  } else if (panel) left = panel.right - width
+  } else if (panel && fitsLeft) {
+    width = Math.min(preferredWidth, panel.left - gap - margin)
+    left = panel.left - gap - width
+  } else if (panel) left = preferredSide === 'right' ? panel.left : panel.right - width
   const minTop = useViewportHeight ? Math.max(margin, verticalBounds?.top ?? margin) : margin,
     maxBottom = useViewportHeight
       ? Math.min(viewport.height - margin, verticalBounds?.bottom ?? viewport.height - margin)
@@ -104,6 +107,15 @@ export function popupPosition(
 }
 
 function panelFor(anchor: HTMLElement): HTMLElement | null {
+  // Floating chat can live in another shadow root; its tools should open beside
+  // the whole window instead of falling back to a private-composer placement.
+  let branch: HTMLElement | null = anchor
+  while (branch) {
+    const floating = branch.closest<HTMLElement>('.mp-floating-chat')
+    if (floating) return floating
+    const root: Node = branch.getRootNode()
+    branch = root instanceof ShadowRoot ? (root.host as HTMLElement) : null
+  }
   const panel = anchor.closest<HTMLElement>('.mp-panel')
   if (!panel) return null
   // Folia isolates the mount twice. Use the outer panel bounds, including its
@@ -116,6 +128,19 @@ function panelFor(anchor: HTMLElement): HTMLElement | null {
       parent.parentElement || (root instanceof ShadowRoot ? (root.host as HTMLElement) : null)
   }
   return panel
+}
+
+function playerPanelFor(anchor: HTMLElement, panel: HTMLElement | null) {
+  if (!panel?.matches('.mp-floating-chat')) return panel
+  // The small floating chat window is not the player's maximum expanded area.
+  // Reuse a visible native sidebar's clearance when it exists.
+  return (
+    [
+      ...anchor.ownerDocument.querySelectorAll<HTMLElement>(
+        '[data-testid="unified-panel-surface"]',
+      ),
+    ].find((candidate) => candidate.getBoundingClientRect().height > 0) || null
+  )
 }
 
 function ancestors(element: HTMLElement) {
@@ -202,15 +227,20 @@ export function mountPopup(popup: HTMLElement, anchor: HTMLElement, options: Pop
     }
     const panel = panelFor(anchor),
       panelBounds = panel?.getBoundingClientRect() || null,
+      playerPanel = playerPanelFor(anchor, panel),
+      playerBounds = playerPanel?.getBoundingClientRect() || null,
+      preferredSide = panel?.matches('.mp-floating-chat') ? 'right' : 'left',
       rect = anchor.getBoundingClientRect(),
       viewport = { width: window.innerWidth, height: window.innerHeight },
-      nativeMaxHeight = panel ? Number.parseFloat(getComputedStyle(panel).maxHeight) : NaN,
+      nativeMaxHeight = playerPanel
+        ? Number.parseFloat(getComputedStyle(playerPanel).maxHeight)
+        : NaN,
       verticalBounds =
         options.maxHeight === 'viewport'
           ? playerPopupBounds(
               viewport.height,
-              panelBounds && Number.isFinite(nativeMaxHeight) && nativeMaxHeight > 0
-                ? { bottom: panelBounds.bottom, maxHeight: nativeMaxHeight }
+              playerBounds && Number.isFinite(nativeMaxHeight) && nativeMaxHeight > 0
+                ? { bottom: playerBounds.bottom, maxHeight: nativeMaxHeight }
                 : null,
               anchor.closest<HTMLElement>('.mp-private-home')?.getBoundingClientRect() || null,
             )
@@ -226,6 +256,7 @@ export function mountPopup(popup: HTMLElement, anchor: HTMLElement, options: Pop
         options.align,
         options.maxHeight === 'viewport',
         verticalBounds,
+        preferredSide,
       )
     popup.style.width = `${initial.width}px`
     // Apply the limit before measuring: additional sticker pages may grow the
@@ -242,6 +273,7 @@ export function mountPopup(popup: HTMLElement, anchor: HTMLElement, options: Pop
       options.align,
       options.maxHeight === 'viewport',
       verticalBounds,
+      preferredSide,
     )
     popup.style.left = `${placed.left}px`
     popup.style.top = `${placed.top}px`
@@ -270,6 +302,8 @@ export function mountPopup(popup: HTMLElement, anchor: HTMLElement, options: Pop
   const escape = (event: KeyboardEvent) => {
     if (event.key === 'Escape' && isOpen()) {
       event.preventDefault()
+      // Folia's window shortcut also handles Escape; dismiss this popup only.
+      event.stopPropagation()
       close()
       anchor.focus()
     }

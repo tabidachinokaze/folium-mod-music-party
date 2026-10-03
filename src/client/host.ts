@@ -5,6 +5,7 @@ import type {
   FoliumPlaybackSession,
   FoliumPlaybackSessions,
   FoliumPlaybackFavoriteChange,
+  FoliumRegistries,
 } from '../../vendor/folium/contract'
 import type { Method, Reply } from '@party/shared/types'
 
@@ -48,7 +49,8 @@ export interface Folium {
     ): void
     icon(name: string, options?: any): Promise<SVGSVGElement | null>
   }
-  registries: Record<string, { register(def: any): { unregister(): void } }>
+  registries: Record<string, { register(def: any): { unregister(): void } }> &
+    Pick<FoliumRegistries, 'settingsSections' | 'stageLayers'>
 }
 export function getPlaybackBridge(folium: Folium): ExternalPlayback | null {
   try {

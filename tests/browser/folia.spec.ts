@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import { verifyAlbumAuditionAndRemote, verifyPrivateSongChoices } from './folia-resources'
 import { installFavoriteProbe } from './folia-favorites'
 import { verifyNativeStickerMenu } from './folia-sticker-menu'
+import { verifyNativeChatPresentation } from './folia-chat-presentation'
 
 // tests/browser/folia.spec.ts
 // Optional integration against the real patched Folia dev renderer and audio pipeline.
@@ -98,7 +99,7 @@ test('actual Folium registration and host audio: restore, native next, local pau
       {
         id: 'music-party',
         name: 'Music Party',
-        permissions: ['playback.control'],
+        permissions: ['playback.control', 'ui.stage'],
         folia: '>=0.7.20 <=0.7.20',
         experimental: ['playback.sessions'],
       },
@@ -107,7 +108,7 @@ test('actual Folium registration and host audio: restore, native next, local pau
         internals: createFoliumInternals(),
         experimental: createFoliumExperimental({
           id: 'music-party',
-          permissions: ['playback.control'],
+          permissions: ['playback.control', 'ui.stage'],
           experimental: ['playback.sessions'],
         }),
       },
@@ -142,6 +143,7 @@ test('actual Folium registration and host audio: restore, native next, local pau
   await page.getByRole('button', { name: '恢复当前房间', exact: true }).click()
   await expect(page.locator('.mp-panel > .mp-header .mp-pill')).toHaveText('3 人一起听')
   await page.getByRole('tab', { name: '聊天', exact: true }).click()
+  await verifyNativeChatPresentation(page)
   for (const height of [960, 760, 1020]) {
     await page.setViewportSize({ width: 1100, height })
     await expect

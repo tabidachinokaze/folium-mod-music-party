@@ -115,7 +115,10 @@ export function fakeHost() {
       toast: vi.fn(),
       icon: vi.fn(),
     },
-    registries: {},
+    registries: {
+      settingsSections: { register: vi.fn() },
+      stageLayers: { register: vi.fn() },
+    },
   }
   return { folium, state, bridge, lease, emit, intent: (intent: Intent) => dispatch(intent) }
 }

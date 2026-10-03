@@ -9,9 +9,10 @@ import { enPrivate } from '../src/client/locales/en-private'
 import { enRoom } from '../src/client/locales/en-room'
 import { enRuntime } from '../src/client/locales/en-runtime'
 import { enErrors } from '../src/client/locales/en-errors'
+import { enChat } from '../src/client/locales/en-chat'
 
 // tests/i18n.test.ts
-const english = { ...enErrors, ...enRuntime, ...enRoom, ...enPrivate, ...enPickers }
+const english = { ...enErrors, ...enRuntime, ...enRoom, ...enPrivate, ...enPickers, ...enChat }
 afterEach(() => {
   vi.unstubAllGlobals()
   setLocale('zh-CN')

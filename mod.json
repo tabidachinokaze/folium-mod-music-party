@@ -7,7 +7,7 @@
   "description": "网易云官方多人一起听，配套 Folia 0.7.20，支持房间红心、聊天图片与表情收藏。",
   "main": "index.cjs",
   "client": "client.mjs",
-  "permissions": ["playback.control"],
+  "permissions": ["playback.control", "ui.stage"],
   "folia": ">=0.7.20 <=0.7.20",
   "experimental": ["playback.sessions"]
 }

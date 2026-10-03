@@ -197,3 +197,56 @@ describe('side panel popup placement', () => {
     expect(result.top + result.maxHeight!).toBe(viewport.height - 8)
   })
 })
+
+describe('bottom-left floating chat popup placement', () => {
+  const floating = { left: 24, right: 344, top: 480, bottom: 760 },
+    trigger = { left: 150, right: 178, top: 716, bottom: 744 },
+    screen = { width: 1200, height: 800 }
+
+  it('opens beside the right edge of the whole chat window', () => {
+    const placed = popupPosition(trigger, floating, screen, size, 'end', false, undefined, 'right')
+    expect(placed).toEqual({ width: 340, left: 356, top: 344 })
+    expect(placed.left).toBeGreaterThan(floating.right)
+  })
+  it('prefers the right side even when there is also enough space on the left', () => {
+    const centered = { ...floating, left: 380, right: 700 }
+    const placed = popupPosition(trigger, centered, screen, size, 'end', false, undefined, 'right')
+    expect(placed.left).toBe(712)
+    expect(popupPosition(trigger, centered, screen, size).left).toBe(28)
+  })
+  it('falls back to the left if the preferred side cannot fit a useful width', () => {
+    const moved = { ...floating, left: 820, right: 1140 }
+    const placed = popupPosition(trigger, moved, screen, size, 'end', false, undefined, 'right')
+    expect(placed.left + placed.width).toBe(moved.left - 12)
+  })
+  it('clamps the overlapping fallback to a narrow viewport', () => {
+    const placed = popupPosition(
+      trigger,
+      floating,
+      { width: 360, height: 800 },
+      size,
+      'end',
+      false,
+      undefined,
+      'right',
+    )
+    expect(placed.left).toBeGreaterThanOrEqual(8)
+    expect(placed.left + placed.width).toBeLessThanOrEqual(352)
+  })
+  it('keeps native player clearance independently of the short floating chat window', () => {
+    const bounds = playerPopupBounds(800, { bottom: 768, maxHeight: 712 })
+    const placed = popupPosition(
+      trigger,
+      floating,
+      screen,
+      { width: 320, height: 1400 },
+      'end',
+      true,
+      bounds,
+      'right',
+    )
+    expect(placed).toMatchObject({ left: 356, top: 56, maxHeight: 712 })
+    expect(placed.maxHeight).toBeGreaterThan(floating.bottom - floating.top)
+    expect(placed.top + placed.maxHeight!).toBe(768)
+  })
+})

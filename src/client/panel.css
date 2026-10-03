@@ -302,11 +302,16 @@
 .mp-chat-layout > .mp-nav {
   flex: none;
 }
+.mp-chat-layout .mp-chat-section,
+.mp-chat-layout .mp-chat-slot,
 .mp-chat-layout .mp-chat-view {
   display: flex;
   flex-direction: column;
   flex: 0 1 auto;
   min-height: 0;
+}
+.mp-chat-layout .mp-chat-settings {
+  flex: none;
 }
 .mp-chat-layout .mp-history {
   flex: 0 1 auto;

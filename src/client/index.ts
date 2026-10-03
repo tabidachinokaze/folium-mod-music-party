@@ -5,14 +5,24 @@ import { PartyController } from './controller'
 import { mountPanel } from './panel'
 import { setLocale, t } from './i18n'
 import { createPartyIcon, partyIconPaths } from './party-icon'
+import { createChatPreferences } from './chat-preferences'
+import { createChatPresentation } from './chat-presentation'
 
 // src/client/index.ts
 function registerEntries(folium: Folium, controller: PartyController) {
+  const chatPreferences = createChatPreferences(folium)
+  const chatPresentation = createChatPresentation(controller, chatPreferences)
   const open = () => {
     folium.ui.navigate('player')
     folium.ui.openPlayerPanel('room')
   }
   const handles = [
+    folium.registries.stageLayers.register({
+      id: 'chat',
+      slot: 'app.overlay',
+      interactive: false,
+      mount: (container, context) => chatPresentation.mountStage(container, context),
+    }),
     ...(folium.registries.homeTabs
       ? [
           folium.registries.homeTabs.register({
@@ -31,7 +41,7 @@ function registerEntries(folium: Folium, controller: PartyController) {
       iconPaths: partyIconPaths,
       order: 200,
       mount: (container: HTMLElement, context: FoliumPanelContext) =>
-        mountPanel(container, controller, context),
+        mountPanel(container, controller, context, chatPresentation, chatPreferences),
     }),
     folium.registries.commands.register({
       id: 'open',
@@ -87,6 +97,8 @@ function registerEntries(folium: Folium, controller: PartyController) {
     window.removeEventListener('online', online)
     window.removeEventListener('focus', online)
     handles.forEach((handle) => handle.unregister())
+    chatPresentation.dispose()
+    chatPreferences.dispose()
   }
 }
 

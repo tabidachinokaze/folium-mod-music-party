@@ -233,15 +233,28 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
   const stop = controller.subscribe(render)
   render()
   return {
-    show(value: boolean) {
+    getScrollState() {
+      return { top: history.scrollTop, followLatest }
+    },
+    restoreScrollState(state: { top: number; followLatest: boolean }) {
+      cancelAnimationFrame(frame)
+      followLatest = state.followLatest
+      history.scrollTop = state.top
+      lastTop = history.scrollTop
+      lastClientHeight = history.clientHeight
+      lastScrollHeight = history.scrollHeight
+      if (visible && followLatest) toLatest()
+    },
+    show(value: boolean, preservePosition = false) {
       if (visible === value) return
       visible = value
       if (visible) {
-        followLatest = true
-        toLatest()
+        if (!preservePosition) followLatest = true
+        if (followLatest) toLatest()
       } else {
         mentions.close()
         tools.close()
+        sticker.node.open = false
         stickerMenu.close()
       }
     },

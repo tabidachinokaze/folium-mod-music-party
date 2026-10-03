@@ -32,7 +32,11 @@ test('empty and short histories size to content instead of filling the sidebar',
     if (!count) await expect(history.getByText('还没有聊天消息')).toBeVisible()
     else await expect(history.locator('.mp-message')).toHaveCount(count)
     await expect
-      .poll(async () => (await page.locator('.mp-panel').boundingBox())!.height)
+      .poll(
+        async () =>
+          (await page.locator('.mp-panel').boundingBox())!.height -
+          (await page.locator('.mp-chat-settings').boundingBox())!.height,
+      )
       .toBeLessThan(350)
     expect(
       await history.evaluate((node) => node.scrollHeight - node.clientHeight),

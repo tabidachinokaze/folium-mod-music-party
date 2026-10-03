@@ -4,7 +4,9 @@ import { mountSurface } from './surface'
 import type { FoliumPanelContext } from '../../vendor/folium/contract'
 import type { PartyController } from './controller'
 import { button, el } from './dom'
-import { mountRoomChat } from './room-chat'
+import type { createChatPresentation } from './chat-presentation'
+import type { ChatPreferences } from './chat-preferences'
+import { mountChatSettings } from './chat-settings'
 import { mountPanelChatLayout } from './panel-chat-layout'
 import { t } from './i18n'
 
@@ -13,6 +15,8 @@ export function mountPanel(
   container: HTMLElement,
   controller: PartyController,
   context?: FoliumPanelContext,
+  chatPresentation?: ReturnType<typeof createChatPresentation>,
+  chatPreferences?: ChatPreferences,
 ) {
   const { root, page, dispose: disposeSurface } = mountSurface(container, 'mp-panel', context)
   const header = el('header', 'mp-header')
@@ -30,9 +34,12 @@ export function mountPanel(
   const [roomView, memberView, chatView] = sections
   roomView.classList.add('mp-room-view')
   memberView.classList.add('mp-members-view')
-  chatView.classList.add('mp-chat-view')
+  chatView.classList.add('mp-chat-section')
   const membersView = mountMembers(memberView, controller)
-  const chat = mountRoomChat(chatView, controller)
+  const stopSettings = chatPreferences && mountChatSettings(chatView, chatPreferences)
+  const chatSlot = el('div', 'mp-chat-slot')
+  chatView.append(chatSlot)
+  const chat = chatPresentation?.mountPanel(chatSlot)
   let tab = 0
   const tabs = sections.map((section, i) => {
     const pick = button(t(['房间', '成员', '聊天'][i]), () => {
@@ -45,13 +52,16 @@ export function mountPanel(
   })
   function renderTabs() {
     page.classList.toggle('mp-room-layout', !!controller.state.room && tab === 0)
-    page.classList.toggle('mp-chat-layout', !!controller.state.room && tab === 2)
+    page.classList.toggle(
+      'mp-chat-layout',
+      !!controller.state.room && tab === 2 && chatPreferences?.get().position !== 'bottom-left',
+    )
     membersView.show(tab === 1)
     sections.forEach((section, i) => {
       section.hidden = tab !== i
       tabs[i].setAttribute('aria-selected', String(tab === i))
     })
-    chat.show(tab === 2)
+    chat?.show(tab === 2)
     chatLayout.sync()
   }
   const prerequisite = el('div', 'mp-error', t('请升级到 Folia 0.7.13，以支持退出房间时继续播放。'))
@@ -119,11 +129,14 @@ export function mountPanel(
   }
   const stop = controller.subscribe(render),
     stopSong = controller.folium.events.on('playback.songChanged', render)
+  const stopPreferences = chatPreferences?.subscribe(renderTabs)
   render()
   return () => {
     stop()
     stopSong()
-    chat.dispose()
+    stopPreferences?.()
+    stopSettings?.()
+    chat?.dispose()
     chatLayout.dispose()
     membersView.dispose()
     lobby.dispose()

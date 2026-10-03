@@ -32,6 +32,30 @@ const homeNode = document.createElement('div')
 homeNode.id = 'private-home'
 homeNode.hidden = true
 document.body.append(homeNode)
+const stageNode = document.createElement('div')
+stageNode.id = 'party-stage'
+stageNode.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:20'
+document.body.append(stageNode)
+const stageDisplay = { showText: true, isPlayerChromeHidden: false, isPanelOpen: true }
+const stageListeners = new Set()
+let stageDefinition, stageMounted
+const stageContext = {
+  getTheme: () => currentTheme,
+  getDisplay: () => stageDisplay,
+  getSurface: () => ({ transparent: false, hostBackground: true }),
+  subscribe(fn) {
+    stageListeners.add(fn)
+    return () => stageListeners.delete(fn)
+  },
+}
+function setStageDisplay(patch) {
+  Object.assign(stageDisplay, patch)
+  stageListeners.forEach((fn) => fn())
+}
+function remountStage() {
+  stageMounted?.()
+  stageMounted = stageDefinition?.mount(stageNode, stageContext)
+}
 const themes = {
   dark: {
     backgroundColor: '#101112',
@@ -80,13 +104,14 @@ function setLocale(locale) {
     homeMounted = home.mount(homeNode, context)
   }
   if (!queueNode.hidden) renderQueue()
+  remountStage()
 }
 function setTheme(name) {
   currentTheme = themes[name]
   document.body.style.background = currentTheme.backgroundColor
   document.body.style.color = currentTheme.primaryColor
   document.body.style.colorScheme = currentTheme.isDaylight ? 'light' : 'dark'
-  for (const node of [panelNode, homeNode]) {
+  for (const node of [panelNode, homeNode, stageNode]) {
     for (const [key, value] of Object.entries({
       bg: currentTheme.backgroundColor,
       primary: currentTheme.primaryColor,
@@ -97,6 +122,7 @@ function setTheme(name) {
       node.style.setProperty(`--folium-${key}`, value)
   }
   themeListeners.forEach((fn) => fn())
+  stageListeners.forEach((fn) => fn())
 }
 setTheme('dark')
 const privateButton = document.createElement('button')
@@ -193,8 +219,46 @@ const register = (name) => ({
       home = def
       privateButton.hidden = false
     }
+    if (name === 'stageLayers') {
+      stageDefinition = def
+      remountStage()
+    }
+    if (name === 'settingsSections') {
+      const defaults = Object.fromEntries(
+        def.settings.map((field) => [field.key, field.defaultValue]),
+      )
+      const key = `party-test-settings:${def.id}`
+      let values = { ...defaults, ...JSON.parse(localStorage.getItem(key) || '{}') }
+      const listeners = new Set()
+      const params = {
+        schema: def.settings,
+        get: () => values,
+        set(patch) {
+          values = { ...values, ...patch }
+          localStorage.setItem(key, JSON.stringify(values))
+          listeners.forEach((fn) => fn())
+        },
+        reset() {
+          params.set(defaults)
+        },
+        subscribe(fn) {
+          listeners.add(fn)
+          return () => listeners.delete(fn)
+        },
+      }
+      return {
+        params,
+        unregister() {
+          listeners.clear()
+        },
+      }
+    }
     return {
       unregister() {
+        if (name === 'stageLayers') {
+          stageMounted?.()
+          stageMounted = stageDefinition = undefined
+        }
         if (name === 'playerPanelTabs') {
           mounted?.()
           mounted = undefined
@@ -332,13 +396,16 @@ const folium = {
     },
   },
   ui: {
-    navigate() {},
+    navigate(view) {
+      setStageDisplay({ showText: view === 'player' })
+    },
     async openAlbum(provider, id) {
       openedAlbums.push({ provider, id })
       return true
     },
     openPlayerPanel() {},
     openHomeTab() {
+      setStageDisplay({ showText: false })
       panelNode.hidden = true
       queueNode.hidden = true
       homeNode.hidden = false
@@ -421,10 +488,14 @@ const folium = {
     },
   },
   registries: Object.fromEntries(
-    ['playerPanelTabs', 'homeTabs', 'commands', 'controlButtons'].map((name) => [
-      name,
-      register(name),
-    ]),
+    [
+      'playerPanelTabs',
+      'homeTabs',
+      'commands',
+      'controlButtons',
+      'stageLayers',
+      'settingsSections',
+    ].map((name) => [name, register(name)]),
   ),
 }
 let homeMounted
@@ -470,6 +541,7 @@ function renderQueue() {
 }
 privateButton.onclick = () => folium.ui.openHomeTab('private')
 roomButton.onclick = () => {
+  setStageDisplay({ showText: true })
   homeNode.hidden = true
   queueNode.hidden = true
   panelNode.hidden = false
@@ -477,6 +549,8 @@ roomButton.onclick = () => {
 const dispose = activate(folium)
 
 window.partyTest = {
+  setStageDisplay,
+  remountStage,
   openQueue: () => folium.ui.openQueue(),
   next: () => intent({ type: 'next' }),
   state,

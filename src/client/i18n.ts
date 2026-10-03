@@ -3,11 +3,12 @@ import { enPrivate } from './locales/en-private'
 import { enRoom } from './locales/en-room'
 import { enRuntime } from './locales/en-runtime'
 import { enErrors } from './locales/en-errors'
+import { enChat } from './locales/en-chat'
 
 // src/client/i18n.ts
 type Locale = 'zh-CN' | 'en'
 type Params = Record<string, string | number>
-const english = { ...enErrors, ...enRuntime, ...enRoom, ...enPrivate, ...enPickers }
+const english = { ...enErrors, ...enRuntime, ...enRoom, ...enPrivate, ...enPickers, ...enChat }
 let fallbackLocale: Locale = 'zh-CN'
 const normalize = (locale: string): Locale => (/^zh(?:-|$)/i.test(locale) ? 'zh-CN' : 'en')
 export function setLocale(locale: string) {
