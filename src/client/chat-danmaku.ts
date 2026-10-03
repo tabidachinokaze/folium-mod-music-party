@@ -5,12 +5,21 @@ import { el } from './dom'
 import { t } from './i18n'
 import { roomActivityPresentation } from './room-activity-presentation'
 import { ChatMessageFeed } from './chat-message-feed'
-import { DanmakuLanes, DanmakuQueue } from './chat-danmaku-layout'
+import Danmaku from 'danmaku/dist/esm/danmaku.dom.js'
+import { DanmakuClock } from './chat-danmaku-clock'
+import { danmakuDefaults, type DanmakuPreferenceValues } from './chat-preferences'
+import {
+  DanmakuFilter,
+  DanmakuQueue,
+  DanmakuTracks,
+  danmakuCategory,
+  danmakuGeometry,
+} from './chat-danmaku-layout'
 import css from './chat-danmaku.css'
 
 function renderMessage(message: ChatMessage) {
   const attachments = message.attachments || [],
-    secondary = !message.emoji && message.kind !== 'text' && message.kind !== 'image',
+    secondary = danmakuCategory(message) === 'activity',
     row = el('div', `mp-danmaku-message${secondary ? ' mp-danmaku-secondary' : ''}`)
   row.dataset.messageId = message.id
   row.dataset.kind = secondary ? 'activity' : message.emoji ? 'sticker' : message.kind
@@ -67,9 +76,19 @@ export function mountDanmaku(container: HTMLElement, controller: PartyController
     style = el('style'),
     stage = el('div', 'mp-danmaku'),
     feed = new ChatMessageFeed(),
+    filter = new DanmakuFilter(),
     queue = new DanmakuQueue<ChatMessage>(),
-    motion = matchMedia('(prefers-reduced-motion: reduce)'),
-    animations = new Map<HTMLElement, Animation>()
+    motion = matchMedia('(prefers-reduced-motion: reduce)')
+  type FlyingMessage = {
+    id: string
+    node: HTMLElement
+    row: HTMLElement
+    clock: DanmakuClock
+    engine: Danmaku
+    duration: number
+    timer?: ReturnType<typeof setTimeout>
+  }
+  const flying = new Map<string, FlyingMessage>()
   style.textContent = css
   host.setAttribute('aria-hidden', 'true')
   root.append(style, stage)
@@ -80,68 +99,110 @@ export function mountDanmaku(container: HTMLElement, controller: PartyController
     width = 0,
     height = 0,
     scope = '',
-    lanes = new DanmakuLanes(0),
-    timer: ReturnType<typeof setTimeout> | undefined
+    options: DanmakuPreferenceValues = { ...danmakuDefaults },
+    geometry = danmakuGeometry(0, 0, options),
+    tracks = new DanmakuTracks(0)
   const active = () => enabled && visible && !document.hidden && !disposed
-  const clear = () => {
-    clearTimeout(timer)
-    timer = undefined
-    queue.clear()
-    for (const [node, animation] of animations) {
-      animation.cancel()
-      node.remove()
-    }
-    animations.clear()
-    lanes = new DanmakuLanes(
-      Math.min(8, Math.max(0, Math.floor((height * 0.55 - 24) / 54))),
-      Math.max(90, width / 9),
+  const finish = (item: FlyingMessage, drain = true) => {
+    if (flying.get(item.id) !== item) return
+    flying.delete(item.id)
+    clearTimeout(item.timer)
+    item.engine.destroy()
+    item.clock.pause()
+    item.node.remove()
+    tracks.release(item.id)
+    if (drain) pump()
+  }
+  const scheduleEnd = (item: FlyingMessage) => {
+    clearTimeout(item.timer)
+    if (item.clock.paused) return
+    item.timer = setTimeout(
+      () => finish(item),
+      Math.max(40, (item.duration - item.clock.currentTime) * 1000 + 40),
     )
   }
+  const applyStyle = () => {
+    geometry = danmakuGeometry(width, height, options, motion.matches)
+    tracks = new DanmakuTracks(geometry.rows)
+    stage.dataset.mode = motion.matches ? 'top' : options.danmakuMode
+    stage.dataset.textStyle = options.danmakuTextStyle
+    stage.style.height = `${geometry.height}px`
+    stage.style.opacity = String(options.danmakuOpacity / 100)
+    stage.style.setProperty('--mp-danmaku-size', `${geometry.fontSize}px`)
+    stage.style.setProperty('--mp-danmaku-image-size', `${geometry.imageSize}px`)
+    stage.style.setProperty('--mp-danmaku-line-height', `${geometry.lineHeight}px`)
+    stage.style.setProperty('--mp-danmaku-weight', options.danmakuBold ? '600' : '400')
+    stage.style.setProperty(
+      '--mp-danmaku-font',
+      {
+        system: 'var(--folium-font, system-ui), sans-serif',
+        heiti: '"Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif',
+        songti: '"SimSun", "Songti SC", "Noto Serif CJK SC", serif',
+      }[options.danmakuFont],
+    )
+  }
+  const clear = () => {
+    queue.clear()
+    filter.clear()
+    for (const item of flying.values()) finish(item, false)
+    applyStyle()
+  }
   const pump = () => {
-    clearTimeout(timer)
-    timer = undefined
     if (!active() || width <= 0 || height <= 0) return
-    let now = performance.now(),
-      message = queue.peek(now)
+    let message = queue.peek(performance.now())
     while (message) {
-      const delay = lanes.delay(now)
-      if (delay > 0) {
-        if (Number.isFinite(delay)) timer = setTimeout(pump, Math.max(30, delay))
-        return
-      }
-      const row = renderMessage(message)
-      row.style.visibility = 'hidden'
-      stage.append(row)
-      const itemWidth = row.getBoundingClientRect().width,
-        slot = lanes.claim(now, itemWidth, width, motion.matches)
-      if (!slot) {
-        row.remove()
-        const delay = lanes.delay(now)
-        if (Number.isFinite(delay)) timer = setTimeout(pump, Math.max(30, delay))
-        return
-      }
+      const lane = tracks.claim(message.id, options.danmakuOverlap)
+      if (lane === null) return
       queue.shift()
-      row.style.top = `${24 + slot.lane * 54}px`
-      row.style.visibility = ''
-      row.classList.toggle('mp-danmaku-stationary', motion.matches)
-      const opacity = row.classList.contains('mp-danmaku-secondary') ? 0.72 : 1,
-        animation = row.animate(
-          motion.matches
-            ? [{ opacity: 0 }, { opacity, offset: 0.08 }, { opacity, offset: 0.88 }, { opacity: 0 }]
-            : [
-                { transform: `translateX(${width}px)` },
-                { transform: `translateX(${-itemWidth}px)` },
-              ],
-          { duration: slot.duration, easing: 'linear' },
-        )
-      animations.set(row, animation)
-      const done = () => {
-        animations.delete(row)
-        row.remove()
+      const node = el('div', 'mp-danmaku-track'),
+        row = renderMessage(message),
+        clock = new DanmakuClock(),
+        mode = motion.matches ? 'top' : options.danmakuMode
+      node.dataset.lane = String(lane)
+      node.dataset.mode = mode
+      node.style.top = `${
+        mode === 'bottom'
+          ? geometry.height - (lane + 1) * geometry.lineHeight - 1
+          : lane * geometry.lineHeight
+      }px`
+      node.style.height = `${geometry.lineHeight + 1}px`
+      row.style.maxWidth = `${Math.max(0, Math.min(560, width - 24))}px`
+      row.dataset.paused = 'false'
+      stage.append(node)
+      // One public engine instance per occupied track gives each comment an
+      // independent lifetime. Pausing one never advances or removes it, and
+      // exclusive tracks keep later messages from running into the paused tail.
+      const engine = new Danmaku({
+        container: node,
+        media: clock as unknown as HTMLMediaElement,
+        comments: [],
+        speed: geometry.speed,
+      })
+      const item: FlyingMessage = {
+        id: message.id,
+        node,
+        row,
+        clock,
+        engine,
+        duration: geometry.duration,
       }
-      void animation.finished.then(done, done)
-      now = performance.now()
-      message = queue.peek(now)
+      flying.set(item.id, item)
+      row.addEventListener('pointerenter', () => {
+        if (flying.get(item.id) !== item) return
+        clock.pause()
+        clearTimeout(item.timer)
+        row.dataset.paused = 'true'
+      })
+      row.addEventListener('pointerleave', () => {
+        if (flying.get(item.id) !== item || !active()) return
+        row.dataset.paused = 'false'
+        clock.play()
+        scheduleEnd(item)
+      })
+      engine.emit({ mode: mode === 'scroll' ? 'rtl' : mode, render: () => row })
+      clock.play()
+      scheduleEnd(item)
+      message = queue.peek(performance.now())
     }
   }
   const update = () => {
@@ -151,7 +212,7 @@ export function mountDanmaku(container: HTMLElement, controller: PartyController
     scope = nextScope
     const fresh = feed.take(state, active())
     if (!fresh.length) return
-    queue.push(fresh, performance.now())
+    queue.push(filter.take(fresh, options, performance.now()), performance.now())
     pump()
   }
   const resize = new ResizeObserver(() => {
@@ -173,6 +234,19 @@ export function mountDanmaku(container: HTMLElement, controller: PartyController
   clear()
   update()
   return {
+    setOptions(value: DanmakuPreferenceValues) {
+      if (
+        disposed ||
+        Object.keys(danmakuDefaults).every(
+          (key) =>
+            options[key as keyof DanmakuPreferenceValues] ===
+            value[key as keyof DanmakuPreferenceValues],
+        )
+      )
+        return
+      options = { ...value }
+      clear()
+    },
     setEnabled(value: boolean) {
       if (value === enabled || disposed) return
       enabled = value

@@ -19,6 +19,8 @@ export async function verifyNativeChatPresentation(page: Page): Promise<void> {
     await expect(
       page.locator('[data-folium-slot="app.overlay"] .mp-floating-chat'),
     ).toHaveAttribute('data-visible', 'true')
+    await expect(full.locator('.mp-chat-view')).toHaveAttribute('data-live-composer', 'collapsed')
+    await full.locator('.mp-live-compose-open').click()
     await expect(full.getByRole('textbox', { name: '房间聊天内容', exact: true })).toHaveValue(
       '原生播放器草稿 😊',
     )

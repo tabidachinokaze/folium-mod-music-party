@@ -34,7 +34,7 @@ export function createChatPresentation(controller: PartyController, prefs: ChatP
   const danmaku = mountDanmaku(danmakuNode, controller),
     feed = new ChatMessageFeed(),
     pendingPeeks = new Map<HTMLElement, number>()
-  let chat = mountRoomChat(chatNode, controller),
+  let chat = mountRoomChat(chatNode, controller, sync),
     locale = getLocale(),
     panel: { container: HTMLElement; visible: boolean } | null = null,
     stage: { container: HTMLElement; context: FoliumStageContext; stop: () => void } | null = null,
@@ -59,26 +59,31 @@ export function createChatPresentation(controller: PartyController, prefs: ChatP
     for (const popup of chatNode.querySelectorAll<HTMLElement>(':popover-open')) popup.hidePopover()
   }
   function refreshLocale() {
-    if (locale === getLocale()) return
+    if (locale === getLocale() || !chat.canRebuild()) return
     locale = getLocale()
     const draft = chatNode.querySelector('textarea')?.value || '',
-      scroll = chat.getScrollState()
+      scroll = chat.getScrollState(),
+      composer = chat.getLiveComposerState()
     closePopups()
     chat.dispose()
     chatNode.replaceChildren()
-    chat = mountRoomChat(chatNode, controller)
+    chat = mountRoomChat(chatNode, controller, sync)
     const textarea = chatNode.querySelector('textarea')
     if (textarea) textarea.value = draft
     chat.restoreScrollState(scroll)
+    chat.restoreLiveComposerState(composer)
     full.setAttribute('aria-label', t('悬浮聊天'))
     clearPeeks()
   }
   function hasFocus() {
-    const root = chatNode.getRootNode()
+    const root = chatNode.getRootNode(),
+      active = root instanceof ShadowRoot || root instanceof Document ? root.activeElement : null,
+      composer = chatNode.querySelector<HTMLElement>('.mp-composer')
     return (
-      (root instanceof ShadowRoot || root instanceof Document) &&
-      !!root.activeElement &&
-      chatNode.contains(root.activeElement)
+      !!active &&
+      chatNode.contains(active) &&
+      ((!!composer && !composer.hidden && composer.contains(active)) ||
+        active.matches('.mp-history:focus-visible'))
     )
   }
   function heldOpen() {
@@ -154,6 +159,7 @@ export function createChatPresentation(controller: PartyController, prefs: ChatP
       hovering = false
       parent.append(chatNode)
     }
+    chat.setLiveMode(floating)
     surface.page.hidden = !activeStage
     full.hidden = !floating
     if (showingFull !== fullVisible) {
@@ -181,6 +187,7 @@ export function createChatPresentation(controller: PartyController, prefs: ChatP
       stopGeometry()
       stopGeometry = null
     }
+    danmaku.setOptions(settings)
     danmaku.setEnabled(settings.danmaku)
     danmaku.setVisible(activeStage)
     for (const message of feed.take(state, peekActive)) showPeek(message)

@@ -7,11 +7,16 @@ import { decorateRoomMessage } from './room-message'
 import { createComposerTools, uploadImage } from './private-tools'
 import { mountStickerMenu } from './sticker-menu'
 import { mountComposerSubmit } from './composer-submit'
+import { mountLiveChatComposer } from './live-chat-composer'
 
 import { getLocale, t } from './i18n'
 
 // src/client/room-chat.ts
-export function mountRoomChat(container: HTMLElement, controller: PartyController) {
+export function mountRoomChat(
+  container: HTMLElement,
+  controller: PartyController,
+  onEditorIdle: () => void = () => {},
+) {
   const history = el('div', 'mp-history')
   history.setAttribute('aria-label', t('房间聊天记录'))
   history.tabIndex = 0
@@ -28,7 +33,10 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
   })
   const sticker = createStickerPicker(
     controller,
-    (emoji) => controller.send(`[${emoji.emojiName}]`, emoji),
+    async (emoji) => {
+      await controller.send(`[${emoji.emojiName}]`, emoji)
+      liveComposer.complete()
+    },
     'room',
   )
   const send = el('button', 'mp-button primary', t('发送'))
@@ -49,6 +57,7 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
         await controller.refreshChat()
         followLatest = true
         toLatest()
+        liveComposer.complete()
       }
     },
     () => controller.state.room?.roomId || null,
@@ -79,6 +88,19 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
   actions.append(...tools.nodes, sticker.node, tools.image, send)
   composer.append(draft, actions)
   container.append(history, composer)
+  const liveComposer = mountLiveChatComposer({
+    container,
+    composer,
+    draft,
+    emoji: tools.nodes[0],
+    icon: controller.folium.ui.icon('smile', { size: 18 }),
+    onEditorIdle,
+    closeTools() {
+      mentions.close()
+      tools.close()
+      sticker.node.open = false
+    },
+  })
   const stickerMenu = mountStickerMenu(history, controller)
   let visible = false,
     disposed = false,
@@ -158,7 +180,10 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
     mentions.close()
     void controller.run(async () => {
       await controller.send(text)
-      if (draft.value === text) draft.value = ''
+      if (draft.value === text) {
+        draft.value = ''
+        liveComposer.complete()
+      }
       followLatest = true
       toLatest()
     })
@@ -169,12 +194,15 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
     draft.disabled = !state.room
     tools.image.inert = state.busy || !state.room
     tools.sync()
+    liveComposer.sync()
     if (state.room?.roomId !== roomId) {
       roomId = state.room?.roomId || ''
       previous = []
       rows.clear()
       followLatest = true
       draft.value = ''
+      liveComposer.collapse()
+      liveComposer.sync()
       mentions.close()
       tools.close()
       stickerMenu.close()
@@ -202,12 +230,10 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
       const existing = rows.get(message.id)
       if (existing?.signature === signature) return existing.node
       const row = messageNode(message, message.uid === state.account?.uid, controller.folium.ui)
-      decorateRoomMessage(
-        row,
-        { ...message, avatar },
-        state.account?.nickname || '',
-        mentions.mention,
-      )
+      decorateRoomMessage(row, { ...message, avatar }, state.account?.nickname || '', (member) => {
+        liveComposer.expand()
+        mentions.mention(member)
+      })
       rows.set(message.id, { signature, node: row })
       return row
     })
@@ -233,6 +259,10 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
   const stop = controller.subscribe(render)
   render()
   return {
+    canRebuild: () => !controller.state.busy && !liveComposer.isComposing(),
+    setLiveMode: liveComposer.setEnabled,
+    getLiveComposerState: liveComposer.getState,
+    restoreLiveComposerState: liveComposer.restoreState,
     getScrollState() {
       return { top: history.scrollTop, followLatest }
     },
@@ -252,6 +282,7 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
         if (!preservePosition) followLatest = true
         if (followLatest) toLatest()
       } else {
+        liveComposer.collapse()
         mentions.close()
         tools.close()
         sticker.node.open = false
@@ -265,6 +296,7 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
       cancelAnimationFrame(frame)
       resize.disconnect()
       stopSubmit()
+      liveComposer.dispose()
       sticker.dispose()
       mentions.dispose()
       tools.dispose()

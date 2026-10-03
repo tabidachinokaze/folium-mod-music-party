@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createChatPreferences } from '../src/client/chat-preferences'
+import {
+  createChatPreferences,
+  danmakuDefaults,
+  resetDanmakuPreferences,
+} from '../src/client/chat-preferences'
 import type { Folium } from '../src/client/host'
 import type { FoliumSettingsSectionDef } from '../vendor/folium/contract'
 
@@ -41,7 +45,12 @@ describe('chat preferences through native settings parameters', () => {
   it('registers the supported positions and bounded duration with the requested defaults', () => {
     const view = host(),
       preferences = createChatPreferences(view.folium)
-    expect(preferences.get()).toEqual({ position: 'panel', danmaku: false, peekSeconds: 5 })
+    expect(preferences.get()).toEqual({
+      position: 'panel',
+      danmaku: false,
+      peekSeconds: 5,
+      ...danmakuDefaults,
+    })
     expect(view.definition().id).toBe('chat')
     const fields = view.definition().settings
     expect(
@@ -63,7 +72,12 @@ describe('chat preferences through native settings parameters', () => {
       preferences = createChatPreferences(view.folium),
       changed = vi.fn()
     preferences.subscribe(changed)
-    expect(preferences.get()).toEqual({ position: 'bottom-left', danmaku: true, peekSeconds: 12 })
+    expect(preferences.get()).toEqual({
+      position: 'bottom-left',
+      danmaku: true,
+      peekSeconds: 12,
+      ...danmakuDefaults,
+    })
     preferences.set({ position: 'panel', peekSeconds: 8 })
     expect(view.set).toHaveBeenLastCalledWith({ position: 'panel', peekSeconds: 8 })
     expect(changed).toHaveBeenCalledTimes(1)
@@ -72,7 +86,12 @@ describe('chat preferences through native settings parameters', () => {
     expect(preferences.get().danmaku).toBe(true)
     preferences.dispose()
     const remounted = createChatPreferences(view.folium)
-    expect(remounted.get()).toEqual({ position: 'panel', danmaku: true, peekSeconds: 8 })
+    expect(remounted.get()).toEqual({
+      position: 'panel',
+      danmaku: true,
+      peekSeconds: 8,
+      ...danmakuDefaults,
+    })
     remounted.dispose()
   })
 
@@ -98,7 +117,12 @@ describe('chat preferences through native settings parameters', () => {
   it('clamps duration, ignores invalid patches and never persists unrelated data', () => {
     const view = host({ position: 'elsewhere', danmaku: 'yes', peekSeconds: Infinity }),
       preferences = createChatPreferences(view.folium)
-    expect(preferences.get()).toEqual({ position: 'panel', danmaku: false, peekSeconds: 5 })
+    expect(preferences.get()).toEqual({
+      position: 'panel',
+      danmaku: false,
+      peekSeconds: 5,
+      ...danmakuDefaults,
+    })
     preferences.set({ peekSeconds: -20 })
     expect(preferences.get().peekSeconds).toBe(1)
     preferences.set({ peekSeconds: 99 })
@@ -131,5 +155,110 @@ describe('chat preferences through native settings parameters', () => {
     view.set({ danmaku: true })
     expect(changed).not.toHaveBeenCalled()
     expect(preferences.get().danmaku).toBe(false)
+  })
+
+  it('persists all supported modes, styles and real message filters', () => {
+    const view = host(),
+      preferences = createChatPreferences(view.folium),
+      changed = vi.fn()
+    preferences.subscribe(changed)
+    const choices = {
+      danmakuMode: 'bottom' as const,
+      danmakuArea: 100,
+      danmakuOpacity: 50,
+      danmakuFontSize: 125,
+      danmakuSpeed: 75,
+      danmakuFont: 'songti' as const,
+      danmakuBold: false,
+      danmakuTextStyle: 'stroke' as const,
+      danmakuText: false,
+      danmakuActivity: false,
+      danmakuMedia: false,
+      danmakuOverlap: true,
+      danmakuDedupe: false,
+    }
+    preferences.set(choices)
+    expect(view.set).toHaveBeenLastCalledWith(choices)
+    expect(preferences.get()).toMatchObject(choices)
+    expect(changed).toHaveBeenCalledTimes(1)
+    preferences.dispose()
+    const remounted = createChatPreferences(view.folium)
+    expect(remounted.get()).toMatchObject(choices)
+    remounted.dispose()
+  })
+
+  it.each([
+    ['danmakuArea', 10, 100],
+    ['danmakuOpacity', 10, 100],
+    ['danmakuFontSize', 75, 150],
+    ['danmakuSpeed', 50, 150],
+  ] as const)('bounds %s at both write and native-store read boundaries', (key, min, max) => {
+    const view = host({ [key]: max + 100 }),
+      preferences = createChatPreferences(view.folium)
+    expect(preferences.get()[key]).toBe(max)
+    preferences.set({ [key]: -100 })
+    expect(preferences.get()[key]).toBe(min)
+    preferences.set({ [key]: max + 100 })
+    expect(preferences.get()[key]).toBe(max)
+    preferences.set({ [key]: min + 2.7 })
+    expect(preferences.get()[key]).toBe(min + 3)
+    view.set.mockClear()
+    preferences.set({ [key]: Infinity })
+    expect(view.set).not.toHaveBeenCalled()
+    preferences.dispose()
+  })
+
+  it('rejects unsupported fonts/modes and invalid toggle types rather than persisting them', () => {
+    const view = host({
+        danmakuMode: 'advanced-bas',
+        danmakuFont: 'remote-url',
+        danmakuTextStyle: 'glow',
+      }),
+      preferences = createChatPreferences(view.folium)
+    expect(preferences.get()).toMatchObject(danmakuDefaults)
+    preferences.set({
+      danmakuMode: 'invalid',
+      danmakuFont: 'invalid',
+      danmakuTextStyle: 'invalid',
+      danmakuBold: 'true',
+      danmakuText: 'false',
+      danmakuMedia: 0,
+      danmakuActivity: null,
+      danmakuOverlap: 'yes',
+      danmakuDedupe: 1,
+    } as never)
+    expect(view.set).not.toHaveBeenCalled()
+    preferences.dispose()
+  })
+
+  it('restores danmaku options without disabling it or resetting chat position and timing', () => {
+    const view = host({
+        position: 'bottom-left',
+        peekSeconds: 23,
+        danmaku: true,
+        danmakuMode: 'top',
+        danmakuFont: 'heiti',
+        danmakuOpacity: 25,
+        danmakuText: false,
+        danmakuOverlap: true,
+      }),
+      preferences = createChatPreferences(view.folium),
+      changed = vi.fn()
+    preferences.subscribe(changed)
+    resetDanmakuPreferences(preferences)
+    expect(preferences.get()).toEqual({
+      ...danmakuDefaults,
+      position: 'bottom-left',
+      peekSeconds: 23,
+      danmaku: true,
+    })
+    const patch = view.set.mock.calls[0][0]
+    expect(patch).not.toHaveProperty('position')
+    expect(patch).not.toHaveProperty('peekSeconds')
+    expect(patch).not.toHaveProperty('danmaku')
+    expect(changed).toHaveBeenCalledTimes(1)
+    resetDanmakuPreferences(preferences)
+    expect(changed).toHaveBeenCalledTimes(1)
+    preferences.dispose()
   })
 })

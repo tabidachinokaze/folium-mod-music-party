@@ -11,3 +11,31 @@
 多人匹配通知由 `src/main/mini-codec.ts` 和 `src/main/mini-notifications.ts` 实现音乐专用 mini 通道的协议兼容。官方 Android 资料用于核对公开应用标识、公开服务器公钥、帧格式和字段，未打包反编译代码。使用 Node.js 自带的网络、加密和压缩模块；RC4 仅用于兼容该服务的既有流协议。0.3.6 起不再分发 `nim-web-sdk-ng`。
 
 0.3.17 的房间公开状态使用服务端 `roomBizType`：官方 RN 房间类型枚举为 `PrivateFriend = 1`、`PublicFriend = 2`、`Public = 3`，Android bridge 的 `getRoomType` 返回该字段。仅据已核实的类型判断陌生人匹配状态，其他值保留为未知。官方资料仅用于协议字段核对，未随插件分发。
+
+## Danmaku
+
+弹幕绘制使用 [weizhenye/Danmaku](https://github.com/weizhenye/Danmaku) 2.0.10 的独立 DOM 引擎（npm 包 `danmaku`），按 MIT 许可证随客户端 bundle 分发。该项目是社区浏览器引擎，不是哔哩哔哩官方网页播放器源码；本插件未包含 B 站私有代码。每条消息使用独立时钟，暂停不影响音乐播放。
+
+```text
+The MIT License (MIT)
+
+Copyright (c) 2014 Zhenye Wei
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```

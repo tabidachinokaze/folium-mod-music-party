@@ -1,76 +1,191 @@
-import type { FoliumSettingsSectionDef } from '../../vendor/folium/contract'
+import type { FoliumParam, FoliumSettingsSectionDef } from '../../vendor/folium/contract'
 import type { Folium } from './host'
 
 // src/client/chat-preferences.ts
+export type DanmakuPreferenceValues = Readonly<{
+  danmakuMode: 'scroll' | 'top' | 'bottom'
+  danmakuArea: number
+  danmakuOpacity: number
+  danmakuFontSize: number
+  danmakuSpeed: number
+  danmakuFont: 'system' | 'heiti' | 'songti'
+  danmakuBold: boolean
+  danmakuTextStyle: 'shadow' | 'stroke' | 'none'
+  danmakuText: boolean
+  danmakuActivity: boolean
+  danmakuMedia: boolean
+  danmakuOverlap: boolean
+  danmakuDedupe: boolean
+}>
 export type ChatPreferenceValues = Readonly<{
   position: 'panel' | 'bottom-left'
   danmaku: boolean
   peekSeconds: number
-}>
+}> &
+  DanmakuPreferenceValues
 export interface ChatPreferences {
   get(): ChatPreferenceValues
   set(patch: Partial<ChatPreferenceValues>): void
   subscribe(listener: () => void): () => void
   dispose(): void
 }
-
+export const danmakuDefaults: DanmakuPreferenceValues = Object.freeze({
+  danmakuMode: 'scroll',
+  danmakuArea: 55,
+  danmakuOpacity: 85,
+  danmakuFontSize: 100,
+  danmakuSpeed: 100,
+  danmakuFont: 'system',
+  danmakuBold: true,
+  danmakuTextStyle: 'shadow',
+  danmakuText: true,
+  danmakuActivity: true,
+  danmakuMedia: true,
+  danmakuOverlap: false,
+  danmakuDedupe: true,
+})
+export const danmakuRanges = {
+  danmakuArea: { min: 10, max: 100, step: 1 },
+  danmakuOpacity: { min: 10, max: 100, step: 1 },
+  danmakuFontSize: { min: 75, max: 150, step: 1 },
+  danmakuSpeed: { min: 50, max: 150, step: 1 },
+} as const
+const label = (zh: string, en: string) => ({ 'zh-CN': zh, en })
+const danmakuGroup = label('弹幕设置', 'Danmaku settings')
 const section: FoliumSettingsSectionDef = {
   id: 'chat',
-  label: { 'zh-CN': '聊天设置', en: 'Chat settings' },
+  label: label('聊天设置', 'Chat settings'),
   settings: [
     {
       key: 'position',
       type: 'select',
-      label: { 'zh-CN': '聊天位置', en: 'Chat position' },
+      label: label('聊天位置', 'Chat position'),
       defaultValue: 'panel',
       options: [
-        { value: 'panel', label: { 'zh-CN': '面板内', en: 'In panel' } },
-        { value: 'bottom-left', label: { 'zh-CN': '左下角', en: 'Bottom left' } },
+        { value: 'panel', label: label('面板内', 'In panel') },
+        { value: 'bottom-left', label: label('左下角', 'Bottom left') },
       ],
     },
     {
       key: 'danmaku',
       type: 'boolean',
-      label: { 'zh-CN': '启用弹幕', en: 'Show danmaku' },
+      label: label('启用弹幕', 'Show danmaku'),
       defaultValue: false,
     },
     {
       key: 'peekSeconds',
       type: 'number',
-      label: { 'zh-CN': '新消息显示时长', en: 'New message preview duration' },
+      label: label('新消息显示时长', 'New message preview duration'),
       defaultValue: 5,
       min: 1,
       max: 30,
       step: 1,
     },
+    {
+      key: 'danmakuMode',
+      type: 'select',
+      label: label('显示模式', 'Display mode'),
+      group: danmakuGroup,
+      defaultValue: danmakuDefaults.danmakuMode,
+      options: [
+        { value: 'scroll', label: label('滚动', 'Scrolling') },
+        { value: 'top', label: label('顶部', 'Top') },
+        { value: 'bottom', label: label('底部', 'Bottom') },
+      ],
+    },
+    ...(
+      [
+        ['danmakuArea', '显示区域', 'Display area'],
+        ['danmakuOpacity', '不透明度', 'Opacity'],
+        ['danmakuFontSize', '字号', 'Font size'],
+        ['danmakuSpeed', '速度', 'Speed'],
+      ] as const
+    ).map(([key, zh, en]): FoliumParam => ({
+      key,
+      type: 'number',
+      label: label(zh, en),
+      group: danmakuGroup,
+      defaultValue: danmakuDefaults[key],
+      ...danmakuRanges[key],
+    })),
+    {
+      key: 'danmakuFont',
+      type: 'select',
+      label: label('字体', 'Font'),
+      group: danmakuGroup,
+      defaultValue: danmakuDefaults.danmakuFont,
+      options: [
+        { value: 'system', label: label('系统默认', 'System default') },
+        { value: 'heiti', label: label('黑体', 'Sans serif') },
+        { value: 'songti', label: label('宋体', 'Serif') },
+      ],
+    },
+    {
+      key: 'danmakuTextStyle',
+      type: 'select',
+      label: label('文字效果', 'Text effect'),
+      group: danmakuGroup,
+      defaultValue: danmakuDefaults.danmakuTextStyle,
+      options: [
+        { value: 'shadow', label: label('阴影', 'Shadow') },
+        { value: 'stroke', label: label('描边', 'Outline') },
+        { value: 'none', label: label('无', 'None') },
+      ],
+    },
+    ...(
+      [
+        ['danmakuBold', '粗体', 'Bold'],
+        ['danmakuText', '文字消息', 'Text messages'],
+        ['danmakuMedia', '图片与表情', 'Images and stickers'],
+        ['danmakuActivity', '房间动态', 'Room activity'],
+        ['danmakuOverlap', '允许弹幕重叠', 'Allow overlapping comments'],
+        ['danmakuDedupe', '合并重复弹幕', 'Merge repeated comments'],
+      ] as const
+    ).map(([key, zh, en]): FoliumParam => ({
+      key,
+      type: 'boolean',
+      label: label(zh, en),
+      group: danmakuGroup,
+      defaultValue: danmakuDefaults[key],
+    })),
   ],
 }
-const seconds = (value: number) => Math.max(1, Math.min(30, Math.round(value)))
+function validate(field: FoliumParam, value: unknown) {
+  if (field.type === 'boolean') return typeof value === 'boolean' ? value : undefined
+  if (field.type === 'select')
+    return typeof value === 'string' && field.options?.some((option) => option.value === value)
+      ? value
+      : undefined
+  if (field.type === 'number' && typeof value === 'number' && Number.isFinite(value))
+    return Math.max(field.min!, Math.min(field.max!, Math.round(value)))
+  return undefined
+}
 function normalize(values: Readonly<Record<string, unknown>>): ChatPreferenceValues {
-  return Object.freeze({
-    position: values.position === 'bottom-left' ? 'bottom-left' : 'panel',
-    danmaku: values.danmaku === true,
-    peekSeconds:
-      typeof values.peekSeconds === 'number' && Number.isFinite(values.peekSeconds)
-        ? seconds(values.peekSeconds)
-        : 5,
-  })
+  return Object.freeze(
+    Object.fromEntries(
+      section.settings.map((field) => [
+        field.key,
+        validate(field, values[field.key]) ?? field.defaultValue,
+      ]),
+    ) as ChatPreferenceValues,
+  )
+}
+
+// Keep the enable switch and the chat window's location/duration as the user chose them.
+export function resetDanmakuPreferences(preferences: ChatPreferences) {
+  preferences.set(danmakuDefaults)
 }
 
 export function createChatPreferences(folium: Folium): ChatPreferences {
   const handle = folium.registries.settingsSections.register(section),
-    listeners = new Set<() => void>()
+    listeners = new Set<() => void>(),
+    fields = section.settings.map((field) => field.key as keyof ChatPreferenceValues)
   let values = normalize(handle.params.get()),
     disposed = false
   const sync = () => {
     if (disposed) return
     const next = normalize(handle.params.get())
-    if (
-      next.position === values.position &&
-      next.danmaku === values.danmaku &&
-      next.peekSeconds === values.peekSeconds
-    )
-      return
+    if (fields.every((key) => next[key] === values[key])) return
     values = next
     for (const listener of [...listeners]) listener()
   }
@@ -80,16 +195,10 @@ export function createChatPreferences(folium: Folium): ChatPreferences {
     set(patch) {
       if (disposed) return
       const update: Record<string, unknown> = {}
-      if (
-        (patch.position === 'panel' || patch.position === 'bottom-left') &&
-        patch.position !== values.position
-      )
-        update.position = patch.position
-      if (typeof patch.danmaku === 'boolean' && patch.danmaku !== values.danmaku)
-        update.danmaku = patch.danmaku
-      if (typeof patch.peekSeconds === 'number' && Number.isFinite(patch.peekSeconds)) {
-        const next = seconds(patch.peekSeconds)
-        if (next !== values.peekSeconds) update.peekSeconds = next
+      for (const field of section.settings) {
+        const key = field.key as keyof ChatPreferenceValues,
+          next = validate(field, patch[key])
+        if (next !== undefined && next !== values[key]) update[key] = next
       }
       if (Object.keys(update).length) {
         handle.params.set(update)

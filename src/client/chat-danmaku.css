@@ -8,34 +8,62 @@
 }
 * {
   box-sizing: border-box;
-  pointer-events: none !important;
 }
 .mp-danmaku {
   position: absolute;
-  inset: 0;
+  top: 24px;
+  left: 0;
+  right: 0;
   overflow: hidden;
   user-select: none;
+  pointer-events: none;
 }
-.mp-danmaku-message {
+.mp-danmaku[data-mode='bottom'] {
+  top: auto;
+  bottom: 24px;
+}
+.mp-danmaku-track {
   position: absolute;
   left: 0;
+  right: 0;
+  pointer-events: none;
+}
+.mp-danmaku-message {
   display: flex;
   align-items: center;
   gap: 7px;
   width: max-content;
-  max-width: min(560px, calc(100% - 24px));
-  height: 46px;
-  padding: 3px 8px;
+  height: var(--mp-danmaku-line-height);
+  padding: 5px 8px;
   border-radius: 8px;
   color: #fff;
-  font: 600 17px / 1.4 var(--folium-font, sans-serif);
+  font-family: var(--mp-danmaku-font);
+  font-weight: var(--mp-danmaku-weight);
+  font-size: var(--mp-danmaku-size);
+  line-height: 1.4;
+  background: rgb(0 0 0 / 12%);
+  white-space: nowrap;
+  pointer-events: auto;
+}
+.mp-danmaku-message > * {
+  pointer-events: none;
+}
+.mp-danmaku-message[data-paused='true'] {
+  background: rgb(0 0 0 / 35%);
+  outline: 1px solid rgb(255 255 255 / 25%);
+}
+[data-text-style='shadow'] .mp-danmaku-message {
   text-shadow:
     0 1px 3px #000,
     1px 0 2px #000,
     -1px 0 2px #000;
-  background: rgb(0 0 0 / 12%);
-  white-space: nowrap;
-  will-change: transform;
+}
+[data-text-style='stroke'] .mp-danmaku-message {
+  text-shadow:
+    -1px -1px #000,
+    -1px 1px #000,
+    1px -1px #000,
+    1px 1px #000;
 }
 .mp-danmaku-author {
   flex: none;
@@ -43,8 +71,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   color: color-mix(in srgb, var(--folium-accent, #c9b0ff) 30%, white);
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 0.75em;
+  font-weight: inherit;
 }
 .mp-danmaku-text {
   min-width: 0;
@@ -54,20 +82,15 @@
 .mp-danmaku-image {
   display: block;
   flex: none;
-  width: 40px;
-  height: 40px;
+  width: var(--mp-danmaku-image-size);
+  height: var(--mp-danmaku-image-size);
   border-radius: 5px;
   object-fit: contain;
 }
 .mp-danmaku-secondary {
   color: #dedede;
-  font-size: 13px;
+  font-size: calc(var(--mp-danmaku-size) * 0.8);
   font-weight: 400;
   opacity: 0.72;
   background: transparent;
-}
-.mp-danmaku-stationary {
-  left: auto;
-  right: 16px;
-  will-change: opacity;
 }

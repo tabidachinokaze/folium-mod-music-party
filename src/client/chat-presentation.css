@@ -17,12 +17,9 @@
 .mp-floating-chat {
   display: flex;
   flex-direction: column;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--folium-bg, #171717) 88%, transparent);
-  backdrop-filter: blur(20px);
-  box-shadow: 0 8px 28px #0002;
+  padding: 0;
+  border: 0;
+  background: transparent;
   pointer-events: auto;
   transform-origin: bottom left;
   opacity: 1;
@@ -46,25 +43,89 @@
   min-height: 0;
   max-height: min(300px, 38dvh);
   flex: 0 1 auto;
+  padding: 2px 4px 6px;
+  scrollbar-color: transparent transparent;
+}
+.mp-floating-chat:is(:hover, :focus-within) .mp-history {
+  scrollbar-color: color-mix(in srgb, currentColor 22%, transparent) transparent;
 }
 .mp-floating-chat .mp-composer {
   flex: none;
+  margin-top: 6px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--folium-bg, #171717) 86%, transparent);
+  backdrop-filter: blur(18px);
+}
+.mp-floating-chat .mp-composer textarea {
+  padding-right: 28px;
+}
+.mp-floating-chat .mp-empty {
+  padding: 8px 0;
+  text-align: left;
+  text-shadow: 0 1px 3px light-dark(#fff9, #000c);
+}
+.mp-live-compose-launcher {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 3px 5px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--folium-bg, #171717) 60%, transparent);
+  backdrop-filter: blur(14px);
+}
+.mp-live-compose-launcher .mp-button {
+  background: transparent;
+}
+.mp-live-compose-open {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: left;
+  color: var(--muted);
+}
+.mp-live-compose-open.has-draft {
+  color: inherit;
+}
+.mp-live-compose-emoji {
+  flex: none;
+  width: 30px;
+  padding: 3px;
+  font-size: 20px;
+  line-height: 1;
+}
+.mp-live-compose-emoji svg {
+  width: 18px;
+  height: 18px;
+}
+.mp-live-compose-collapse {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 22px;
+  min-height: 22px;
+  padding: 0;
+  background: transparent;
+  font-size: 17px;
 }
 .mp-chat-peeks {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 4px;
   overflow: hidden;
   pointer-events: none;
 }
 .mp-chat-peek {
   flex: none;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--folium-bg, #171717) 90%, transparent);
-  backdrop-filter: blur(20px);
+  padding: 2px 4px;
+  background: transparent;
   animation: mp-chat-peek-in 260ms ease-out;
   transition:
     opacity 260ms ease-out,
@@ -77,6 +138,70 @@
 .mp-chat-peek .mp-message {
   margin: 0;
   max-width: 100%;
+}
+:is(.mp-floating-chat, .mp-chat-peek) .mp-message {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  margin: 4px 0;
+  padding: 0;
+  text-align: left;
+  line-height: 1.7;
+  text-shadow: 0 1px 3px light-dark(#fff9, #000c);
+}
+:is(.mp-floating-chat, .mp-chat-peek) .mp-message-avatar,
+:is(.mp-floating-chat, .mp-chat-peek) .mp-meta time,
+:is(.mp-floating-chat, .mp-chat-peek) .mp-mention-badge,
+:is(.mp-floating-chat, .mp-chat-peek) .mp-activity-icon,
+:is(.mp-floating-chat, .mp-chat-peek) .mp-activity-heading {
+  display: none;
+}
+:is(.mp-floating-chat, .mp-chat-peek) .mp-meta {
+  display: inline;
+  margin: 0;
+  font-size: 0;
+}
+:is(.mp-floating-chat, .mp-chat-peek) .mp-meta .mp-message-author {
+  font-size: 12px;
+  font-weight: 600;
+  color: light-dark(#087e8b, #77d8e7);
+}
+:is(.mp-floating-chat, .mp-chat-peek) .mp-meta .mp-message-author::after {
+  content: '：';
+}
+:is(.mp-floating-chat, .mp-chat-peek) .mp-message .mp-bubble {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 12px;
+}
+:is(.mp-floating-chat, .mp-chat-peek) .mp-activity-body {
+  padding: 0;
+  font-size: 11px;
+  line-height: 1.65;
+  color: var(--muted);
+}
+:is(.mp-floating-chat, .mp-chat-peek) .mp-activity-actor,
+:is(.mp-floating-chat, .mp-chat-peek) .mp-activity-song {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font-weight: 400;
+}
+:is(.mp-floating-chat, .mp-chat-peek) .mp-message .mp-image,
+:is(.mp-floating-chat, .mp-chat-peek) .mp-message .mp-media {
+  margin-top: 3px;
+  max-height: 128px;
+  max-width: min(200px, 100%);
+  width: auto;
+  object-fit: contain;
+}
+.mp-chat-peek .mp-message-content {
+  max-height: 200px;
+  overflow: hidden;
 }
 .mp-chat-peek .mp-bubble,
 .mp-chat-peek .mp-activity-body {

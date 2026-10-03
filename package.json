@@ -36,5 +36,8 @@
   },
   "overrides": {
     "@jridgewell/trace-mapping": "0.3.31"
+  },
+  "dependencies": {
+    "danmaku": "2.0.10"
   }
 }
