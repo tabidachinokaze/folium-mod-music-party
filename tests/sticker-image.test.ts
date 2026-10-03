@@ -5,6 +5,25 @@ import { MEDIA_LIMITS } from '@party/shared/media'
 
 // tests/sticker-image.test.ts
 const gif = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64')
+// Public synthetic 1×1 colour images, generated locally; no account or message data.
+const png = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQMAAAAl21bKAAAAA1BMVEUyeL5LqmFRAAAACklEQVQI12NgAAAAAgAB4iG8MwAAAABJRU5ErkJggg==',
+  'base64',
+)
+const jpeg = Buffer.from(
+  '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAABAAEDAREAAhEBAxEB/8QAFAABAAAAAAAAAAAAAAAAAAAABv/EABQQAQAAAAAAAAAAAAAAAAAAAAD/xAAUAQEAAAAAAAAAAAAAAAAAAAAH/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAwDAQACEQMRAD8ADn0JP//Z',
+  'base64',
+)
+const webp = Buffer.from(
+  'UklGRjgAAABXRUJQVlA4ICwAAADQAQCdASoBAAEAAgA0JaACdLoB+AADsAD+6Wkf+Smv8bctX/xZ3dLOugAAAA==',
+  'base64',
+)
+const images = [
+  ['png', 'image/png', png],
+  ['jpg', 'image/jpeg', jpeg],
+  ['gif', 'image/gif', gif],
+  ['webp', 'image/webp', webp],
+] as const
 const source = { kind: 'image', url: 'https://p1.music.126.net/message.gif', width: 1, height: 1 }
 const fileResponse = () => new Response(gif, { headers: { 'Content-Type': 'image/gif' } })
 const json = (value: unknown) => new Response(JSON.stringify(value))
@@ -60,7 +79,7 @@ it.each([
   expect(fetcher).toHaveBeenCalledTimes(1)
 })
 
-it('limits redirects and rejects untrusted MIME or oversized responses', async () => {
+it('limits redirects and rejects non-image bodies or oversized responses', async () => {
   const redirects = vi
     .fn<typeof fetch>()
     .mockImplementation(
@@ -90,6 +109,25 @@ it('limits redirects and rejects untrusted MIME or oversized responses', async (
   await expect(downloadStickerImage(source, oversized, () => {})).rejects.toThrow('20 MB')
   expect(cancelled).toHaveBeenCalledOnce()
 })
+
+it.each(images)(
+  'detects actual %s bytes with generic or absent CDN MIME',
+  async (format, mime, bytes) => {
+    for (const headers of [
+      new Headers({ 'Content-Type': 'application/octet-stream' }),
+      new Headers(),
+    ]) {
+      const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(bytes, { headers }))
+      const file = await downloadStickerImage(source, fetcher, () => {})
+      expect(file).toMatchObject({
+        mime,
+        name: `message-sticker.${format}`,
+        data: new Uint8Array(bytes),
+      })
+      expect(fetcher).toHaveBeenCalledTimes(1)
+    }
+  },
+)
 
 function environment() {
   const calls: { uri: string; data: any }[] = []
@@ -149,14 +187,64 @@ it('adds a plain chat image through NOS and sticker upload, never collect(0) or 
   backend.close()
 })
 
-it('checks image bytes against the MIME before any authenticated API/upload call', async () => {
+it('saves real PNG bytes served as image/jpg using PNG upload metadata and unchanged bytes', async () => {
   const { backend, fetcher, calls } = environment()
   fetcher.mockResolvedValueOnce(
-    new Response('<html>not an image</html>', { headers: { 'Content-Type': 'image/gif' } }),
+    new Response(png, {
+      headers: { 'Content-Type': 'image/jpg; charset=UTF-8' },
+    }),
   )
-  await expect(backend.saveSticker(source)).rejects.toThrow('PNG')
+  expect(await backend.saveSticker(source)).toMatchObject({ emojiId: '99' })
+  const allocation = calls.find(({ uri }) => uri === '/api/nos/token/alloc')!
+  expect(allocation.data).toMatchObject({
+    filename: 'message-sticker.png',
+    ext: 'png',
+    fileSize: png.byteLength,
+  })
+  const upload = fetcher.mock.calls.find(([url]) =>
+    String(url).startsWith('https://nosup-hz1.127.net/'),
+  )!
+  expect(new Headers(upload[1]?.headers).get('content-type')).toBe('image/png')
+  expect(upload[1]?.body).toEqual(png)
+  const collected = calls.find(({ uri }) => uri === '/api/social/emoji/upload')!
+  expect(JSON.parse(collected.data.imgs)).toEqual([
+    { picId: '12345678901234567890', width: 1, height: 1, format: 'png' },
+  ])
+  expect(calls.some(({ uri }) => uri.includes('/send') || uri.endsWith('/emoji/collect'))).toBe(
+    false,
+  )
+  backend.close()
+})
+
+it.each([
+  ['HTML', Buffer.from('<html>not an image</html>')],
+  [
+    'SVG',
+    Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>'),
+  ],
+  ['PNG signature without IHDR', png.subarray(0, 8)],
+  ['truncated GIF signature', Buffer.from('GIF8')],
+  ['truncated JPEG signature', jpeg.subarray(0, 2)],
+  ['WebP container without an image chunk', webp.subarray(0, 12)],
+])(
+  'rejects %s despite an image MIME before any authenticated API/upload call',
+  async (_name, bytes) => {
+    const { backend, fetcher, calls } = environment()
+    fetcher.mockResolvedValueOnce(new Response(bytes, { headers: { 'Content-Type': 'image/png' } }))
+    await expect(backend.saveSticker(source)).rejects.toThrow('PNG')
+    expect(calls).toEqual([])
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    backend.close()
+  },
+)
+
+it.each([403, 404])('rejects HTTP %s even if its body is a supported image', async (status) => {
+  const { backend, fetcher, calls } = environment()
+  fetcher.mockResolvedValueOnce(
+    new Response(png, { status, headers: { 'Content-Type': 'image/png' } }),
+  )
+  await expect(backend.saveSticker(source)).rejects.toThrow()
   expect(calls).toEqual([])
-  expect(fetcher).toHaveBeenCalledTimes(1)
   backend.close()
 })
 

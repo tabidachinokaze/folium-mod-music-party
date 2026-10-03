@@ -8,6 +8,23 @@ const formats: Record<string, string> = {
   'image/webp': 'webp',
 }
 
+function imageMime(data: Uint8Array): string | undefined {
+  const signature = (text: string, offset = 0) =>
+    [...text].every((character, index) => data[offset + index] === character.charCodeAt(0))
+  if (data.length >= 33 && signature('\x89PNG\r\n\x1a\n') && signature('\0\0\0\rIHDR', 8))
+    return 'image/png'
+  if (data.length >= 4 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff)
+    return 'image/jpeg'
+  if (data.length >= 13 && (signature('GIF87a') || signature('GIF89a'))) return 'image/gif'
+  if (
+    data.length >= 20 &&
+    signature('RIFF') &&
+    signature('WEBP', 8) &&
+    ['VP8 ', 'VP8L', 'VP8X'].some((chunk) => signature(chunk, 12))
+  )
+    return 'image/webp'
+}
+
 /** Download only public NetEase image assets, never forwarding account credentials. */
 export async function downloadStickerImage(
   value: unknown,
@@ -49,10 +66,9 @@ export async function downloadStickerImage(
       url = next
       continue
     }
-    const mime = response.headers.get('content-type')?.split(';')[0].trim().toLowerCase() || ''
-    if (!response.ok || !Object.hasOwn(formats, mime)) {
+    if (!response.ok) {
       await response.body?.cancel()
-      throw new Error('请选择 PNG、JPEG、GIF 或 WebP 图片')
+      throw new Error('无法读取图片')
     }
     const size = response.headers.get('content-length')
     if (size && (!/^\d+$/.test(size) || Number(size) > MEDIA_LIMITS.image)) {
@@ -83,7 +99,11 @@ export async function downloadStickerImage(
       data.set(chunk, offset)
       offset += chunk.byteLength
     }
-    // MediaSender validates the signature against this MIME before requesting any upload token.
+    // The CDN can label a PNG as image/jpg (or generic binary data). Identify the
+    // bytes, not its headers or URL, before requesting any authenticated upload.
+    const mime = imageMime(data)
+    if (!mime) throw new Error('请选择 PNG、JPEG、GIF 或 WebP 图片')
+    // MediaSender also validates the signature against this normalized MIME.
     return {
       kind: 'image',
       name: `message-sticker.${formats[mime]}`,

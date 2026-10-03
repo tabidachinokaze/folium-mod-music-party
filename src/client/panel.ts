@@ -107,26 +107,7 @@ export function mountPanel(
               : t('未知类型')
       roomDetails.replaceChildren(
         field(t('在线成员'), t('{count} 人', { count: room.onlineCount ?? room.members.length })),
-        field(
-          t('房间类型'),
-          room.roomBizType == null
-            ? t('未知')
-            : t('{name}（roomBizType: {type}）', {
-                name: roomTypeName,
-                type:
-                  typeof room.roomBizType === 'string'
-                    ? JSON.stringify(room.roomBizType)
-                    : room.roomBizType,
-              }),
-        ),
-        field(
-          t('允许陌生人匹配'),
-          room.allowStrangerMatch === true
-            ? t('是')
-            : room.allowStrangerMatch === false
-              ? t('否')
-              : t('未知'),
-        ),
+        field(t('房间类型'), roomTypeName),
         ...(creator?.nickname ? [field(t('创建者'), creator.nickname)] : []),
         ...(room.tags?.length ? [field(t('音乐标签'), room.tags.join(' · '))] : []),
       )
