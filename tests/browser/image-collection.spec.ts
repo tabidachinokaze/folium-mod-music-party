@@ -1,6 +1,107 @@
 import { expect, test } from '@playwright/test'
 
 // tests/browser/image-collection.spec.ts
+test('room image menus stay usable in a fixed player shell and across chat refreshes', async ({
+  page,
+  request,
+}) => {
+  await request.get('/test/reset')
+  let historyReads = 0,
+    appendMessage = false
+  const fixtures = [
+    { sendUid: 9, emojiId: 0, emojiGroupId: 0, width: 2560, height: 1392, format: 'png' },
+    { sendUid: 10, emojiId: 773, emojiGroupId: 1, width: 320, height: 240, format: 'jpeg' },
+    { sendUid: 9, emojiId: 0, emojiGroupId: 0, width: 1238, height: 894, format: 'png' },
+  ]
+  await page.route('https://p1.music.126.net/fixture_no_extension_*', (route) => {
+    const index = Number(new URL(route.request().url()).pathname.split('_').at(-1)),
+      fixture = fixtures[index]
+    return route.fulfill({
+      contentType: 'image/svg+xml',
+      body: `<svg xmlns="http://www.w3.org/2000/svg" width="${fixture.width}" height="${fixture.height}"/>`,
+    })
+  })
+  await page.route('**/rpc', async (route) => {
+    const payload = route.request().postDataJSON()
+    if (payload.name !== 'call' || payload.args[0]?.method !== 'multiChatHistory')
+      return route.continue()
+    const response = await route.fetch(),
+      body = await response.json()
+    historyReads++
+    body.result.data.data.records = fixtures.map((fixture, index) => ({
+      sendUid: fixture.sendUid,
+      nickname: fixture.sendUid === 9 ? '晚风' : '小岛',
+      sendTime: 1791040000000 + index,
+      msgType: 0,
+      emoji: {
+        ...fixture,
+        emojiName: 'image.png',
+        emojiImgUrl: `https://p1.music.126.net/fixture_no_extension_${index}`,
+      },
+      imChatRoomMsgBody: { text: '[image.png]' },
+    }))
+    if (appendMessage)
+      body.result.data.data.records.push({
+        sendUid: 10,
+        nickname: '小岛',
+        sendTime: 1791040000004,
+        msgType: 0,
+        imChatRoomMsgBody: { text: '新的聊天消息' },
+      })
+    return route.fulfill({ json: body })
+  })
+  await page.goto('/')
+  // Folia's fixed app shell does not give body a layout height. Its overflow
+  // belongs to the viewport, not an empty rectangular clipping ancestor.
+  await page.evaluate(() => {
+    const shell = document.createElement('div')
+    shell.style.cssText = 'position:fixed;inset:0;overflow:hidden'
+    shell.append(...document.body.childNodes)
+    document.body.append(shell)
+    document.body.style.overflow = 'hidden'
+  })
+  await expect.poll(() => page.evaluate(() => document.body.getBoundingClientRect().height)).toBe(0)
+  await page.getByRole('button', { name: '恢复当前房间', exact: true }).click()
+  await page.getByRole('tab', { name: '聊天', exact: true }).click()
+  const chat = page.locator('.mp-chat-view'),
+    menu = chat.getByRole('menu'),
+    images = chat.locator('.mp-message-content img')
+  await expect(images).toHaveCount(3)
+  for (const image of await images.all()) {
+    await image.click({ button: 'right' })
+    await expect(
+      menu.getByRole('menuitem', { name: '添加到我的表情包', exact: true }),
+    ).toBeVisible()
+    await expect
+      .poll(async () => {
+        const popup = await menu.boundingBox(),
+          history = await chat.locator('.mp-history').boundingBox()
+        return (
+          !!popup &&
+          !!history &&
+          popup.y >= history.y &&
+          popup.y + popup.height <= history.y + history.height
+        )
+      })
+      .toBe(true)
+    await page.keyboard.press('Escape')
+  }
+  const lastImage = images.last()
+  await lastImage.click({ button: 'right' })
+  await lastImage.evaluate((node) => {
+    ;(window as any).openedMessageImage = node
+  })
+  const before = historyReads
+  appendMessage = true
+  await expect.poll(() => historyReads, { timeout: 10000 }).toBeGreaterThan(before)
+  await expect(chat.getByText('新的聊天消息', { exact: true })).toBeVisible()
+  await expect(menu).toBeVisible()
+  expect(await lastImage.evaluate((node) => node === (window as any).openedMessageImage)).toBe(true)
+  await page.keyboard.press('Escape')
+  const calls = (await (await request.get('/test/state')).json()).calls
+  expect(calls).not.toContain('saveSticker')
+})
+
 test('own room and private images can be saved as stickers without treating avatars as messages', async ({
   page,
   request,

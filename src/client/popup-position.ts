@@ -138,6 +138,11 @@ function visibleHistoryBounds(anchor: HTMLElement): VerticalBounds | undefined {
     bottom: history.getBoundingClientRect().bottom,
   }
   for (const parent of ancestors(history).slice(1)) {
+    // Root/body overflow is propagated to the viewport. Folia's fixed app shell
+    // leaves their layout boxes at height zero; they do not clip that shell to
+    // an empty rectangle. contextualPopupPosition already clamps the viewport.
+    if (parent === anchor.ownerDocument.body || parent === anchor.ownerDocument.documentElement)
+      continue
     if (!/(?:auto|scroll|hidden|clip)/.test(getComputedStyle(parent).overflowY)) continue
     const rect = parent.getBoundingClientRect()
     visible.top = Math.max(visible.top, rect.top)
@@ -157,6 +162,10 @@ export function mountPopup(popup: HTMLElement, anchor: HTMLElement, options: Pop
   const isOpen = () => popup.matches(':popover-open')
   function position() {
     if (!isOpen()) return
+    if (!anchor.isConnected) {
+      close()
+      return
+    }
     if (options.placement === 'contextual') {
       const rect = anchor.getBoundingClientRect(),
         viewport = { width: window.innerWidth, height: window.innerHeight },

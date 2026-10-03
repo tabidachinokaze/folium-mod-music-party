@@ -27,10 +27,7 @@ export function mountLobby(controller: PartyController) {
     ),
   )
   existing.append(info, existingActions)
-  const discover = card(
-    t('开启一场一起听'),
-    t('用当前网易云歌曲创建房间，或寻找同样喜欢音乐的人。'),
-  )
+  const discover = card(t('开启一场一起听'), t('用所选歌曲创建房间，或寻找同样喜欢音乐的人。'))
   const songPicker = mountMatchSongPicker(controller)
   const toggle = el('label', 'mp-stranger-toggle')
   const checkbox = el('input')
@@ -39,7 +36,7 @@ export function mountLobby(controller: PartyController) {
   toggle.append(el('span', '', t('允许陌生人匹配')), checkbox)
   const actions = el('div', 'mp-row')
   const create = button(
-    t('用当前歌曲创建'),
+    t('创建'),
     () => void controller.run(() => controller.enter('create', '', checkbox.checked)),
     'primary mp-command',
   )
@@ -100,7 +97,7 @@ export function mountLobby(controller: PartyController) {
         : t('重新匹配会退出当前房间，寻找新的听友。')
       discover.querySelector('p')!.textContent = state.room
         ? t('换一个房间，和新的朋友分享音乐。')
-        : t('用当前网易云歌曲创建房间，或寻找同样喜欢音乐的人。')
+        : t('用所选歌曲创建房间，或寻找同样喜欢音乐的人。')
       discover.querySelector('h3')!.textContent = state.room
         ? t('遇见新的听友')
         : t('开启一场一起听')

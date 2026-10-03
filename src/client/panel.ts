@@ -97,8 +97,36 @@ export function mountPanel(
         return node
       }
       const creator = room.members.find((member) => member.uid === room.creatorId)
+      const roomTypeName =
+        room.roomBizType === 1
+          ? t('私密好友房')
+          : room.roomBizType === 2
+            ? t('公开好友房')
+            : room.roomBizType === 3
+              ? t('公开匹配房')
+              : t('未知类型')
       roomDetails.replaceChildren(
         field(t('在线成员'), t('{count} 人', { count: room.onlineCount ?? room.members.length })),
+        field(
+          t('房间类型'),
+          room.roomBizType == null
+            ? t('未知')
+            : t('{name}（roomBizType: {type}）', {
+                name: roomTypeName,
+                type:
+                  typeof room.roomBizType === 'string'
+                    ? JSON.stringify(room.roomBizType)
+                    : room.roomBizType,
+              }),
+        ),
+        field(
+          t('允许陌生人匹配'),
+          room.allowStrangerMatch === true
+            ? t('是')
+            : room.allowStrangerMatch === false
+              ? t('否')
+              : t('未知'),
+        ),
         ...(creator?.nickname ? [field(t('创建者'), creator.nickname)] : []),
         ...(room.tags?.length ? [field(t('音乐标签'), room.tags.join(' · '))] : []),
       )

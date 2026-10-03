@@ -24,8 +24,8 @@
   "localFileHashes": {
     "main/service.ts": "3b674077ed56810bb28e4e525681863f077a8654541f6f8c7843cb5e892ecf58",
     "main/multi-api.ts": "949b39e49fccc41d7d128bfa645c715e765c2eb388e097840d56f65fd084293b",
-    "shared/types.ts": "e97707cbc94fe0c000d00aa512f404079a161af55bd3d49668cd01ef2b30de75",
-    "shared/multiplayer.ts": "917ff9283079ac8d977ec9a8418df08f3c2bed9e55888ebd72f54946c95c993b",
+    "shared/types.ts": "4ce46d19d0f34869f10caa3d378d03cac404d701bb5b43f2aebbce222d1c9439",
+    "shared/multiplayer.ts": "4c792d0eabd44e6c9c0e770b1e2c3d6ba0ee6a3dad28fc4dff6f3db6cd2671be",
     "shared/message-content.ts": "692d25dbf490070814d3d58e6f6b914512c83f03b156c6bf0e15a802605aa4b1",
     "shared/message-action.ts": "aff114e6fda0af854851eb392455ed229714c8b7a74fb70beb51c822c212ffb8",
     "shared/stickers.ts": "651f9abec4823094e5ed0cab91f0f39f110ec3650e8655c95668f17a65827053",

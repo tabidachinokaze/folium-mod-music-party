@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { verifyAlbumAuditionAndRemote, verifyPrivateSongChoices } from './folia-resources'
 import { installFavoriteProbe } from './folia-favorites'
+import { verifyNativeStickerMenu } from './folia-sticker-menu'
 
 // tests/browser/folia.spec.ts
 // Optional integration against the real patched Folia dev renderer and audio pipeline.
@@ -348,6 +349,7 @@ test('actual Folium registration and host audio: restore, native next, local pau
   await expect(palette.getByText('待播歌曲 9', { exact: true })).toBeVisible()
   await page.keyboard.press('Escape')
   await page.keyboard.press('Escape')
+  await verifyNativeStickerMenu(page)
   await page.evaluate(() => (window as any).partyHost.api.ui.navigate('home'))
   await page.getByRole('button', { name: '私信', exact: true }).click()
   await page.getByRole('button', { name: '小岛 · 1 未读', exact: true }).click()

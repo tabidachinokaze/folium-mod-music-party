@@ -59,8 +59,7 @@ export const enRuntime: Record<string, string> = {
     'This Folia version does not support Music Party playback v2. Install the compatible Folia release.',
   请先连接网易云账号: 'Connect your NetEase account first.',
   请先取消匹配: 'Cancel matching first.',
-  '请先在 Folia 播放一首网易云歌曲，再创建多人房间':
-    'Play a NetEase song in Folia before creating a room.',
+  '请选择一首网易云歌曲，再创建多人房间': 'Choose a NetEase song before creating a room.',
   '账号已经在多人房间中，请使用“恢复当前房间”':
     'You are already in a room. Use “Restore current room”.',
   账号当前没有官方多人房间: 'Your account is not currently in a multiplayer room.',

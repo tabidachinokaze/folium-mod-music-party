@@ -314,11 +314,14 @@ export class PartyController {
     if (this.state.matching) throw new Error(t('请先取消匹配'))
     if (this.state.room) throw new Error(t('请先退出当前房间'))
     const invite = kind === 'join' ? parseInvitation(input) : null
-    const song = this.folium.playback.getState().song
     const matchSong = this.getMatchSong()
+    const songId = matchSong?.id
     const uid = this.state.account?.uid
-    if (kind === 'create' && (song?.source !== 'netease' || !/^[1-9]\d*$/.test(song.id || ''))) {
-      throw new Error(t('请先在 Folia 播放一首网易云歌曲，再创建多人房间'))
+    if (
+      kind === 'create' &&
+      (matchSong?.source !== 'netease' || !/^[1-9]\d*$/.test(songId || ''))
+    ) {
+      throw new Error(t('请选择一首网易云歌曲，再创建多人房间'))
     }
     const epoch = ++this.epoch
     ++this.roomCheck
@@ -338,7 +341,7 @@ export class PartyController {
           kind === 'join' ? 'multiJoin' : 'multiCreate',
           invite
             ? { roomId: invite.roomId, inviterUid: invite.inviterUid }
-            : { songId: song!.id, allowStrangerMatch },
+            : { songId: songId!, allowStrangerMatch },
         )
         raw = result.data?.multiLtRoomSnapshot
       }

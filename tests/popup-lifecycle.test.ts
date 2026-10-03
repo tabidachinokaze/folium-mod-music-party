@@ -8,6 +8,7 @@ function environment() {
   const frames = new Map<number, FrameRequestCallback>()
   let nextFrame = 0,
     open = false,
+    connected = true,
     height = 330
   const listeners = { addEventListener: vi.fn(), removeEventListener: vi.fn() }
   const doc = { ...listeners }
@@ -37,6 +38,9 @@ function environment() {
     ownerDocument: doc,
     parentElement: null,
     hidden: false,
+    get isConnected() {
+      return connected
+    },
     closest: () => null,
     getRootNode: () => doc,
     setAttribute: vi.fn(),
@@ -60,6 +64,12 @@ function environment() {
   return {
     popup,
     style,
+    detach() {
+      connected = false
+    },
+    get open() {
+      return open
+    },
     setHeight(value: number) {
       height = value
     },
@@ -103,4 +113,15 @@ it('cancels a pending placement when closed and schedules fresh geometry when re
   expect(view.style.top).toBe('778px')
   view.popup.dispose()
   expect(view.pendingFrames).toBe(0)
+})
+
+it('closes a popup when its message anchor was removed before the next layout check', () => {
+  const view = environment()
+  view.popup.open()
+  expect(view.open).toBe(true)
+  view.detach()
+  view.frame()
+  expect(view.open).toBe(false)
+  expect(view.pendingFrames).toBe(0)
+  view.popup.dispose()
 })

@@ -53,7 +53,7 @@ export function mountMatchSongPicker(controller: PartyController) {
   submit.type = 'submit'
   form.append(input, submit)
   const useCurrent = button(t('使用当前歌曲'), () => choose(null), 'mp-match-current')
-  const status = el('p', 'mp-muted', t('搜索并选择下一次匹配使用的歌曲'))
+  const status = el('p', 'mp-muted', t('搜索并选择用于创建或匹配房间的歌曲'))
   status.setAttribute('role', 'status')
   const results = el('div', 'mp-match-song-results')
   results.setAttribute('aria-label', t('匹配歌曲搜索结果'))
@@ -74,7 +74,7 @@ export function mountMatchSongPicker(controller: PartyController) {
     popupControl.close()
     input.value = ''
     results.replaceChildren()
-    status.textContent = t('搜索并选择下一次匹配使用的歌曲')
+    status.textContent = t('搜索并选择用于创建或匹配房间的歌曲')
   }
   function choose(song: HostSong | null) {
     if (!song && !controller.currentMatchSong()) return
@@ -103,7 +103,7 @@ export function mountMatchSongPicker(controller: PartyController) {
     const query = input.value.trim()
     results.replaceChildren()
     if (!query) {
-      status.textContent = t('搜索并选择下一次匹配使用的歌曲')
+      status.textContent = t('搜索并选择用于创建或匹配房间的歌曲')
       position()
       return
     }
@@ -119,7 +119,7 @@ export function mountMatchSongPicker(controller: PartyController) {
       )
         return
       status.textContent = songs.length
-        ? t('{count} 首歌曲 · 仅用于匹配', { count: songs.length })
+        ? t('{count} 首歌曲 · 用于创建或匹配', { count: songs.length })
         : t('没有找到歌曲，试试其他关键词')
       for (const song of songs) {
         const pick = button('', () => choose(song), 'mp-match-song-result')

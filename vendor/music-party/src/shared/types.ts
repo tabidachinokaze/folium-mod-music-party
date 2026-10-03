@@ -151,6 +151,10 @@ export interface RoomSnapshot {
   creatorId?: string
   createdAt?: number
   tags?: string[]
+  /** Server room type; unknown scalar values are retained for display. */
+  roomBizType?: number | string | null
+  /** Server-confirmed visibility; null/absent means the room type is unknown. */
+  allowStrangerMatch?: boolean | null
   roomId: string
   playback: RoomPlayback | null
   members: Member[]

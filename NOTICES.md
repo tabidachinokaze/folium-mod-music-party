@@ -9,3 +9,5 @@
 `vendor/folium/contract.ts` 是宿主公开契约的类型快照，用于插件的编译期校验，来自 Folia 同名开发分支；来源提交和文件校验值见同目录 `provenance.json`。它沿用 Folia 的 AGPL-3.0 许可证，构建时仅使用类型，不执行该模块。
 
 多人匹配通知由 `src/main/mini-codec.ts` 和 `src/main/mini-notifications.ts` 实现音乐专用 mini 通道的协议兼容。官方 Android 资料用于核对公开应用标识、公开服务器公钥、帧格式和字段，未打包反编译代码。使用 Node.js 自带的网络、加密和压缩模块；RC4 仅用于兼容该服务的既有流协议。0.3.6 起不再分发 `nim-web-sdk-ng`。
+
+0.3.17 的房间公开状态使用服务端 `roomBizType`：官方 RN 房间类型枚举为 `PrivateFriend = 1`、`PublicFriend = 2`、`Public = 3`，Android bridge 的 `getRoomType` 返回该字段。仅据已核实的类型判断陌生人匹配状态，其他值保留为未知。官方资料仅用于协议字段核对，未随插件分发。

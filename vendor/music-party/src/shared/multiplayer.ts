@@ -10,6 +10,27 @@ function id(value: unknown): string {
 function finite(value: unknown, fallback = 0) {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : fallback
 }
+function parseRoomBizType(value: unknown): number | string | null {
+  if (value === '1' || value === '2' || value === '3') return Number(value)
+  if (typeof value === 'string' || (typeof value === 'number' && Number.isFinite(value))) return value
+  return null
+}
+function roomAllowsStrangerMatch(value: unknown): boolean | null {
+  // Official rn-tt-search ROOM_TYPE: PrivateFriend=1, PublicFriend=2, Public=3.
+  // Its getRoomType bridge reads RoomInfo.roomBizType, not the local create toggle.
+  switch (value) {
+    case 1:
+    case '1':
+      return false
+    case 2:
+    case '2':
+    case 3:
+    case '3':
+      return true
+    default:
+      return null
+  }
+}
 function queueSong(value: any): QueueSong {
   return {
     songId: id(value.songId),
@@ -73,6 +94,8 @@ export function parseSnapshot(value: any, sampledAt: number): RoomSnapshot {
       : null
   return {
     roomId: value.roomId,
+    roomBizType: parseRoomBizType(info?.roomBizType),
+    allowStrangerMatch: roomAllowsStrangerMatch(info?.roomBizType),
     creatorId: info?.creatorId == null ? undefined : String(info.creatorId),
     createdAt: finite(info?.roomCreateTime) || undefined,
     tags: Array.isArray(value.roomTagList) ? value.roomTagList.filter((tag: unknown) => typeof tag === "string") : [],

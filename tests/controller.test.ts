@@ -426,7 +426,34 @@ it('captures the matching song before leaving, rejects changes during that reque
   controller.dispose()
 })
 
-it('keeps creation tied to current playback while a different matching song is selected', async () => {
+it.each([true, false])(
+  'creates with the card selection whether a different local song is playing=%s',
+  async (playing) => {
+    const { controller, host, api } = setup()
+    api.call.mockImplementation(
+      async (method) =>
+        ({
+          code: 200,
+          data: {
+            success: true,
+            multiLtRoomSnapshot: method === 'multiCreate' ? rawSnapshot() : null,
+            songLists: [],
+            records: [],
+            page: { more: false },
+          },
+        }) as any,
+    )
+    await controller.connect()
+    host.state.song = playing ? song('1') : null
+    controller.selectMatchSong(song('22'))
+    await controller.enter('create', '', true)
+    expect(api.call).toHaveBeenCalledWith('multiCreate', { songId: '22', allowStrangerMatch: true })
+    expect(controller.state.matchSong?.id).toBe('22')
+    controller.dispose()
+  },
+)
+
+it('captures the default selected song before checking room status, even if playback changes', async () => {
   const { controller, host, api } = setup()
   api.call.mockImplementation(
     async (method) =>
@@ -443,9 +470,28 @@ it('keeps creation tied to current playback while a different matching song is s
   )
   await controller.connect()
   host.state.song = song('1')
-  controller.selectMatchSong(song('22'))
-  await controller.enter('create')
+  let finish!: (value: any) => void
+  api.call.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve
+      }),
+  )
+  const creating = controller.enter('create')
+  host.state.song = song('2')
+  finish({ code: 200, data: { multiLtRoomSnapshot: null } })
+  await creating
   expect(api.call).toHaveBeenCalledWith('multiCreate', { songId: '1', allowStrangerMatch: false })
+  expect(controller.state.matchSong?.id).toBe('1')
+  controller.dispose()
+})
+
+it('rejects creation with no valid selected NetEase song before making a room request', async () => {
+  const { controller, api } = setup()
+  await controller.connect()
+  api.call.mockClear()
+  await expect(controller.enter('create')).rejects.toThrow('请选择一首网易云歌曲，再创建多人房间')
+  expect(api.call).not.toHaveBeenCalled()
   controller.dispose()
 })
 

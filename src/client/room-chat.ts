@@ -8,7 +8,7 @@ import { createComposerTools, uploadImage } from './private-tools'
 import { mountStickerMenu } from './sticker-menu'
 import { mountComposerSubmit } from './composer-submit'
 
-import { t } from './i18n'
+import { getLocale, t } from './i18n'
 
 // src/client/room-chat.ts
 export function mountRoomChat(container: HTMLElement, controller: PartyController) {
@@ -90,6 +90,7 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
     lastScrollHeight = history.scrollHeight,
     roomId = ''
   let previous: ChatMessage[] = []
+  const rows = new Map<string, { signature: string; node: HTMLElement }>()
   const toLatest = () => {
     cancelAnimationFrame(frame)
     frame = requestAnimationFrame(() => {
@@ -171,6 +172,7 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
     if (state.room?.roomId !== roomId) {
       roomId = state.room?.roomId || ''
       previous = []
+      rows.clear()
       followLatest = true
       draft.value = ''
       mentions.close()
@@ -182,24 +184,43 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
       height = history.scrollHeight
     const prepended =
       previous.length > 0 && state.messages.findIndex((m) => m.id === previous[0].id) > 0
-    history.replaceChildren(
-      ...state.messages.map((message) => {
-        const row = messageNode(message, message.uid === state.account?.uid, controller.folium.ui)
-        decorateRoomMessage(
-          row,
-          {
-            ...message,
-            avatar:
-              message.avatar ||
-              state.room?.members.find((member) => member.uid === message.uid)?.avatar ||
-              '',
-          },
-          state.account?.nickname || '',
-          mentions.mention,
-        )
-        return row
-      }),
-    )
+    const visibleIds = new Set(state.messages.map((message) => message.id))
+    for (const id of rows.keys()) if (!visibleIds.has(id)) rows.delete(id)
+    const displayContext = [getLocale(), new Date().toDateString()]
+    const nodes = state.messages.map((message) => {
+      const avatar =
+        message.avatar ||
+        state.room?.members.find((member) => member.uid === message.uid)?.avatar ||
+        ''
+      const signature = JSON.stringify([
+        message,
+        avatar,
+        state.account?.uid,
+        state.account?.nickname,
+        displayContext,
+      ])
+      const existing = rows.get(message.id)
+      if (existing?.signature === signature) return existing.node
+      const row = messageNode(message, message.uid === state.account?.uid, controller.folium.ui)
+      decorateRoomMessage(
+        row,
+        { ...message, avatar },
+        state.account?.nickname || '',
+        mentions.mention,
+      )
+      rows.set(message.id, { signature, node: row })
+      return row
+    })
+    // Polling and newly arriving messages must not detach existing images:
+    // collection menus retain their anchor, and decoded media stays in place.
+    const retained = new Set<HTMLElement>(nodes)
+    for (const child of Array.from(history.children))
+      if (!retained.has(child as HTMLElement)) child.remove()
+    let next = history.firstChild
+    for (const node of nodes) {
+      if (node === next) next = next.nextSibling
+      else history.insertBefore(node, next)
+    }
     if (!state.messages.length) history.append(el('p', 'mp-empty', t('还没有聊天消息')))
     previous = state.messages
     if (!visible) return
@@ -226,6 +247,7 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
     },
     dispose() {
       disposed = true
+      rows.clear()
       stop()
       cancelAnimationFrame(frame)
       resize.disconnect()
