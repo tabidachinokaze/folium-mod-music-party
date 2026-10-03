@@ -155,9 +155,10 @@ async function loadSecondPage(library: Locator) {
 const item = (library: Locator, index: number, group = '1', uid = 9) =>
   library.locator(`[data-sticker-key="${key(index, group, uid)}"]`)
 async function offset(library: Locator, index: number) {
-  const bounds = (await item(library, index).boundingBox())!,
-    list = (await library.locator('.mp-sticker-scroll').boundingBox())!
-  return bounds.y - list.y
+  return item(library, index).evaluate((node) => {
+    const list = node.closest('.mp-sticker-scroll')!
+    return node.getBoundingClientRect().top - list.getBoundingClientRect().top
+  })
 }
 async function selectForRemoval(library: Locator, index: number) {
   await library.getByRole('button', { name: '整理', exact: true }).click()
@@ -167,6 +168,39 @@ async function selectForRemoval(library: Locator, index: number) {
 test.beforeEach(async ({ request, page }) => {
   await request.get('/test/reset')
   await page.setViewportSize({ width: 1000, height: 740 })
+})
+
+test('closing before the queued scroll event preserves the final reading position', async ({
+  page,
+}) => {
+  const { state } = await mockLibrary(page)
+  const library = await roomLibrary(page)
+  await loadSecondPage(library)
+  const before = state.pages.length
+  const anchor = await library.evaluate((node, stickerKey) => {
+    const list = node.querySelector<HTMLElement>('.mp-sticker-scroll')!,
+      sticker = node.querySelector<HTMLElement>(`[data-sticker-key="${stickerKey}"]`)!
+    // Establish a different saved position, then close in the same task as scrolling.
+    list.scrollTop = 0
+    list.dispatchEvent(new Event('scroll'))
+    list.scrollTop = 280
+    const offset = sticker.getBoundingClientRect().top - list.getBoundingClientRect().top
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    return offset
+  }, key(21))
+  await expect(library).toBeHidden()
+  // Wait for details' toggle handler, which restores the cached position on reopen.
+  await library.evaluate(async (node) => {
+    const box = node.closest('details')!
+    const opened = new Promise<void>((resolve) => {
+      box.addEventListener('toggle', () => resolve(), { once: true })
+    })
+    box.querySelector('summary')!.click()
+    await opened
+  })
+  await expect(library).toBeVisible()
+  expect(Math.abs((await offset(library, 21)) - anchor)).toBeLessThan(2)
+  expect(state.pages).toHaveLength(before)
 })
 
 test('deleting one sticker keeps loaded image nodes, reading position and the next-page cursor', async ({

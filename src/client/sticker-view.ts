@@ -453,6 +453,15 @@ export function createStickerPicker(
     },
     { passive: true },
   )
+  const saveBeforeClose = (event: ToggleEvent) => {
+    if (event.newState !== 'closed' || disposed || accountUid !== controller.state.account?.uid)
+      return
+    const group = activeGroup()
+    // A scroll event can still be queued when Escape or a click closes the picker.
+    // Read the final position before hiding makes the anchor rectangles unavailable.
+    if (group && content.matches(':popover-open')) group.scroll = captureScroll()
+  }
+  content.addEventListener('beforetoggle', saveBeforeClose)
   box.addEventListener('toggle', () => {
     if (!box.open || !controller.state.account) return
     render(true)
@@ -504,6 +513,7 @@ export function createStickerPicker(
       epoch++
       stopCollection()
       stopAccount()
+      content.removeEventListener('beforetoggle', saveBeforeClose)
       popup.dispose()
     },
   }
