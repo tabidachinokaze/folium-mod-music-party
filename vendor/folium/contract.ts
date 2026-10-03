@@ -842,6 +842,7 @@ export interface FoliumEvents {
 /** EXPERIMENTAL (`playback.sessions`): user intent while a mod owns the player. */
 export type FoliumPlaybackSessionIntent =
     | { type: 'play'; song: FoliumSong }
+    | { type: 'audition'; song: FoliumSong }
     | { type: 'enqueue'; songs: readonly FoliumSong[] }
     | { type: 'next' | 'previous' | 'ended' | 'playback-error' }
     | { type: 'seek'; seconds: number; resume: boolean }
@@ -883,6 +884,12 @@ export interface FoliumPlaybackQueue {
     actions?: readonly FoliumQueueAction[];
     /** Toolbar action used in place of a configured shuffle button. */
     syncActionId?: string;
+    /** Toolbar action that resumes the owning session after a local audition. Omit outside audition. */
+    resumeActionId?: string;
+    /** Whether transport seeking is currently meaningful. Defaults to false. */
+    canSeek?: boolean;
+    /** Whether the previous transport command is currently meaningful. Defaults to false. */
+    canPrevious?: boolean;
     /** Whether the session can accept a next-track request, independent of local queue length. */
     canNext: boolean;
     /** Total entries expected while loading; defaults to entries.length. */
@@ -919,6 +926,8 @@ export interface FoliumPlaybackSessions {
     readonly version: 2;
     /** Whether sessions can hand the current source back to ordinary playback without stopping it. */
     readonly supportsHandoff?: boolean;
+    /** Whether owners may opt in to separate local auditions from queue/recommend actions. */
+    readonly supportsAudition?: boolean;
     /** Resolve an online provider's opaque media ID through Omni, returning a host song ref. */
     resolveSong(provider: string, id: string): Promise<FoliumSong>;
     /** FM, Stage, video recording, active transitions and another session are rejected before changing playback. */
@@ -926,6 +935,8 @@ export interface FoliumPlaybackSessions {
         onIntent: (intent: FoliumPlaybackSessionIntent) => void | Promise<void>;
         /** Explicit restoration policy: queue restored, current source cleared, no automatic playback. */
         restore: 'queue-stopped';
+        /** Receive audition intents for play actions; retain room state and implement local audition/return. */
+        audition?: boolean;
     }): FoliumPlaybackSession;
 }
 
@@ -979,6 +990,8 @@ export interface FoliumPlaybackService {
     previous(): void;
     /** Plays a song by its host `ref`. Resolves false when the ref is unknown. Needs `playback.control`. */
     playSong(song: FoliumSong): Promise<boolean>;
+    /** Audition a host-ref song locally; false if an active owner does not support audition. Never enqueues. Needs `playback.control`. */
+    auditionSong(song: FoliumSong): Promise<boolean>;
     /** Appends a song (by `ref`) to the queue. Needs `playback.control`. */
     enqueue(song: FoliumSong): boolean;
     /**

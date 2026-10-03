@@ -21,6 +21,7 @@ export const enRoom: Record<string, string> = {
   继续一起听: 'Continue listening together',
   你的账号已有一个多人房间: 'Your account already has a group room',
   恢复当前房间: 'Resume current room',
+  退出当前房间: 'Leave current room',
   开启一场一起听: 'Start listening together',
   '用当前网易云歌曲创建房间，或寻找同样喜欢音乐的人。':
     'Create a room with the current NetEase song, or find people who share your taste.',

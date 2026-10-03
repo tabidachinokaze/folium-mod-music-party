@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { verifyAlbumAuditionAndRemote, verifyPrivateSongChoices } from './folia-resources'
 
 // tests/browser/folia.spec.ts
 // Optional integration against the real patched Folia dev renderer and audio pipeline.
@@ -16,7 +17,7 @@ test('actual Folium registration and host audio: restore, native next, local pau
   await page.addInitScript(() => {
     localStorage.clear()
     localStorage.setItem('i18nextLng', 'zh-CN')
-    localStorage.setItem('folia_last_seen_ponder_onboarding_version', '0.7.17')
+    localStorage.setItem('folia_last_seen_ponder_onboarding_version', '0.7.18')
     localStorage.setItem('online_provider:netease:cookie', 'MUSIC_U=test-only')
     localStorage.setItem('static_mode', 'true')
     localStorage.setItem('player_loop_mode', 'one')
@@ -27,6 +28,14 @@ test('actual Folium registration and host audio: restore, native next, local pau
       clearAudioCache: async () => {},
       getAudioCacheStats: async () => ({ size: 0, count: 0 }),
       isWindowMaximized: async () => false,
+      getPlaybackSyncBridgeStatus: async () => ({
+        remoteControlOpen: true,
+        discordPresenceEnabled: false,
+      }),
+      publishRemoteControlSnapshot: async (snapshot: unknown) => {
+        ;(window as any).partyRemoteSnapshot = snapshot
+      },
+      reportDevicePixelRatio: () => {},
       onRemoteControlCommand: (callback: any) => {
         ;(window as any).partyRemote = callback
         return () => {}
@@ -86,7 +95,7 @@ test('actual Folium registration and host audio: restore, native next, local pau
         id: 'music-party',
         name: 'Music Party',
         permissions: ['playback.control'],
-        folia: '>=0.7.13 <=0.7.17',
+        folia: '>=0.7.13 <=0.7.18',
         experimental: ['playback.sessions'],
       },
       {
@@ -366,9 +375,11 @@ test('actual Folium registration and host audio: restore, native next, local pau
     }),
   ).toEqual(playbackBeforeAlbum)
   await page.screenshot({ path: 'test-results/folia-private-album.png', animations: 'disabled' })
+  await verifyAlbumAuditionAndRemote(page, request, foliaUrl!)
   await albumView.locator('button:has(svg.lucide-chevron-left)').first().click()
   await expect(albumView).toHaveCount(0)
   await expect(sharedAlbum).toBeVisible()
+  await verifyPrivateSongChoices(page, request)
   await page.getByTestId('home-lattice-pill').click()
   await expect(page.locator('.lattice-root')).toBeVisible()
   await expect(
@@ -387,7 +398,7 @@ test('actual Folium registration and host audio: restore, native next, local pau
     .locator('.lattice-poster.is-expanded')
     .getByRole('button', { name: '为这首歌点赞', exact: true })
     .click()
-  await expect.poll(async () => (await (await request.get('/test/state')).json()).likes).toBe(6)
+  await expect.poll(async () => (await (await request.get('/test/state')).json()).likes).toBe(7)
   await page.screenshot({ path: 'test-results/folia-lattice.png', fullPage: true })
   await page.evaluate(() => {
     ;(window as any).partyHost.api.ui.navigate('player')

@@ -7,7 +7,7 @@ import { privateResourceFixtures } from './private-resource-fixtures.mjs'
 
 // tests/server.mjs
 // All protocol writes in browser tests terminate here, never at NetEase.
-const port = 4176,
+const port = Number(process.env.MUSIC_PARTY_TEST_PORT) || 4176,
   origin = `http://127.0.0.1:${port}`
 const clientBuild = await build({
   entryPoints: ['src/client/index.ts'],
@@ -363,6 +363,7 @@ const server = createServer(async (req, res) => {
         album: {
           id: Number(args.id),
           name: '海边专辑',
+          type: '专辑',
           picUrl: 'https://p1.music.126.net/fixture/shared.jpg',
           artist: { id: 5, name: '示例歌手' },
           size: 1,

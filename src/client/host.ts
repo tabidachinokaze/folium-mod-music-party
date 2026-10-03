@@ -32,6 +32,7 @@ export interface Folium {
     play(): void
     pause(): void
     playSong(song: HostSong): Promise<boolean>
+    auditionSong?(song: HostSong): Promise<boolean>
   }
   ui: {
     navigate(view: 'home' | 'player'): void

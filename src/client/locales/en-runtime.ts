@@ -1,5 +1,9 @@
 // src/client/locales/en-runtime.ts
 export const enRuntime: Record<string, string> = {
+  '试听播放失败，已返回房间。': 'Audition playback failed. Returned to the room.',
+  '试听歌曲暂时无法播放，已返回房间。':
+    'This song is unavailable for audition. Returned to the room.',
+  '试听歌曲加载超时，已返回房间。': 'The audition timed out. Returned to the room.',
   '发送太频繁，请稍后重试': 'You are sending too quickly. Please try again later.',
   我: 'Me',
   听友: 'Listener',

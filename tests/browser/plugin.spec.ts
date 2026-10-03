@@ -335,6 +335,30 @@ test('lobby cards show only an existing room and separate link joining from crea
   await expect(page.getByRole('button', { name: '匹配房间', exact: true })).toBeVisible()
 })
 
+test('an available room can be left from its lobby card without taking over playback', async ({
+  page,
+  request,
+}) => {
+  await page.goto('/')
+  const existing = page.locator('.mp-lobby-card').filter({
+    has: page.getByRole('heading', { name: '继续一起听', exact: true }),
+  })
+  await expect(existing).toBeVisible()
+  const before = await page.evaluate(() => ({ ...(window as any).partyTest.state }))
+  expect(await page.evaluate(() => (window as any).partyTest.queue())).toBeUndefined()
+  await existing.getByRole('button', { name: '退出当前房间', exact: true }).click()
+  await expect(existing).toBeHidden()
+  await expect(page.getByRole('button', { name: '匹配房间', exact: true })).toBeEnabled()
+  await expect
+    .poll(async () => (await (await request.get('/test/state')).json()).joined)
+    .toBe(false)
+  const result = await (await request.get('/test/state')).json()
+  expect(result.calls.filter((call: string) => call.endsWith('/match/exit'))).toHaveLength(1)
+  expect(result.operations).toHaveLength(0)
+  expect(await page.evaluate(() => ({ ...(window as any).partyTest.state }))).toEqual(before)
+  expect(await page.evaluate(() => (window as any).partyTest.queue())).toBeUndefined()
+})
+
 test('official matching notification enters a room while pending and leaving preserve playback', async ({
   page,
   request,
@@ -992,7 +1016,36 @@ test('private activity and artist cards stay unified and open the correct destin
   expect(await page.evaluate(() => (window as any).partyTest.openedAlbums)).toEqual([
     { provider: 'netease', id: '700' },
   ])
-  await history.getByRole('button', { name: '推荐 海边单曲 到房间', exact: true }).click()
+  const sharedSong = history.getByRole('button', { name: '试听或推荐 海边单曲', exact: true }),
+    choice = page.getByRole('dialog', { name: '歌曲操作', exact: true })
+  await sharedSong.click()
+  await expect(choice).toBeVisible()
+  await expect(choice.locator('.mp-private-song-choice-info strong')).toHaveText('海边单曲')
+  await page.screenshot({ path: test.info().outputPath('private-song-choice.png') })
+  await choice.getByRole('button', { name: '取消', exact: true }).click()
+  await expect(choice).toBeHidden()
+  expect((await (await request.get('/test/state')).json()).operations).toHaveLength(0)
+  expect(await page.evaluate(() => (window as any).partyTest.auditionedSongs)).toHaveLength(0)
+  await sharedSong.click()
+  await page.keyboard.press('Escape')
+  await expect(choice).toBeHidden()
+  await sharedSong.click()
+  await page.mouse.click(6, 6)
+  await expect(choice).toBeHidden()
+  await sharedSong.click()
+  await choice.getByRole('button', { name: '试听', exact: true }).click()
+  await expect(choice).toBeHidden()
+  await expect.poll(() => page.evaluate(() => (window as any).partyTest.state.song.id)).toBe('701')
+  expect(await page.evaluate(() => (window as any).partyTest.auditionedSongs)).toEqual(['701'])
+  expect(await page.evaluate(() => (window as any).partyTest.playedSongs)).toHaveLength(0)
+  expect((await (await request.get('/test/state')).json()).operations).toHaveLength(0)
+  expect((await (await request.get('/test/state')).json()).current).toBe('1')
+  await page.evaluate(() => (window as any).partyTest.openQueue())
+  await page.locator('#native-queue').getByRole('button', { name: '返回房间', exact: true }).click()
+  await expect.poll(() => page.evaluate(() => (window as any).partyTest.state.song.id)).toBe('1')
+  expect((await (await request.get('/test/state')).json()).operations).toHaveLength(0)
+  await sharedSong.click()
+  await choice.getByRole('button', { name: '推歌', exact: true }).click()
   await expect
     .poll(
       async () =>

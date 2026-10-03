@@ -7,9 +7,10 @@ else localStorage.removeItem('online_provider:netease:cookie')
 localStorage.setItem('active_online_provider_id', 'netease')
 const externalUrls = [],
   openedAlbums = [],
-  playedSongs = []
+  playedSongs = [],
+  auditionedSongs = []
 window.electron = {
-  getNeteasePort: async () => 4176,
+  getNeteasePort: async () => Number(location.port) || 4176,
   openExternalUrl: async (url) => {
     externalUrls.push(url)
     return true
@@ -221,6 +222,7 @@ const folium = {
       : {
           version: 2,
           supportsHandoff: true,
+          supportsAudition: true,
           resolveSong: async (_, id) => ({
             id,
             source: 'netease',
@@ -254,6 +256,9 @@ const folium = {
                 queueNode.hidden = true
               },
               release() {
+                intent = undefined
+                queue = undefined
+                queueNode.hidden = true
                 state.song = null
                 state.state = 'stopped'
               },
@@ -299,6 +304,14 @@ const folium = {
   },
   playback: {
     getState: () => ({ ...state }),
+    async auditionSong(song) {
+      auditionedSongs.push(song.id)
+      if (intent) {
+        intent({ type: 'audition', song })
+        return true
+      }
+      return folium.playback.playSong(song)
+    },
     async playSong(song) {
       playedSongs.push(song.id)
       if (intent) intent({ type: 'play', song })
@@ -421,6 +434,15 @@ queueNode.hidden = true
 document.body.append(queueNode)
 function renderQueue() {
   queueNode.replaceChildren()
+  for (const action of queue?.actions ?? []) {
+    const button = document.createElement('button')
+    const label = action.label[context.locale] || action.label.en
+    button.textContent = label
+    button.dataset.action = action.id
+    button.disabled = action.disabled ?? false
+    button.onclick = () => intent({ type: 'queue-action', entryId: null, actionId: action.id })
+    queueNode.append(button)
+  }
   for (const entry of queue?.entries ?? []) {
     const row = document.createElement('div')
     row.className = 'native-queue-entry'
@@ -462,6 +484,7 @@ window.partyTest = {
   externalUrls,
   openedAlbums,
   playedSongs,
+  auditionedSongs,
   pause: () => folium.playback.pause(),
   play: () => folium.playback.play(),
   setCurrentSong(song) {

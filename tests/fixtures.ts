@@ -65,6 +65,7 @@ export function fakeHost() {
   const bridge = {
     version: 2 as const,
     supportsHandoff: true,
+    supportsAudition: true,
     resolveSong: vi.fn(async (_: string, id: string) => song(id)),
     acquire: vi.fn(({ onIntent }: { onIntent: (event: Intent) => void }) => {
       dispatch = onIntent

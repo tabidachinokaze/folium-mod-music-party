@@ -79,21 +79,21 @@ describe('official multiplayer controller', () => {
     expect(api.call.mock.calls.some(([method]) => method === 'multiNext')).toBe(true)
     controller.dispose()
   })
-  it('recommends only explicit Netease selections, and ignores playback seeks', async () => {
+  it('auditions play selections locally and recommends only explicit Netease enqueue', async () => {
     const { controller, host, api } = setup()
     await controller.connect()
     await controller.enter('restore')
     api.call.mockClear()
     host.intent({
       type: 'play',
-      song: { id: '12', source: 'kugou', ref: null, title: '', artist: '', album: null },
+      song: { id: '12', source: 'kugou', ref: 'kugou-12', title: '', artist: '', album: null },
     })
     expect(api.call).not.toHaveBeenCalled()
     host.intent({ type: 'seek', seconds: 70, resume: false })
     expect(api.call).not.toHaveBeenCalled()
     host.intent({
-      type: 'play',
-      song: { id: '12', source: 'netease', ref: 'song-12', title: '', artist: '', album: null },
+      type: 'enqueue',
+      songs: [song('12')],
     })
     await vi.waitFor(() =>
       expect(api.call).toHaveBeenCalledWith('multiAdd', { roomId: 'official_room', songId: '12' }),
@@ -479,3 +479,32 @@ it('can match a searched song when nothing is playing without acquiring local pl
   expect(host.bridge.acquire).not.toHaveBeenCalled()
   controller.dispose()
 })
+
+it.each(['next', 'previous', 'ended'] as const)(
+  'returns from audition on %s without mutating the room',
+  async (type) => {
+    const { controller, host, api } = setup()
+    await controller.connect()
+    await controller.enter('restore')
+    await vi.waitFor(() => expect(host.state.song?.id).toBe('1'))
+    host.intent({ type: 'audition', song: song('local-preview') })
+    await vi.waitFor(() => expect(host.state.state).toBe('playing'))
+    expect(controller.state.auditioning).toBe(true)
+    expect(host.lease.setQueue.mock.lastCall![0]).toMatchObject({
+      resumeActionId: 'return-room',
+      canSeek: true,
+      canPrevious: true,
+    })
+    api.call.mockClear()
+    host.intent({ type: 'seek', seconds: 50, resume: false })
+    expect(host.lease.seek).toHaveBeenLastCalledWith(50)
+    host.intent({ type })
+    await vi.waitFor(() => expect(host.state.song?.id).toBe('1'))
+    expect(controller.state.auditioning).toBe(false)
+    expect(host.lease.setQueue.mock.lastCall![0].resumeActionId).toBeUndefined()
+    expect(api.call.mock.calls.some(([method]) => ['multiNext', 'multiAdd'].includes(method))).toBe(
+      false,
+    )
+    controller.dispose()
+  },
+)

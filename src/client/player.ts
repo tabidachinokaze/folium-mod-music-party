@@ -21,6 +21,9 @@ export class RoomPlayer {
   private applying = false
   private aligning = false
   private suppressPause = false
+  auditioning = false
+  private auditionListening = true
+  private metadataEpoch = 0
   private stopState: () => void
   constructor(
     private folium: Folium,
@@ -28,9 +31,15 @@ export class RoomPlayer {
     private now = () => performance.now(),
     private report = (_message: string) => {},
     private metadataChanged = () => {},
+    private auditionChanged = (_active: boolean) => {},
   ) {
     this.stopState = folium.events.on('playback.stateChanged', ({ state }) => {
       if (!this.lease || this.suppressPause || this.aligning) return
+      if (this.auditioning) {
+        if (state === 'paused') this.auditionListening = false
+        if (state === 'playing') this.auditionListening = true
+        return
+      }
       if (state === 'paused') this.listening = false
       if (state === 'playing') {
         this.listening = true
@@ -41,7 +50,7 @@ export class RoomPlayer {
   start(onIntent: (event: Intent) => void) {
     if (this.lease) return
     try {
-      this.lease = this.bridge.acquire({ onIntent, restore: 'queue-stopped' })
+      this.lease = this.bridge.acquire({ onIntent, restore: 'queue-stopped', audition: true })
     } catch (error: any) {
       const messages: Record<string, string> = {
         'external-playback-context-unavailable': t(
@@ -63,6 +72,7 @@ export class RoomPlayer {
   align(force = false) {
     if (
       !this.lease ||
+      this.auditioning ||
       !this.snapshot?.song ||
       !this.listening ||
       this.suspended ||
@@ -95,6 +105,11 @@ export class RoomPlayer {
     if (!this.lease || !shouldAccept(this.snapshot, next)) return
     this.snapshot = next
     this.suspended = false
+    if (this.auditioning) {
+      // Keep the room current while listening locally; only an explicit return changes the source.
+      void this.refreshMetadata(next)
+      return
+    }
     const key = next.song ? `${next.song.songId}:${next.song.songBizId}` : ''
     if (!key) {
       this.epoch++
@@ -136,16 +151,7 @@ export class RoomPlayer {
             : t('房间歌曲加载失败，请重新同步'),
         )
       // Folia loads metadata separately from its lyric fetch. Wait without advancing the room.
-      const deadline = this.now() + 20000
-      while (epoch === this.epoch) {
-        const state = this.folium.playback.getState()
-        if (state.song?.id === song.id && state.song.source === 'netease' && state.duration > 0)
-          break
-        if (this.now() >= deadline) throw new Error(t('房间歌曲加载超时，请重新同步'))
-        await new Promise<void>((resolve) => {
-          setTimeout(resolve, 100)
-        })
-      }
+      await this.waitForSource(song, epoch, t('房间歌曲加载超时，请重新同步'))
       if (epoch !== this.epoch) return
       this.loaded = key
       this.endedKey = ''
@@ -167,6 +173,78 @@ export class RoomPlayer {
       }
     }
   }
+  private async waitForSource(song: HostSong, epoch: number, timeoutMessage: string) {
+    const deadline = this.now() + 20000
+    while (epoch === this.epoch) {
+      const state = this.folium.playback.getState()
+      if (state.song?.id === song.id && state.song.source === song.source && state.duration > 0)
+        return
+      if (this.now() >= deadline) throw new Error(timeoutMessage)
+      await new Promise<void>((resolve) => setTimeout(resolve, 100))
+    }
+  }
+  private async refreshMetadata(next: RoomPlayback) {
+    const id = next.song?.songId
+    if (this.metadata?.id === id) return
+    const epoch = ++this.metadataEpoch
+    try {
+      const song = id ? await this.bridge.resolveSong('netease', id) : null
+      if (epoch !== this.metadataEpoch || !this.lease || this.snapshot?.song?.songId !== id) return
+      this.metadata = song
+      this.metadataChanged()
+    } catch {
+      // Metadata failure must not interrupt the separately loaded audition.
+    }
+  }
+  async audition(song: HostSong) {
+    const lease = this.lease
+    if (!lease) return
+    const epoch = ++this.epoch
+    this.auditioning = true
+    this.auditionListening = true
+    this.loaded = this.desired = this.endedKey = ''
+    this.task = null
+    this.applying = true
+    this.auditionChanged(true)
+    this.pauseInternally()
+    try {
+      const result = await lease.play(song)
+      if (epoch !== this.epoch) return
+      if (result.status === 'cancelled' || result.status === 'superseded') {
+        await this.returnToRoom()
+        return
+      }
+      if (result.status !== 'source-committed')
+        throw new Error(t('试听歌曲暂时无法播放，已返回房间。'))
+      await this.waitForSource(song, epoch, t('试听歌曲加载超时，已返回房间。'))
+      if (epoch !== this.epoch) return
+      this.applying = false
+      if (this.auditionListening) this.folium.playback.play()
+      else this.pauseInternally()
+    } catch (error) {
+      if (epoch !== this.epoch) return
+      this.report(error instanceof Error ? error.message : t('试听播放失败，已返回房间。'))
+      await this.returnToRoom()
+    } finally {
+      if (epoch === this.epoch) this.applying = false
+    }
+  }
+  seekAudition(seconds: number, resume: boolean) {
+    if (!this.auditioning || !this.lease || this.applying || !Number.isFinite(seconds)) return
+    const duration = this.folium.playback.getState().duration
+    this.lease.seek(Math.max(0, Math.min(seconds, Math.max(0, duration - 0.1))))
+    if (resume) this.folium.playback.play()
+  }
+  async returnToRoom() {
+    if (!this.auditioning || !this.lease) return
+    ++this.epoch
+    this.auditioning = false
+    this.loaded = this.desired = this.endedKey = ''
+    this.applying = false
+    this.auditionChanged(false)
+    if (this.snapshot && !this.suspended) await this.apply(this.snapshot)
+    else this.pauseInternally()
+  }
   private pauseInternally() {
     this.suppressPause = true
     try {
@@ -177,10 +255,11 @@ export class RoomPlayer {
   }
   suspend() {
     this.suspended = true
-    this.pauseInternally()
+    if (!this.auditioning) this.pauseInternally()
   }
   stop(continuePlayback = false) {
     this.epoch++
+    this.metadataEpoch++
     if (continuePlayback && this.lease?.handoff) this.lease.handoff()
     else this.lease?.release()
     this.lease = null
@@ -189,6 +268,10 @@ export class RoomPlayer {
     this.loaded = this.desired = ''
     this.task = null
     this.applying = false
+    if (this.auditioning) {
+      this.auditioning = false
+      this.auditionChanged(false)
+    }
   }
   dispose() {
     this.stop()

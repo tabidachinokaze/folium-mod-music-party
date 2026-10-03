@@ -13,14 +13,20 @@ export function mountLobby(controller: PartyController) {
   }
   const existing = card(t('继续一起听'), t('你的账号已有一个多人房间'))
   const info = el('div', 'mp-room-preview')
-  existing.append(
-    info,
+  const existingActions = el('div', 'mp-row')
+  existingActions.append(
     button(
       t('恢复当前房间'),
       () => void controller.run(() => controller.enter('restore')),
       'primary mp-command',
     ),
+    button(
+      t('退出当前房间'),
+      () => void controller.run(() => controller.leaveAvailableRoom()),
+      'danger mp-command',
+    ),
   )
+  existing.append(info, existingActions)
   const discover = card(
     t('开启一场一起听'),
     t('用当前网易云歌曲创建房间，或寻找同样喜欢音乐的人。'),

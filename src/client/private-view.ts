@@ -8,6 +8,7 @@ import { createPrivateTools } from './private-tools'
 import { privateMessageNode, privateMessageProfiles, type PrivateProfile } from './private-message'
 import { t } from './i18n'
 import { createPrivateResourceActions } from './private-actions'
+import { createPrivateSongChoice } from './private-song-choice'
 
 // src/client/private-view.ts
 export function mountPrivate(
@@ -28,11 +29,16 @@ export function mountPrivate(
     reading = false,
     sending = false
   const peers = new Map<string, Conversation>()
+  const songChoice = createPrivateSongChoice(container)
   const resourceActions = createPrivateResourceActions(
     controller,
     () => (!disposed && selected ? selected.uid : null),
     report,
+    undefined,
+    songChoice.choose,
   )
+  let actionAccount = controller.state.account?.uid,
+    actionRoom = controller.state.room?.roomId
   const profiles = new Map<string, PrivateProfile>()
   const contacts = el('div', 'mp-contacts'),
     history = el('div', 'mp-history')
@@ -184,6 +190,7 @@ export function mountPrivate(
     const runId = ++generation,
       oldBefore = before
     if (selected?.uid !== peer.uid) {
+      resourceActions.cancel()
       draft.value = ''
       messages = []
       before = null
@@ -310,6 +317,11 @@ export function mountPrivate(
   conversation.append(heading, history, form)
   container.append(sidebar, conversation)
   function update() {
+    const account = controller.state.account?.uid,
+      room = controller.state.room?.roomId
+    if (actionAccount !== account || actionRoom !== room) resourceActions.cancel()
+    actionAccount = account
+    actionRoom = room
     invite.disabled = !selected || !controller.state.room || sending
     send.disabled = !selected || sending
     draft.disabled = !selected || sending
@@ -322,6 +334,7 @@ export function mountPrivate(
       void run(() => list())
     },
     reset() {
+      resourceActions.cancel()
       generation++
       accountGeneration++
       selected = null
@@ -341,6 +354,8 @@ export function mountPrivate(
     },
     dispose() {
       disposed = true
+      resourceActions.cancel()
+      songChoice.dispose()
       generation++
       accountGeneration++
       sticker.dispose()

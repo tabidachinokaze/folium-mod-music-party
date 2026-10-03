@@ -70,8 +70,20 @@ export function nativeQueue(state: PartyState, resolved: FoliumSong | null): Fol
   return {
     entries,
     currentId: current?.songBizId ?? null,
-    canNext: Boolean(current) && !state.busy,
+    canNext: state.auditioning || (Boolean(current) && !state.busy),
+    canSeek: state.auditioning,
+    canPrevious: state.auditioning,
+    resumeActionId: state.auditioning ? 'return-room' : undefined,
     actions: [
+      ...(state.auditioning
+        ? [
+            {
+              id: 'return-room',
+              label: { 'zh-CN': '返回房间', en: 'Return to room' },
+              icon: 'refresh-cw' as const,
+            },
+          ]
+        : []),
       {
         id: 'sync',
         label: { 'zh-CN': '同步队列', en: 'Sync queue' },

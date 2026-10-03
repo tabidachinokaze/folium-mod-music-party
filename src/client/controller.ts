@@ -32,6 +32,7 @@ export interface PartyState {
   matchPhase: string
   matchSong: HostSong | null
   room: RoomSnapshot | null
+  auditioning: boolean
   busy: boolean
   error: string
   notice: string
@@ -75,6 +76,7 @@ export class PartyController {
       matchPhase: '',
       matchSong: null,
       room: null,
+      auditioning: false,
       busy: false,
       error: '',
       notice: '',
@@ -110,6 +112,7 @@ export class PartyController {
           now,
           (message) => this.patch({ error: message }),
           () => this.publishQueue(),
+          (auditioning) => this.patch({ auditioning }),
         )
       : null
   }
@@ -143,7 +146,8 @@ export class PartyController {
       value.queue !== undefined ||
       value.busy !== undefined ||
       value.queueLoading !== undefined ||
-      value.account !== undefined
+      value.account !== undefined ||
+      value.auditioning !== undefined
     )
       this.publishQueue()
     this.listeners.forEach((fn) => fn())
@@ -195,6 +199,22 @@ export class PartyController {
     } finally {
       if (epoch === this.epoch) this.patch({ checkingRoom: false })
     }
+  }
+  async leaveAvailableRoom() {
+    const { account, availableRoom, room, matching } = this.state
+    if (!account || !availableRoom || room || matching || this.disposed) return
+    const epoch = this.epoch
+    await this.connection.call('multiLeave', { roomId: availableRoom.roomId })
+    if (
+      this.disposed ||
+      epoch !== this.epoch ||
+      this.state.account?.uid !== account.uid ||
+      this.state.availableRoom?.roomId !== availableRoom.roomId ||
+      this.state.room ||
+      this.state.matching
+    )
+      return
+    this.patch({ availableRoom: null, notice: t('已退出房间，当前音乐继续播放。') })
   }
   async match() {
     if (this.state.matching || this.matchPreparing || this.disposed) return
@@ -579,6 +599,10 @@ export class PartyController {
     return this.likeTail
   }
   private queueAction(entryId: string | null, actionId: string) {
+    if (!entryId && actionId === 'return-room') {
+      void this.returnToRoom()
+      return
+    }
     if (!entryId && actionId === 'sync') {
       void this.run(() => this.syncQueue())
       return
@@ -612,6 +636,22 @@ export class PartyController {
       this.queueAction(event.entryId, event.actionId)
       return
     }
+    if (event.type === 'audition' || event.type === 'play') {
+      // Older hosts send play; only enqueue is a recommendation, on every supported host.
+      void this.player?.audition(event.song)
+      return
+    }
+    if (this.player?.auditioning) {
+      if (event.type === 'seek') {
+        this.player.seekAudition(event.seconds, event.resume)
+        return
+      }
+      if (['ended', 'next', 'previous', 'playback-error'].includes(event.type)) {
+        if (event.type === 'playback-error') this.patch({ error: t('试听播放失败，已返回房间。') })
+        void this.returnToRoom()
+        return
+      }
+    }
     if (event.type === 'ended') {
       this.player?.ended()
       this.transition?.ended()
@@ -631,7 +671,7 @@ export class PartyController {
       this.patch({ error: t('当前房间歌曲播放失败，请重新同步或请求下一首。') })
       return
     }
-    const songs = event.type === 'enqueue' ? event.songs : event.type === 'play' ? [event.song] : []
+    const songs = event.type === 'enqueue' ? event.songs : []
     if (!songs.length) return
     if (songs.some((song) => song.source !== 'netease' || !song.id)) {
       this.patch({ error: t('多人房间只能推荐网易云歌曲，请先退出房间再播放其他来源。') })
@@ -643,6 +683,14 @@ export class PartyController {
       this.patch({ notice: t('已推荐 {count} 首歌曲到房间', { count: songs.length }) })
       await this.refreshQueue()
     })
+  }
+
+  async returnToRoom() {
+    if (!this.state.room || !this.player?.auditioning) return
+    const returned = this.player.returnToRoom()
+    // Apply the latest server position as soon as available, without room mutations.
+    void this.refresh()
+    await returned
   }
 
   detach(continuePlayback = false) {
