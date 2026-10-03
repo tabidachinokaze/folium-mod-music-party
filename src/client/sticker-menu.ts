@@ -31,7 +31,8 @@ export function mountStickerMenu(history: HTMLElement, controller: PartyControll
       row = image.closest<HTMLElement>('.mp-message'),
       emoji = messageSticker(image),
       account = controller.state.account?.uid
-    if (!emoji || !account || !row || row.classList.contains('is-mine')) return
+    if (!emoji || emoji.emojiId === '0' || !account || !row || row.classList.contains('is-mine'))
+      return
     event.preventDefault()
     event.stopPropagation()
     close()

@@ -2,7 +2,7 @@
   "folium": 1,
   "id": "music-party",
   "name": "Music Party · 网易云多人一起听",
-  "version": "0.3.13",
+  "version": "0.3.14",
   "author": "tabidachinokaze",
   "description": "网易云官方多人一起听，配套 Folia 0.7.19，支持停止试听、表情收藏和图片预览发送。",
   "main": "index.cjs",

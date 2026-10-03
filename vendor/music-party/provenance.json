@@ -28,6 +28,6 @@
     "shared/multiplayer.ts": "917ff9283079ac8d977ec9a8418df08f3c2bed9e55888ebd72f54946c95c993b",
     "shared/message-content.ts": "692d25dbf490070814d3d58e6f6b914512c83f03b156c6bf0e15a802605aa4b1",
     "shared/message-action.ts": "aff114e6fda0af854851eb392455ed229714c8b7a74fb70beb51c822c212ffb8",
-    "main/stickers.ts": "94119677a377c28bd7c5c071bedd465acd4c1e80090e7a50e43831cf5a834ca0"
+    "shared/stickers.ts": "651f9abec4823094e5ed0cab91f0f39f110ec3650e8655c95668f17a65827053"
   }
 }

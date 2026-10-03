@@ -3,7 +3,7 @@ import { MediaSender } from '@party/main/media-send'
 import { ApiService } from '@party/main/service'
 import { createHttpInvoker } from '@party/main/transport'
 import { multiEndpoints, multiPayload, type MultiMethod } from '@party/main/multi-api'
-import { confirmedSavedSticker, receivedStickerImage } from '@party/main/stickers'
+import { receivedStickerIdentity } from '@party/shared/stickers'
 import type { Request, Reply } from '@party/shared/types'
 
 // src/main/backend.ts
@@ -194,13 +194,17 @@ export function createBackend(
     },
     async saveSticker(value: unknown) {
       if (!current) throw new Error('请先连接网易云账号')
-      const image = receivedStickerImage(value)
+      const identity = receivedStickerIdentity(value)
       const { body } = await current.invoke('api', {
-        uri: '/api/social/emoji/upload',
+        uri: '/api/social/emoji/collect',
         crypto: 'eapi',
-        data: { imgs: JSON.stringify([image]) },
+        data: identity,
       })
-      return confirmedSavedSticker(body)
+      if (body?.code !== 200 || body?.data?.result !== true)
+        throw new Error(
+          body?.data?.toast || body?.message || '表情保存结果未确认，请刷新自定义表情',
+        )
+      return true
     },
     close() {
       closeMatch()

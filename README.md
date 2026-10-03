@@ -6,19 +6,19 @@ Music Party for Folia · [插件仓库](https://github.com/tabidachinokaze/foliu
 
 ## 兼容性：请先看这里
 
-**正式配套：Folia 0.7.19 + 插件 0.3.13。** 请先升级宿主，再安装并重新启用插件。新版使用播放会话接口 v2。
+**正式配套：Folia 0.7.19 + 插件 0.3.14。** 请先升级宿主，再安装并重新启用插件。新版使用播放会话接口 v2。
 
-| 宿主                                      | 插件   | 状态                              |
-| ----------------------------------------- | ------ | --------------------------------- |
-| Folia 0.7.19                              | 0.3.13 | 推荐配套，停止试听与聊天图片/表情 |
-| Folia 0.7.18                              | 0.3.12 | 试听、专辑修复与遥控              |
-| Folia 0.7.17                              | 0.3.11 | 旧版配套，私信资源卡片            |
-| Folia 0.7.12                              | 0.3.4  | 旧版配套，原生侧栏风格            |
-| Folia 0.7.11                              | 0.3.0  | 推荐配套，接口 v2                 |
-| 已发布 Folia 0.7.10 安装包                | 0.2.0  | 既有配套，接口 v1                 |
-| 已发布 Folia 0.7.10 安装包                | 0.3.0  | 不兼容，需升级宿主                |
-| Folia 0.7.10 源码应用本仓库 v2 补丁后重建 | 0.3.0  | 仅开发兼容                        |
-| 已发布 Folia 0.7.9                        | 0.1.0  | 旧接口配套                        |
+| 宿主                                      | 插件   | 状态                             |
+| ----------------------------------------- | ------ | -------------------------------- |
+| Folia 0.7.19                              | 0.3.14 | 推荐配套，官方表情收藏与图片预览 |
+| Folia 0.7.18                              | 0.3.12 | 试听、专辑修复与遥控             |
+| Folia 0.7.17                              | 0.3.11 | 旧版配套，私信资源卡片           |
+| Folia 0.7.12                              | 0.3.4  | 旧版配套，原生侧栏风格           |
+| Folia 0.7.11                              | 0.3.0  | 推荐配套，接口 v2                |
+| 已发布 Folia 0.7.10 安装包                | 0.2.0  | 既有配套，接口 v1                |
+| 已发布 Folia 0.7.10 安装包                | 0.3.0  | 不兼容，需升级宿主               |
+| Folia 0.7.10 源码应用本仓库 v2 补丁后重建 | 0.3.0  | 仅开发兼容                       |
+| 已发布 Folia 0.7.9                        | 0.1.0  | 旧接口配套                       |
 
 manifest 声明 `experimental: ["playback.sessions"]` 与 `playback.control`，本版需要 Folia 0.7.19，使用接口 v2 的停止试听与命令图标能力。插件更新使用相同 ID，安装新版 ZIP 后需要重新启用。
 
@@ -33,7 +33,7 @@ manifest 声明 `experimental: ["playback.sessions"]` 与 `playback.control`，�
    npm run dev:electron
    ```
 
-2. 下载 [插件 0.3.13 ZIP](https://github.com/tabidachinokaze/folium-mod-music-party/releases/tag/v0.3.13)。也可从主分支构建：
+2. 下载 [插件 0.3.14 ZIP](https://github.com/tabidachinokaze/folium-mod-music-party/releases/tag/v0.3.14)。也可从主分支构建：
 
    ```bash
    git clone git@github.com:tabidachinokaze/folium-mod-music-party.git
@@ -42,7 +42,7 @@ manifest 声明 `experimental: ["playback.sessions"]` 与 `playback.control`，�
    npm run build
    ```
 
-3. 在 Folia 的「设置 → 实验室」开启模组系统，将 `folium-mod-music-party-0.3.13.zip` 拖入模组面板并启用。在 Folia 登录网易云后，点击播放栏的一起听图标或执行「打开网易云多人一起听」。
+3. 在 Folia 的「设置 → 实验室」开启模组系统，将 `folium-mod-music-party-0.3.14.zip` 拖入模组面板并启用。在 Folia 登录网易云后，点击播放栏的一起听图标或执行「打开网易云多人一起听」。
 4. 登录网易云且当前音乐来源为网易云时，私信和一起听入口自动显示，无需手动连接。恢复检测到的房间、粘贴官方邀请链接，或播放网易云歌曲后创建房间。私信可以直接从首页顶部胶囊进入，无需先加入房间。
 
 Folia 0.7.11 已包含宿主接口，无需打补丁。若从本 fork 的 0.7.10 源码（基线 `76e1dfe`）适配，可执行 `node scripts/apply-host-patch.mjs /path/to/folia-major`，再重新构建桌面版。补丁不能修改已安装应用的 ASAR，也不适用于上游原版 0.7.9。
@@ -186,3 +186,7 @@ Folia 本体从 [fork 的 GitHub Releases](https://github.com/tabidachinokaze/fo
 ## 后续计划
 
 - 跟随多人房间时，当前歌曲的红心改走官方多人红心接口，让房间产生“用户红心了歌曲”的互动动态；试听和普通播放继续使用个人收藏，并合并重复的遥控点赞入口。
+
+## 0.3.14：官方表情收藏协议
+
+右键收藏收到的表情使用网易云官方 `social/emoji/collect`，携带原消息的 `emojiId` 与 `emojiGroupId`；只有服务端 `data.result` 为 true 才确认成功。不会重新上传或发送表情，也不再依赖图片 URL 中的数字图片 ID。上传自己的图片到表情包继续使用独立的上传流程。
