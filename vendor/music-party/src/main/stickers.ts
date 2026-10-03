@@ -42,3 +42,30 @@ export function normalizeStickerPage(body: any, groupId: string) {
     data: { ...body.data, emojis: items, unavailable: body.data.emojis.length - items.length },
   }
 }
+
+/** Received stickers already have a NOS picture ID; saving does not download or resend them. */
+export function receivedStickerImage(value: unknown) {
+  const emoji = parseEmoji(value)
+  if (!emoji) throw new Error('表情信息无效')
+  const url = new URL(emoji.emojiImgUrl)
+  const match = url.pathname.match(/^\/[A-Za-z0-9_=-]+\/([1-9]\d{0,23})\.(jpg|jpeg|png|gif|webp)$/i)
+  if (!/^p\d+\.music\.126\.net$/i.test(url.hostname) || !match)
+    throw new Error('无法读取表情图片 ID，请选择其他表情')
+  return {
+    picId: match[1],
+    width: emoji.width,
+    height: emoji.height,
+    format: /^(jpg|jpeg|png|gif|webp)$/i.test(emoji.format)
+      ? emoji.format.toLowerCase().replace('jpeg', 'jpg')
+      : match[2].toLowerCase().replace('jpeg', 'jpg'),
+  }
+}
+
+export function confirmedSavedSticker(body: any): SavedSticker {
+  if (body?.code !== 200 || !Array.isArray(body?.data?.emojiMap))
+    throw new Error(body?.data?.toast || body?.message || '表情保存结果未确认，请刷新自定义表情')
+  if (!body.data.emojiMap.length) throw new Error(body.data.toast || '表情未保存，请稍后重试')
+  const sticker = savedSticker(body.data.emojiMap[0])
+  if (!sticker) throw new Error('已提交表情，请刷新列表确认保存结果')
+  return sticker
+}

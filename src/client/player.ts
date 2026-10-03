@@ -238,6 +238,9 @@ export class RoomPlayer {
   async returnToRoom() {
     if (!this.auditioning || !this.lease) return
     ++this.epoch
+    // Cancel even an unfinished host load before resolving the room song again.
+    // The lease remains owned, so the room queue and pre-audition listening preference survive.
+    this.lease.stop()
     this.auditioning = false
     this.loaded = this.desired = this.endedKey = ''
     this.applying = false

@@ -517,6 +517,10 @@ export interface FoliumCommandDef {
     label: FoliumLabel;
     /** Shown under the name. */
     description?: FoliumLabel;
+    /** Optional command icon: a Lucide kebab-case name. Missing or unavailable icons use `puzzle`. */
+    icon?: string;
+    /** Optional SVG path data for a custom line icon on a 24×24 canvas. Uses currentColor and a 2px rounded stroke; valid paths take precedence over `icon`. At most 32 paths, each up to 2048 characters. */
+    iconPaths?: readonly string[];
     /** Extra search terms for the command palette (label texts are always included). */
     keywords?: string[];
     /** Shown in the mods panel and the command palette; a palette entry with params opens a form. */
@@ -855,7 +859,7 @@ export interface FoliumQueueAction {
     /** Accessible button label. */
     label: FoliumLabel;
     /** Host icon, avoiding bundled icon/render dependencies in a mod. */
-    icon: 'refresh-cw' | 'trash-2' | 'arrow-up-to-line' | 'thumbs-up';
+    icon: 'refresh-cw' | 'trash-2' | 'arrow-up-to-line' | 'thumbs-up' | 'square';
     /** False by default; the mod owns permissions and pending-operation policy. */
     disabled?: boolean;
     /** Optional nonnegative count, such as votes. It never implies a one-time toggle. */
@@ -886,6 +890,8 @@ export interface FoliumPlaybackQueue {
     syncActionId?: string;
     /** Toolbar action that resumes the owning session after a local audition. Omit outside audition. */
     resumeActionId?: string;
+    /** Replaces play/pause with Stop while temporary playback is active; separate from toolbar actions. */
+    stopAction?: FoliumQueueAction;
     /** Whether transport seeking is currently meaningful. Defaults to false. */
     canSeek?: boolean;
     /** Whether the previous transport command is currently meaningful. Defaults to false. */

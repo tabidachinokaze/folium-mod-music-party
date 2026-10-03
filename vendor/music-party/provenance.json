@@ -24,9 +24,10 @@
   "localFileHashes": {
     "main/service.ts": "08a9fd3ab61592d75535643793a9db79b856da5c0bb76abbe6815a1d2a52f060",
     "main/multi-api.ts": "deafe7605ad594e97c9aa3448697f644e282103d8e5f8d66464fa866b746c9fe",
-    "shared/types.ts": "8723a4e68471bbf73a71613fca97bd658b99f4d75612995918341e4bf396782c",
+    "shared/types.ts": "cdf9c35d9d9b50ab23eb08cbd0e9db73dc627f3e479cccf294f0e234f25295b2",
     "shared/multiplayer.ts": "917ff9283079ac8d977ec9a8418df08f3c2bed9e55888ebd72f54946c95c993b",
-    "shared/message-content.ts": "e7a957c46c5ae3058ea0b614a8b0342bf6ef0e59b5700d8d2581c62b0e71aebb",
-    "shared/message-action.ts": "aff114e6fda0af854851eb392455ed229714c8b7a74fb70beb51c822c212ffb8"
+    "shared/message-content.ts": "692d25dbf490070814d3d58e6f6b914512c83f03b156c6bf0e15a802605aa4b1",
+    "shared/message-action.ts": "aff114e6fda0af854851eb392455ed229714c8b7a74fb70beb51c822c212ffb8",
+    "main/stickers.ts": "94119677a377c28bd7c5c071bedd465acd4c1e80090e7a50e43831cf5a834ca0"
   }
 }

@@ -141,8 +141,15 @@ export function richMessageContent(value: unknown): {
           : undefined,
     })
   }
-  const emoji = parseEmoji(data.emoji)
-  if (emoji) addMedia('image', emoji, emoji.emojiName)
+  const emoji =
+    parseEmoji(data.emoji) ||
+    (root.msgType === 1 && (body.emojiId !== undefined || body.emojiGroupId !== undefined)
+      ? parseEmoji({ ...body, emojiImgUrl: body.url, emojiName: body.name })
+      : undefined)
+  if (emoji) {
+    addMedia('image', emoji, emoji.emojiName)
+    attachments[attachments.length - 1].emoji = emoji
+  }
   const images = data.pics || data.pictures || data.images
   if (Array.isArray(images)) images.slice(0, 9).forEach((pic) => addMedia('image', pic, '图片'))
   else

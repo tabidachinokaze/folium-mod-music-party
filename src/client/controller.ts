@@ -599,7 +599,7 @@ export class PartyController {
     return this.likeTail
   }
   private queueAction(entryId: string | null, actionId: string) {
-    if (!entryId && actionId === 'return-room') {
+    if (!entryId && actionId === 'stop-audition') {
       void this.returnToRoom()
       return
     }

@@ -491,7 +491,7 @@ it.each(['next', 'previous', 'ended'] as const)(
     await vi.waitFor(() => expect(host.state.state).toBe('playing'))
     expect(controller.state.auditioning).toBe(true)
     expect(host.lease.setQueue.mock.lastCall![0]).toMatchObject({
-      resumeActionId: 'return-room',
+      stopAction: { id: 'stop-audition', icon: 'square' },
       canSeek: true,
       canPrevious: true,
     })
@@ -505,6 +505,35 @@ it.each(['next', 'previous', 'ended'] as const)(
     expect(api.call.mock.calls.some(([method]) => ['multiNext', 'multiAdd'].includes(method))).toBe(
       false,
     )
+    controller.dispose()
+  },
+)
+
+it.each([false, true])(
+  'stops an audition through the transport action and preserves prior room pause=%s',
+  async (paused) => {
+    const { controller, host, api } = setup()
+    await controller.connect()
+    await controller.enter('restore')
+    await vi.waitFor(() => expect(host.state.state).toBe('playing'))
+    if (paused) host.folium.playback.pause()
+    host.intent({ type: 'audition', song: song('preview') })
+    await vi.waitFor(() => expect(host.state.song?.id).toBe('preview'))
+    const presentation = host.lease.setQueue.mock.lastCall![0]
+    expect(presentation.actions?.map((action) => action.id)).toEqual(['sync'])
+    expect(presentation.resumeActionId).toBeUndefined()
+    expect(presentation.stopAction?.id).toBe('stop-audition')
+    api.call.mockClear()
+    host.intent({ type: 'queue-action', entryId: null, actionId: 'stop-audition' })
+    await vi.waitFor(() => expect(host.state.song?.id).toBe('1'))
+    expect(controller.state.auditioning).toBe(false)
+    expect(host.state.state).toBe(paused ? 'paused' : 'playing')
+    expect(host.lease.setQueue.mock.lastCall![0].stopAction).toBeUndefined()
+    expect(
+      api.call.mock.calls.some(([method]) =>
+        ['multiLeave', 'multiNext', 'multiAdd'].includes(method),
+      ),
+    ).toBe(false)
     controller.dispose()
   },
 )

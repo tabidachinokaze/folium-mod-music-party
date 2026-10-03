@@ -152,6 +152,12 @@ test('private tools upload targets, isolated feedback and narrow theme layout', 
   }
   await home.locator('summary').filter({ hasText: '图片' }).click()
   await home.locator('.mp-image-picker input').setInputFiles(file)
+  await expect(home.getByRole('img', { name: '待发送图片预览' })).toBeVisible()
+  expect(uploads).toHaveLength(0)
+  await home
+    .locator('.mp-image-picker')
+    .getByRole('button', { name: '发送图片', exact: true })
+    .click()
   await expect.poll(() => uploads.length).toBe(1)
   expect(uploads[0].target).toEqual({ kind: 'private', uid: '10' })
   await home.locator('summary').filter({ hasText: '表情包' }).click()
@@ -655,6 +661,12 @@ test('room composer shares emoji tools and sends images to the captured room', a
     mimeType: 'image/gif',
     buffer: Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64'),
   })
+  await expect(chat.getByRole('img', { name: '待发送图片预览' })).toBeVisible()
+  expect(uploads).toHaveLength(0)
+  await chat
+    .locator('.mp-image-picker')
+    .getByRole('button', { name: '发送图片', exact: true })
+    .click()
   await expect.poll(() => uploads.length).toBe(1)
   expect(uploads[0].target).toEqual({ kind: 'room', roomId: 'official_room' })
   await expect(chat.locator('.mp-history .mp-message.is-mine .mp-message-content img')).toHaveCount(
@@ -677,12 +689,17 @@ test('room sticker list loads the next page on scroll without a load-more button
 }) => {
   await request.post('/test/sticker-pages')
   await restore(page)
+  // Model the full native sidebar, including its cover area, which the mock host omits.
+  await page.locator('#panel').evaluate((node) => {
+    node.style.height = '900px'
+  })
   await page.getByRole('tab', { name: '聊天', exact: true }).click()
   const chat = page.locator('.mp-chat-view')
   await chat.locator('summary[aria-label="表情包"]').click()
   const content = chat.locator('.mp-sticker-content:has(.mp-picker-header)')
   await expect(content.locator('[data-sticker-key]')).toHaveCount(24)
   await expect(content.getByRole('button', { name: /加载更多/ })).toHaveCount(0)
+  const initialHeight = (await content.boundingBox())!.height
   let resumePage!: () => void
   const pendingPage = new Promise<void>((resolve) => {
     resumePage = resolve
@@ -693,20 +710,48 @@ test('room sticker list loads the next page on scroll without a load-more button
       payload.name === 'call' &&
       payload.args[0]?.method === 'stickerPage' &&
       payload.args[0]?.args?.cursor
-    )
+    ) {
       await pendingPage
+      const response = await route.fetch()
+      const body = await response.json()
+      const items = body.result.data.data.emojis
+      for (let i = 0; i < 64; i++)
+        items.push({ ...items[0], emojiId: String(100 + i), emojiName: `分页表情 ${i}` })
+      return route.fulfill({ json: body })
+    }
     await route.continue()
   })
-  await content.evaluate((node) => {
-    node.scrollTop = node.scrollHeight
-  })
+  // The first page may fit without a scrollbar; a downward wheel still requests more.
+  await content.dispatchEvent('wheel', { deltaY: 200 })
   try {
     await expect(content.getByRole('combobox', { name: '表情分组' })).toBeDisabled()
     await expect(content.getByRole('button', { name: '整理', exact: true })).toBeDisabled()
   } finally {
     resumePage()
   }
-  await expect(content.locator('[data-sticker-key]')).toHaveCount(32)
+  await expect(content.locator('[data-sticker-key]')).toHaveCount(96)
+  await expect.poll(async () => (await content.boundingBox())!.height).toBeGreaterThan(340)
+  await expect
+    .poll(async () => (await content.boundingBox())!.height)
+    .toBeGreaterThan(initialHeight)
+  const panelBounds = await page.locator('#panel').boundingBox()
+  const popupBounds = await content.boundingBox()
+  expect(popupBounds!.y).toBeGreaterThanOrEqual(panelBounds!.y)
+  expect(popupBounds!.y + popupBounds!.height).toBeLessThanOrEqual(
+    panelBounds!.y + panelBounds!.height + 1,
+  )
+  expect(popupBounds!.height).toBeGreaterThan(850)
+  await page.locator('#panel').evaluate((node) => {
+    node.style.height = '300px'
+  })
+  await expect.poll(async () => (await content.boundingBox())!.height).toBeLessThanOrEqual(300)
+  const shortPanel = await page.locator('#panel').boundingBox()
+  const shortPopup = await content.boundingBox()
+  expect(shortPopup!.y).toBeGreaterThanOrEqual(shortPanel!.y)
+  expect(shortPopup!.y + shortPopup!.height).toBeLessThanOrEqual(
+    shortPanel!.y + shortPanel!.height + 1,
+  )
+  expect(await content.evaluate((node) => node.scrollHeight > node.clientHeight)).toBe(true)
   await expect(content.getByRole('combobox', { name: '表情分组' })).toBeEnabled()
   await content.dispatchEvent('wheel', { deltaY: 200 })
   const calls = (await (await request.get('/test/state')).json()).calls
@@ -1041,7 +1086,17 @@ test('private activity and artist cards stay unified and open the correct destin
   expect((await (await request.get('/test/state')).json()).operations).toHaveLength(0)
   expect((await (await request.get('/test/state')).json()).current).toBe('1')
   await page.evaluate(() => (window as any).partyTest.openQueue())
-  await page.locator('#native-queue').getByRole('button', { name: '返回房间', exact: true }).click()
+  await expect(
+    page.locator('#native-queue').getByRole('button', { name: '返回房间', exact: true }),
+  ).toHaveCount(0)
+  await page.evaluate(() => {
+    const queue = (window as any).partyTest.queue()
+    ;(window as any).partyTest.intent({
+      type: 'queue-action',
+      entryId: null,
+      actionId: queue.stopAction.id,
+    })
+  })
   await expect.poll(() => page.evaluate(() => (window as any).partyTest.state.song.id)).toBe('1')
   expect((await (await request.get('/test/state')).json()).operations).toHaveLength(0)
   await sharedSong.click()

@@ -3,6 +3,7 @@ import { MediaSender } from '@party/main/media-send'
 import { ApiService } from '@party/main/service'
 import { createHttpInvoker } from '@party/main/transport'
 import { multiEndpoints, multiPayload, type MultiMethod } from '@party/main/multi-api'
+import { confirmedSavedSticker, receivedStickerImage } from '@party/main/stickers'
 import type { Request, Reply } from '@party/shared/types'
 
 // src/main/backend.ts
@@ -190,6 +191,16 @@ export function createBackend(
       })
       if (body?.code !== 200 || body?.data?.result !== true)
         throw new Error(body?.data?.toast || body?.message || '表情删除未确认，请刷新后重试')
+    },
+    async saveSticker(value: unknown) {
+      if (!current) throw new Error('请先连接网易云账号')
+      const image = receivedStickerImage(value)
+      const { body } = await current.invoke('api', {
+        uri: '/api/social/emoji/upload',
+        crypto: 'eapi',
+        data: { imgs: JSON.stringify([image]) },
+      })
+      return confirmedSavedSticker(body)
     },
     close() {
       closeMatch()

@@ -159,7 +159,7 @@ export class AccountConnection {
     }
     return result
   }
-  async attachment(name: 'media' | 'removeStickers', payload: unknown) {
+  async attachment(name: 'media' | 'removeStickers' | 'saveSticker', payload: unknown) {
     // Recheck the current Folia account and service port before every upload/mutation.
     await this.call('account')
     const epoch = this.epoch

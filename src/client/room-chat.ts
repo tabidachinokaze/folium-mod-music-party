@@ -5,6 +5,7 @@ import { createStickerPicker } from './sticker-view'
 import { mountMentionComposer } from './mention-composer'
 import { decorateRoomMessage } from './room-message'
 import { createComposerTools, uploadImage } from './private-tools'
+import { mountStickerMenu } from './sticker-menu'
 
 import { t } from './i18n'
 
@@ -35,10 +36,10 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
     controller,
     draft,
     (task) => controller.run(task),
-    async (file) => {
+    async (file, isCurrent) => {
       const room = controller.requireRoom(),
         account = controller.state.account?.uid
-      await uploadImage(controller, file, { kind: 'room', roomId: room.roomId })
+      await uploadImage(controller, file, { kind: 'room', roomId: room.roomId }, isCurrent)
       if (
         controller.state.account?.uid === account &&
         controller.state.room?.roomId === room.roomId
@@ -48,6 +49,7 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
         toLatest()
       }
     },
+    () => controller.state.room?.roomId || null,
   )
   const actions = el('div', 'mp-composer-tools mp-room-composer-tools')
   // Compact tools reserve one line for the native sidebar in either language.
@@ -75,6 +77,7 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
   actions.append(...tools.nodes, sticker.node, tools.image, send)
   composer.append(draft, actions)
   container.append(history, composer)
+  const stickerMenu = mountStickerMenu(history, controller)
   let visible = false,
     disposed = false,
     followLatest = true,
@@ -145,6 +148,7 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
     send.disabled = state.busy || !state.room
     draft.disabled = !state.room
     tools.image.inert = state.busy || !state.room
+    tools.sync()
     if (state.room?.roomId !== roomId) {
       roomId = state.room?.roomId || ''
       previous = []
@@ -152,6 +156,7 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
       draft.value = ''
       mentions.close()
       tools.close()
+      stickerMenu.close()
     }
     if (previous === state.messages) return
     const top = history.scrollTop,
@@ -197,6 +202,7 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
       } else {
         mentions.close()
         tools.close()
+        stickerMenu.close()
       }
     },
     dispose() {
@@ -206,6 +212,7 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
       sticker.dispose()
       mentions.dispose()
       tools.dispose()
+      stickerMenu.dispose()
     },
   }
 }

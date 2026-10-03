@@ -73,17 +73,14 @@ export function nativeQueue(state: PartyState, resolved: FoliumSong | null): Fol
     canNext: state.auditioning || (Boolean(current) && !state.busy),
     canSeek: state.auditioning,
     canPrevious: state.auditioning,
-    resumeActionId: state.auditioning ? 'return-room' : undefined,
+    stopAction: state.auditioning
+      ? {
+          id: 'stop-audition',
+          label: { 'zh-CN': '停止试听', en: 'Stop audition' },
+          icon: 'square',
+        }
+      : undefined,
     actions: [
-      ...(state.auditioning
-        ? [
-            {
-              id: 'return-room',
-              label: { 'zh-CN': '返回房间', en: 'Return to room' },
-              icon: 'refresh-cw' as const,
-            },
-          ]
-        : []),
       {
         id: 'sync',
         label: { 'zh-CN': '同步队列', en: 'Sync queue' },

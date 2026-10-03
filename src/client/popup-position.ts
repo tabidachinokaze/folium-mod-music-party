@@ -1,7 +1,12 @@
 import { t } from './i18n'
 
 // src/client/popup-position.ts
-type PopupOptions = { width?: number; align?: 'start' | 'end'; onClose?: () => void }
+type PopupOptions = {
+  width?: number
+  align?: 'start' | 'end'
+  constrainHeightToPanel?: boolean
+  onClose?: () => void
+}
 type Bounds = { left: number; right: number; top: number; bottom: number }
 const activePopups = new WeakMap<Document, () => void>()
 
@@ -12,6 +17,7 @@ export function popupPosition(
   viewport: { width: number; height: number },
   size: { width: number; height: number },
   align: 'start' | 'end' = 'end',
+  constrainHeightToPanel = false,
 ) {
   const margin = 8,
     gap = 12,
@@ -27,15 +33,23 @@ export function popupPosition(
     width = Math.min(preferredWidth, viewport.width - panel.right - gap - margin)
     left = panel.right + gap
   } else if (panel) left = panel.right - width
+  const bounded = constrainHeightToPanel && panel !== null,
+    minTop = bounded ? Math.max(margin, panel.top) : margin,
+    maxBottom = bounded
+      ? Math.min(viewport.height - margin, panel.bottom)
+      : viewport.height - margin,
+    maxHeight = Math.max(0, maxBottom - minTop),
+    height = bounded ? Math.min(size.height, maxHeight) : size.height
   const desiredTop = panel
     ? align === 'start'
       ? anchor.top
-      : anchor.bottom - size.height
-    : anchor.top - gap - size.height
+      : anchor.bottom - height
+    : anchor.top - gap - height
   return {
     width,
     left: Math.max(margin, Math.min(left, viewport.width - width - margin)),
-    top: Math.max(margin, Math.min(desiredTop, viewport.height - size.height - margin)),
+    top: Math.max(minTop, Math.min(desiredTop, maxBottom - height)),
+    ...(bounded ? { maxHeight } : {}),
   }
 }
 
@@ -78,28 +92,35 @@ export function mountPopup(popup: HTMLElement, anchor: HTMLElement, options: Pop
   function position() {
     if (!isOpen()) return
     const panel = panelFor(anchor),
+      panelBounds = panel?.getBoundingClientRect() || null,
       rect = anchor.getBoundingClientRect(),
       viewport = { width: window.innerWidth, height: window.innerHeight },
       initial = popupPosition(
         rect,
-        panel?.getBoundingClientRect() || null,
+        panelBounds,
         viewport,
         {
           width: options.width ?? 320,
           height: 0,
         },
         options.align,
+        options.constrainHeightToPanel,
       )
     popup.style.width = `${initial.width}px`
+    // Apply the limit before measuring: additional sticker pages may grow the
+    // popup naturally, while its border box stays inside the visible panel.
+    if (initial.maxHeight !== undefined) popup.style.maxHeight = `${initial.maxHeight}px`
+    else if (options.constrainHeightToPanel) popup.style.removeProperty('max-height')
     const placed = popupPosition(
       rect,
-      panel?.getBoundingClientRect() || null,
+      panelBounds,
       viewport,
       {
         width: options.width ?? 320,
         height: popup.getBoundingClientRect().height,
       },
       options.align,
+      options.constrainHeightToPanel,
     )
     popup.style.left = `${placed.left}px`
     popup.style.top = `${placed.top}px`
@@ -181,13 +202,18 @@ export function mountPopup(popup: HTMLElement, anchor: HTMLElement, options: Pop
 }
 
 // Preserve the public details.open contract used by both room and private chat.
-export function mountDetailsPopup(box: HTMLDetailsElement, content: HTMLElement) {
+export function mountDetailsPopup(
+  box: HTMLDetailsElement,
+  content: HTMLElement,
+  options: Omit<PopupOptions, 'onClose'> = {},
+) {
   const summary = box.querySelector('summary')!
   summary.setAttribute('aria-haspopup', 'dialog')
   summary.setAttribute('aria-expanded', 'false')
   content.setAttribute('role', 'dialog')
   content.setAttribute('aria-label', summary.textContent || t('选择内容'))
   const popup = mountPopup(content, summary, {
+    ...options,
     onClose: () => {
       box.open = false
     },

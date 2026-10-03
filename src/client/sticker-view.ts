@@ -4,6 +4,7 @@ import { button, el, picture } from './dom'
 import { imageInput, uploadImage, type PrivateRun } from './private-tools'
 import { mountDetailsPopup } from './popup-position'
 import { t } from './i18n'
+import { stickerCollectionRevision } from './sticker-collection'
 
 // src/client/sticker-view.ts
 export function createStickerPicker(
@@ -14,12 +15,13 @@ export function createStickerPicker(
 ) {
   const box = el('details', 'mp-stickers')
   box.append(el('summary', '', t('表情包')))
-  const content = el('div', 'mp-sticker-content'),
+  const content = el('div', 'mp-sticker-content mp-sticker-library'),
     header = el('header', 'mp-picker-header'),
     grid = el('div', 'mp-sticker-grid')
   const select = el('select')
   select.setAttribute('aria-label', t('表情分组'))
   let loaded = false,
+    loadedRevision = -1,
     disposed = false,
     loading = false,
     mutating = false,
@@ -66,7 +68,7 @@ export function createStickerPicker(
   header.append(el('strong', '', t('表情包')), uploadButton, organize, remove, cancel)
   content.append(header, select, status, grid, upload)
   box.append(content)
-  const popup = mountDetailsPopup(box, content)
+  const popup = mountDetailsPopup(box, content, { constrainHeightToPanel: true })
   async function mutate(task: () => Promise<unknown>) {
     if (mutating || disposed) return
     mutating = true
@@ -151,6 +153,7 @@ export function createStickerPicker(
   }
   async function initialize() {
     const current = ++epoch
+    const revision = stickerCollectionRevision(controller)
     loaded = false
     loading = true
     cursor = ''
@@ -180,7 +183,10 @@ export function createStickerPicker(
     select.hidden = groups.length < 2
     render()
     await load()
-    if (!disposed && current === epoch) loaded = true
+    if (!disposed && current === epoch) {
+      loaded = true
+      loadedRevision = revision
+    }
   }
   select.addEventListener('change', () => {
     if (loading || mutating || editing) {
@@ -215,7 +221,13 @@ export function createStickerPicker(
     { passive: true },
   )
   box.addEventListener('toggle', () => {
-    if (box.open && !loaded && !loading && controller.state.account) void run(initialize)
+    if (
+      box.open &&
+      (!loaded || loadedRevision !== stickerCollectionRevision(controller)) &&
+      !loading &&
+      controller.state.account
+    )
+      void run(initialize)
   })
   let accountUid = controller.state.account?.uid
   const stopAccount = controller.subscribe(() => {

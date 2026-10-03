@@ -277,3 +277,36 @@ it('returns to the room after a cancelled audition, and does not resume an audit
   expect(host.state.state).toBe('playing')
   player.dispose()
 })
+
+it('stops an unfinished audition source immediately before resolving the room source', async () => {
+  const host = fakeHost(),
+    player = new RoomPlayer(host.folium, host.bridge, () => 2000)
+  player.start(() => {})
+  await player.apply(snapshot())
+  let auditionCommit!: () => void
+  host.lease.play.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        auditionCommit = () => resolve({ status: 'cancelled' })
+      }),
+  )
+  const audition = player.audition(song('pending'))
+  let roomReady!: (value: ReturnType<typeof song>) => void
+  host.bridge.resolveSong.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        roomReady = resolve
+      }),
+  )
+  const stopped = player.returnToRoom()
+  expect(host.lease.stop).toHaveBeenCalledOnce()
+  expect(player.auditioning).toBe(false)
+  expect(host.lease.release).not.toHaveBeenCalled()
+  auditionCommit()
+  await audition
+  roomReady(song('1'))
+  await stopped
+  expect(host.state.song?.id).toBe('1')
+  expect(host.state.state).toBe('playing')
+  player.dispose()
+})

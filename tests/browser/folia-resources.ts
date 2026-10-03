@@ -61,13 +61,15 @@ export async function verifyAlbumAuditionAndRemote(
       (o: any) => o.operate === 1,
     ),
   ).toHaveLength(0)
-  await expect(remote.getByRole('button', { name: '返回房间', exact: true })).toBeVisible()
+  await expect(remote.getByRole('button', { name: '停止试听', exact: true })).toBeVisible()
+  await expect(remote.getByRole('button', { name: '暂停', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '返回房间', exact: true })).toHaveCount(0)
   await expect(vote).toHaveCount(0)
   await expect(remote.locator('input[type="range"]')).toBeEnabled()
   await page.evaluate(() => (window as any).partyRemote({ type: 'seek', time: 25 }))
   await expect.poll(async () => (await state()).position).toBeGreaterThan(24)
   await remote.screenshot({ path: 'test-results/folia-remote-audition.png' })
-  await remote.getByRole('button', { name: '返回房间', exact: true }).click()
+  await remote.getByRole('button', { name: '停止试听', exact: true }).click()
   await expect.poll(async () => (await state()).song?.id).toBe(before.current)
   await expect.poll(async () => (await state()).state).toBe('paused')
 

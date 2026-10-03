@@ -36,6 +36,8 @@ function registerEntries(folium: Folium, controller: PartyController) {
     folium.registries.commands.register({
       id: 'open',
       label: { 'zh-CN': '打开网易云多人一起听', en: 'Open Music Party' },
+      icon: 'users',
+      iconPaths: partyIconPaths,
       run: open,
     }),
     folium.registries.controlButtons.register({

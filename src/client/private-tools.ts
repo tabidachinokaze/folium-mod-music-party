@@ -2,6 +2,7 @@ import type { PartyController } from './controller'
 import { button, el } from './dom'
 import { mountDetailsPopup } from './popup-position'
 import { t } from './i18n'
+import { createImageDraftPicker, validateImageFile } from './image-draft'
 
 // src/client/private-tools.ts
 export type PrivateRun = (task: () => Promise<unknown>) => Promise<void>
@@ -9,16 +10,13 @@ export async function uploadImage(
   controller: PartyController,
   file: File,
   target: { kind: 'sticker' } | { kind: 'private'; uid: string } | { kind: 'room'; roomId: string },
+  isCurrent: () => boolean = () => true,
 ) {
-  if (
-    !['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(file.type) ||
-    !file.size ||
-    file.size > 20 * 1024 * 1024
-  )
-    throw new Error(t('请选择 20 MB 以内的 PNG、JPEG、GIF 或 WebP 图片'))
+  validateImageFile(file)
   const account = controller.state.account?.uid
   const destination = { ...target }
   const checkRoom = () => {
+    if (!isCurrent()) throw new Error(t('聊天已变化，请重新选择图片'))
     if (destination.kind === 'room' && controller.state.room?.roomId !== destination.roomId)
       throw new Error(t('房间已变化，请重新选择图片'))
   }
@@ -70,16 +68,23 @@ export function createPrivateTools(
   draft: HTMLTextAreaElement,
   run: PrivateRun,
   send: (task: (uid: string) => Promise<unknown>) => Promise<void>,
+  peer: () => string | null,
 ) {
-  return createComposerTools(controller, draft, run, (file) =>
-    send((uid) => uploadImage(controller, file, { kind: 'private', uid })),
+  return createComposerTools(
+    controller,
+    draft,
+    run,
+    (file, isCurrent) =>
+      send((uid) => uploadImage(controller, file, { kind: 'private', uid }, isCurrent)),
+    peer,
   )
 }
 export function createComposerTools(
   controller: PartyController,
   draft: HTMLTextAreaElement,
   run: PrivateRun,
-  onImage: (file: File) => Promise<unknown>,
+  onImage: (file: File, isCurrent: () => boolean) => Promise<unknown>,
+  destination: () => string | null,
 ) {
   const popups: ReturnType<typeof mountDetailsPopup>[] = []
   const create = (label: string, values: string[]) => {
@@ -145,32 +150,28 @@ export function createComposerTools(
       '٩(ˊᗜˋ*)و',
     ]),
   ]
-  const image = el('details', 'mp-stickers'),
-    content = el('div', 'mp-sticker-content mp-image-picker')
-  const input = imageInput(
-    (file) =>
-      void run(async () => {
-        if (!controller.state.account) throw new Error(t('请先登录网易云账号'))
-        await onImage(file)
-        image.open = false
-      }),
-  )
-  image.append(el('summary', '', t('图片')))
-  content.append(
-    el('h3', '', t('发送图片')),
-    el('p', 'mp-muted', t('PNG、JPEG、GIF、WebP · 最大 20 MB')),
-    button(t('选择图片'), () => input.click()),
-    input,
-  )
-  image.append(content)
-  popups.push(mountDetailsPopup(image, content))
-  const close = () => popups.forEach((popup) => popup.close())
+  const image = createImageDraftPicker({
+    draft,
+    run,
+    send: onImage,
+    context: () => {
+      const account = controller.state.account?.uid,
+        target = destination()
+      return account && target ? JSON.stringify([account, target]) : null
+    },
+  })
+  const close = () => {
+    popups.forEach((popup) => popup.close())
+    image.close()
+  }
   return {
     nodes,
-    image,
+    image: image.node,
     close,
+    sync: image.sync,
     dispose() {
       popups.forEach((popup) => popup.dispose())
+      image.dispose()
     },
   }
 }

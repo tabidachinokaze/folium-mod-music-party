@@ -40,4 +40,56 @@ describe('side panel popup placement', () => {
       top: 348,
     })
   })
+  it('lets a growing sticker collection use the entire panel without crossing either edge', () => {
+    const small = popupPosition(anchor, panel, viewport, { width: 320, height: 160 }, 'end', true)
+    expect(small.top).toBe(630)
+    expect(small.maxHeight).toBe(880)
+    const grown = popupPosition(anchor, panel, viewport, { width: 320, height: 880 }, 'end', true)
+    expect(grown.top).toBe(panel.top)
+    expect(grown.top + grown.maxHeight!).toBe(panel.bottom)
+    expect(grown.left + grown.width).toBeLessThan(panel.left)
+  })
+  it('shrinks a loaded collection when the panel becomes shorter', () => {
+    const shorter = { ...panel, top: 390, bottom: 810 }
+    const result = popupPosition(
+      anchor,
+      shorter,
+      viewport,
+      { width: 320, height: 880 },
+      'end',
+      true,
+    )
+    expect(result.maxHeight).toBe(420)
+    expect(result.top).toBe(390)
+    expect(result.top + result.maxHeight!).toBe(shorter.bottom)
+  })
+  it('intersects the panel with the visible viewport when the panel is partially offscreen', () => {
+    const result = popupPosition(
+      anchor,
+      { ...panel, top: -20, bottom: 1200 },
+      viewport,
+      { width: 320, height: 1500 },
+      'end',
+      true,
+    )
+    expect(result.top).toBe(8)
+    expect(result.maxHeight).toBe(1084)
+    expect(result.top + result.maxHeight!).toBe(viewport.height - 8)
+  })
+  it('retains the vertical panel bounds in narrow windows that require overlapping placement', () => {
+    const result = popupPosition(
+      { left: 250, right: 290, top: 490, bottom: 510 },
+      { left: 8, right: 292, top: 100, bottom: 540 },
+      { width: 300, height: 550 },
+      { width: 320, height: 900 },
+      'end',
+      true,
+    )
+    expect(result).toEqual({ left: 8, top: 100, width: 284, maxHeight: 440 })
+  })
+  it('does not change private picker placement when no sidebar bounds exist', () => {
+    expect(popupPosition(anchor, null, viewport, size, 'end', true)).toEqual(
+      popupPosition(anchor, null, viewport, size),
+    )
+  })
 })

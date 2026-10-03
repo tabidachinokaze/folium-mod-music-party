@@ -9,6 +9,7 @@ import { privateMessageNode, privateMessageProfiles, type PrivateProfile } from 
 import { t } from './i18n'
 import { createPrivateResourceActions } from './private-actions'
 import { createPrivateSongChoice } from './private-song-choice'
+import { mountStickerMenu } from './sticker-menu'
 
 // src/client/private-view.ts
 export function mountPrivate(
@@ -103,8 +104,12 @@ export function mountPrivate(
     'private',
     run,
   )
-  const tools = createPrivateTools(controller, draft, run, (target) =>
-    sendToPeer((peer) => target(peer.uid)),
+  const tools = createPrivateTools(
+    controller,
+    draft,
+    run,
+    (target) => sendToPeer((peer) => target(peer.uid)),
+    () => selected?.uid || null,
   )
   const send = el('button', 'mp-button primary', t('发送'))
   send.type = 'submit'
@@ -199,6 +204,7 @@ export function mountPrivate(
       profiles.clear()
       sticker.node.open = false
       tools.close()
+      stickerMenu.close()
     }
     selected = peer
     title.textContent = peer.nickname
@@ -316,6 +322,7 @@ export function mountPrivate(
   heading.append(title, invite)
   conversation.append(heading, history, form)
   container.append(sidebar, conversation)
+  const stickerMenu = mountStickerMenu(history, controller)
   function update() {
     const account = controller.state.account?.uid,
       room = controller.state.room?.roomId
@@ -326,6 +333,7 @@ export function mountPrivate(
     send.disabled = !selected || sending
     draft.disabled = !selected || sending
     actions.inert = !selected || sending
+    tools.sync()
   }
   return {
     refreshButton,
@@ -346,6 +354,7 @@ export function mountPrivate(
       draft.value = ''
       sticker.node.open = false
       tools.close()
+      stickerMenu.close()
       title.textContent = t('选择一个私信会话')
       before = null
       offset = 0
@@ -360,6 +369,7 @@ export function mountPrivate(
       accountGeneration++
       sticker.dispose()
       tools.dispose()
+      stickerMenu.dispose()
     },
   }
 }

@@ -35,6 +35,11 @@
 .mp-floating-popup::backdrop {
   background: transparent;
 }
+.mp-sticker-library {
+  box-sizing: border-box;
+  min-height: 0;
+  scrollbar-gutter: stable;
+}
 .mp-picker-header {
   display: flex;
   align-items: center;

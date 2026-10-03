@@ -4,6 +4,7 @@ import type { ChatMessage, PrivateMessage } from '@party/shared/types'
 import { roomActivityPresentation } from './room-activity-presentation'
 import { messageTime } from './message-time'
 import { t } from './i18n'
+import { markMessageSticker } from './message-sticker'
 
 // src/client/dom.ts
 export function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = '') {
@@ -125,15 +126,18 @@ export function messageNode(
     ) ||
       attachments.some((item) => text === item.title || text === `[${item.title}]`) ||
       (emoji && (text === emoji.emojiName || text === `[${emoji.emojiName}]`)) ||
-      (attachments.some((item) => item.kind === 'file') && text.startsWith('[文件] ')))
+      (attachments.some((item) => item.kind === 'file') && text.startsWith('[文件] ')) ||
+      ((emoji || attachments.some((item) => item.url)) &&
+        /^[（(]?升级\s*App\s*到最新版本即可查看该消息[）)]?$/i.test(text)))
   if (text && !placeholder) row.append(el('p', 'mp-bubble', message.text))
   if (emoji && !attachments.some((item) => item.url === emoji.emojiImgUrl)) {
-    const image = picture(emoji.emojiImgUrl, emoji.emojiName)
+    const image = markMessageSticker(picture(emoji.emojiImgUrl, emoji.emojiName), emoji)
     image.style.aspectRatio = `${emoji.width} / ${emoji.height}`
     row.append(image)
   }
   for (const item of message.attachments || []) {
-    if (item.kind === 'image' && item.url) row.append(picture(item.url, t('图片消息')))
+    if (item.kind === 'image' && item.url)
+      row.append(markMessageSticker(picture(item.url, t('图片消息')), item.emoji))
     else if ((item.kind === 'audio' || item.kind === 'video') && item.url) {
       const media = el(item.kind === 'audio' ? 'audio' : 'video', 'mp-media')
       const safe = mediaUrl(item.url)

@@ -1,0 +1,14 @@
+/* src/client/sticker-menu.css */
+.mp-sticker-menu {
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text-primary, var(--folium-primary));
+  background: var(--popup);
+  box-shadow: 0 8px 32px #0004;
+}
+.mp-sticker-menu .mp-button {
+  width: 100%;
+  padding: 9px 10px;
+  text-align: left;
+}

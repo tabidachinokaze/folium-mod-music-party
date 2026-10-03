@@ -108,3 +108,49 @@ it('preserves long sticker IDs and requires confirmed deletion', async () => {
   )
   await expect(backend.removeStickers(['99'])).rejects.toThrow('稍后重试')
 })
+
+it('saves a received sticker by its exact NOS ID without downloading or sending it', async () => {
+  const { backend, calls } = environment()
+  const emoji = {
+    emojiId: '99',
+    emojiGroupId: '-1',
+    emojiName: '收到的表情',
+    emojiImgUrl: 'https://p2.music.126.net/fixture/12345678901234567890.jpg',
+    width: 120,
+    height: 180,
+    format: 'gif',
+  }
+  expect((await backend.saveSticker(emoji)).emojiId).toBe('99')
+  expect(calls).toEqual([
+    {
+      uri: '/api/social/emoji/upload',
+      data: {
+        imgs: JSON.stringify([
+          { picId: '12345678901234567890', width: 120, height: 180, format: 'gif' },
+        ]),
+      },
+    },
+  ])
+  for (const emojiImgUrl of [
+    'https://example.com/fixture/123.jpg',
+    'https://p1.music.126.net/fixture/0.jpg',
+    'https://p1.music.126.net/fixture/123.svg',
+  ])
+    await expect(backend.saveSticker({ ...emoji, emojiImgUrl })).rejects.toThrow('图片 ID')
+  expect(calls).toHaveLength(1)
+})
+
+it('requires a confirmed sticker save and rejects completion after an account change', async () => {
+  const { backend, fetcher } = environment()
+  const emoji = { emojiImgUrl: 'https://p1.music.126.net/fixture/123.jpg' }
+  fetcher.mockImplementation(
+    async () =>
+      new Response(JSON.stringify({ code: 200, data: { emojiMap: [], toast: '未保存' } })),
+  )
+  await expect(backend.saveSticker(emoji)).rejects.toThrow('未保存')
+  fetcher.mockImplementation(async () => {
+    backend.close()
+    return new Response(JSON.stringify({ code: 200, data: { emojiMap: [] } }))
+  })
+  await expect(backend.saveSticker(emoji)).rejects.toThrow('账号已变化')
+})

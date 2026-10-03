@@ -14,6 +14,7 @@ function activate(api: MainApi) {
   api.rpc.handle('matchClose', (id: string) => backend.matchClose(id))
   api.rpc.handle('media', (request) => backend.media(request))
   api.rpc.handle('removeStickers', (ids) => backend.removeStickers(ids))
+  api.rpc.handle('saveSticker', (emoji) => backend.saveSticker(emoji))
   api.rpc.handle('disconnect', () => backend.close())
   api.lifecycle.onDeactivate(() => backend.close())
 }

@@ -248,6 +248,7 @@ export interface MessageAttachment {
   resourceType?: string
   resourceId?: string
   actionUrl?: string
+  emoji?: ChatEmoji
 }
 export interface PrivatePage {
   messages: PrivateMessage[]
