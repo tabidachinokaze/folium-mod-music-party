@@ -133,6 +133,8 @@ export function mountPopup(popup: HTMLElement, anchor: HTMLElement, options: Pop
     })
   }
   function close() {
+    cancelAnimationFrame(frame)
+    frame = 0
     if (!isOpen()) return
     popup.hidePopover()
     visibility.disconnect()
@@ -185,6 +187,9 @@ export function mountPopup(popup: HTMLElement, anchor: HTMLElement, options: Pop
       popup.showPopover()
       anchor.setAttribute('aria-expanded', 'true')
       position()
+      // Opening a details-backed popover can precede its expanded layout.
+      // A quick same-size reopen may not trigger ResizeObserver again.
+      schedule()
     },
     dispose() {
       close()
@@ -230,6 +235,11 @@ export function mountDetailsPopup(
   summary.addEventListener('click', click)
   box.addEventListener('toggle', toggle)
   return {
+    open() {
+      box.open = true
+      popup.open()
+    },
+    position: popup.position,
     close() {
       box.open = false
       popup.close()

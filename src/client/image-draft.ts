@@ -135,12 +135,14 @@ export function createImageDraftPicker(options: {
     ready = false
     image.src = selection.url
     render()
-    node.open = true
+    // Do not wait for the asynchronous details toggle to enter the top layer.
+    popup.open()
     try {
       await image.decode()
       if (!state.isCurrent(selection)) return
       ready = true
       render()
+      popup.position()
     } catch {
       if (!state.isCurrent(selection)) return
       clear()
