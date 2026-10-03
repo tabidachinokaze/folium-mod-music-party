@@ -19,6 +19,7 @@ export type DanmakuPreferenceValues = Readonly<{
 }>
 export type FloatingChatPreferenceValues = Readonly<{
   floatingOpacity: number
+  floatingBubbleOpacity: number
   floatingInputOpacity: number
   floatingFontSize: number
   floatingLineHeight: number
@@ -59,12 +60,14 @@ export const danmakuRanges = {
 } as const
 export const floatingChatDefaults: FloatingChatPreferenceValues = Object.freeze({
   floatingOpacity: 100,
+  floatingBubbleOpacity: 35,
   floatingInputOpacity: 45,
   floatingFontSize: 100,
   floatingLineHeight: 100,
 })
 export const floatingChatRanges = {
   floatingOpacity: { min: 20, max: 100, step: 1 },
+  floatingBubbleOpacity: { min: 0, max: 100, step: 1 },
   floatingInputOpacity: { min: 0, max: 100, step: 1 },
   floatingFontSize: { min: 75, max: 150, step: 1 },
   floatingLineHeight: { min: 100, max: 160, step: 1 },
@@ -104,6 +107,7 @@ const section: FoliumSettingsSectionDef = {
     ...(
       [
         ['floatingOpacity', '消息不透明度', 'Message opacity'],
+        ['floatingBubbleOpacity', '消息气泡不透明度', 'Message bubble opacity'],
         ['floatingInputOpacity', '输入区背景不透明度', 'Input background opacity'],
         ['floatingFontSize', '聊天字号', 'Chat font size'],
         ['floatingLineHeight', '聊天行距', 'Chat line spacing'],

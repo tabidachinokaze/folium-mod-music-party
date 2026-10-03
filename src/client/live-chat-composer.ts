@@ -14,7 +14,8 @@ export function mountLiveChatComposer(options: {
 }) {
   const { container, composer, draft, emoji, closeTools } = options,
     launcher = el('div', 'mp-live-compose-launcher'),
-    open = button(t('说点什么…'), () => expand(), 'mp-live-compose-open'),
+    open = button('', () => expand(), 'mp-live-compose-open'),
+    caption = el('span', 'mp-live-compose-label'),
     emojiButton = button(
       '☺',
       () => {
@@ -23,8 +24,10 @@ export function mountLiveChatComposer(options: {
       },
       'mp-live-compose-emoji',
     ),
-    close = button('⌄', () => collapse(true), 'mp-live-compose-collapse'),
-    events = new AbortController()
+    close = button('', () => collapse(true), 'mp-live-compose-collapse'),
+    events = new AbortController(),
+    previousComposerId = composer.id
+  composer.id ||= `mp-live-composer-${crypto.randomUUID()}`
   let enabled = false,
     expanded = false,
     composing = false,
@@ -32,6 +35,13 @@ export function mountLiveChatComposer(options: {
     collapseAfterComposition = false,
     idleTimer = 0
   open.setAttribute('aria-label', t('说点什么…'))
+  for (const control of [open, close]) {
+    control.setAttribute('aria-controls', composer.id)
+    const chevron = el('span', 'mp-live-compose-chevron')
+    chevron.setAttribute('aria-hidden', 'true')
+    control.append(chevron)
+  }
+  open.prepend(caption)
   emojiButton.setAttribute('aria-label', t('Emoji'))
   emojiButton.title = t('Emoji')
   void options.icon
@@ -52,9 +62,10 @@ export function mountLiveChatComposer(options: {
     composer.hidden = enabled && !expanded
     close.hidden = !enabled || !expanded
     container.dataset.liveComposer = enabled ? (expanded ? 'expanded' : 'collapsed') : 'off'
-    open.textContent = draft.value.trim().replace(/\s+/g, ' ') || t('说点什么…')
+    caption.textContent = draft.value.trim().replace(/\s+/g, ' ') || t('说点什么…')
     open.classList.toggle('has-draft', !!draft.value.trim())
     open.setAttribute('aria-expanded', String(expanded))
+    close.setAttribute('aria-expanded', String(expanded))
   }
   function expand() {
     if (!enabled || draft.disabled || events.signal.aborted) return
@@ -172,6 +183,7 @@ export function mountLiveChatComposer(options: {
       launcher.remove()
       close.remove()
       composer.hidden = false
+      if (!previousComposerId) composer.removeAttribute('id')
       delete container.dataset.liveComposer
     },
   }

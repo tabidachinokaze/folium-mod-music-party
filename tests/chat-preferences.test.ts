@@ -66,6 +66,14 @@ describe('chat preferences through native settings parameters', () => {
       step: 1,
       defaultValue: 5,
     })
+    expect(fields.find((field) => field.key === 'floatingBubbleOpacity')).toMatchObject({
+      type: 'number',
+      label: { 'zh-CN': '消息气泡不透明度', en: 'Message bubble opacity' },
+      min: 0,
+      max: 100,
+      step: 1,
+      defaultValue: 35,
+    })
     expect(view.set).not.toHaveBeenCalled()
     preferences.dispose()
   })
@@ -199,6 +207,7 @@ describe('chat preferences through native settings parameters', () => {
     ['danmakuFontSize', 75, 150],
     ['danmakuSpeed', 50, 150],
     ['floatingOpacity', 20, 100],
+    ['floatingBubbleOpacity', 0, 100],
     ['floatingInputOpacity', 0, 100],
     ['floatingFontSize', 75, 150],
     ['floatingLineHeight', 100, 160],
@@ -251,6 +260,7 @@ describe('chat preferences through native settings parameters', () => {
       preferences = createChatPreferences(view.folium),
       appearance = {
         floatingOpacity: 70,
+        floatingBubbleOpacity: 0,
         floatingInputOpacity: 0,
         floatingFontSize: 140,
         floatingLineHeight: 130,
@@ -260,6 +270,7 @@ describe('chat preferences through native settings parameters', () => {
     preferences.dispose()
     const remounted = createChatPreferences(view.folium)
     expect(remounted.get()).toMatchObject(appearance)
+    expect(remounted.get().floatingBubbleOpacity).toBe(0)
     resetChatDisplayPreferences(remounted)
     expect(remounted.get()).toMatchObject({
       ...floatingChatDefaults,
@@ -268,6 +279,7 @@ describe('chat preferences through native settings parameters', () => {
       danmaku: true,
       danmakuOpacity: 35,
     })
+    expect(remounted.get().floatingBubbleOpacity).toBe(35)
     expect(view.set.mock.lastCall![0]).not.toHaveProperty('position')
     expect(view.set.mock.lastCall![0]).not.toHaveProperty('danmaku')
     const count = view.set.mock.calls.length
@@ -281,6 +293,7 @@ describe('chat preferences through native settings parameters', () => {
         position: 'bottom-left',
         peekSeconds: 23,
         floatingOpacity: 60,
+        floatingBubbleOpacity: 80,
         danmaku: true,
         danmakuMode: 'top',
         danmakuFont: 'heiti',
@@ -298,6 +311,7 @@ describe('chat preferences through native settings parameters', () => {
       position: 'bottom-left',
       peekSeconds: 23,
       floatingOpacity: 60,
+      floatingBubbleOpacity: 80,
       danmaku: true,
     })
     const patch = view.set.mock.calls[0][0]

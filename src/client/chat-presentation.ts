@@ -32,6 +32,7 @@ export function createChatPresentation(controller: PartyController, prefs: ChatP
   peeks.setAttribute('role', 'log')
   peeks.setAttribute('aria-live', 'polite')
   const danmaku = mountDanmaku(danmakuNode, controller),
+    danmakuPreview = mountDanmaku(danmakuNode, controller, { preview: true }),
     feed = new ChatMessageFeed(),
     pendingPeeks = new Map<HTMLElement, number>()
   let chat = mountRoomChat(chatNode, controller, sync),
@@ -43,6 +44,7 @@ export function createChatPresentation(controller: PartyController, prefs: ChatP
     hovering = false,
     showingChat = false,
     showingFull = false,
+    previewingDanmaku = false,
     previousScope = ''
 
   function clearPeeks() {
@@ -150,6 +152,7 @@ export function createChatPresentation(controller: PartyController, prefs: ChatP
 
     const appearance = {
       '--mp-floating-opacity': String(settings.floatingOpacity / 100),
+      '--mp-floating-bubble-opacity': String(settings.floatingBubbleOpacity / 100),
       '--mp-floating-input-opacity': String(settings.floatingInputOpacity / 100),
       '--mp-floating-font-size': `${(12 * settings.floatingFontSize) / 100}px`,
       '--mp-floating-line-height': String(settings.floatingLineHeight / 100),
@@ -160,6 +163,7 @@ export function createChatPresentation(controller: PartyController, prefs: ChatP
 
     if (scope !== previousScope) {
       previousScope = scope
+      previewingDanmaku = false
       hovering = false
       clearPeeks()
       closePopups()
@@ -200,6 +204,9 @@ export function createChatPresentation(controller: PartyController, prefs: ChatP
     danmaku.setOptions(settings)
     danmaku.setEnabled(settings.danmaku)
     danmaku.setVisible(activeStage)
+    danmakuPreview.setOptions(settings)
+    danmakuPreview.setEnabled(previewingDanmaku)
+    danmakuPreview.setVisible(activeStage)
     for (const message of feed.take(state, peekActive)) showPeek(message)
   }
   const stopState = controller.subscribe(sync),
@@ -222,6 +229,11 @@ export function createChatPresentation(controller: PartyController, prefs: ChatP
   chatNode.addEventListener('toggle', () => queueMicrotask(sync), true)
   sync()
   return {
+    setDanmakuPreview(value: boolean) {
+      if (disposed || previewingDanmaku === value) return
+      previewingDanmaku = value
+      sync()
+    },
     mountPanel(container: HTMLElement) {
       const mount = { container, visible: false }
       panel = mount
@@ -267,6 +279,7 @@ export function createChatPresentation(controller: PartyController, prefs: ChatP
       clearPeeks()
       chat.dispose()
       danmaku.dispose()
+      danmakuPreview.dispose()
       chatNode.remove()
       surface.dispose()
     },

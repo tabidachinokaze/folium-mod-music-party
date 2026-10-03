@@ -97,6 +97,23 @@ test('floating live chat keeps a compact message flow and expands its composer o
   await draft.press('Enter')
   await draft.pressSequentially('第二行')
   await expect(draft).toHaveValue('第一行\n第二行')
+  const collapse = chat.getByRole('button', { name: '收起聊天输入', exact: true }),
+    launcher = chat.locator('.mp-live-compose-open')
+  await expect(collapse).toHaveCSS('width', '28px')
+  await expect(collapse).toHaveCSS('height', '28px')
+  await expect(collapse).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+  await expect(collapse).toHaveText('')
+  await expect(collapse).toHaveAttribute('aria-expanded', 'true')
+  await expect(collapse).toHaveAttribute(
+    'aria-controls',
+    (await chat.locator('form').getAttribute('id'))!,
+  )
+  await page.screenshot({ path: test.info().outputPath('live-composer-expanded.png') })
+  await collapse.click()
+  await expect(launcher).toBeFocused()
+  await expect(launcher).toHaveAttribute('aria-expanded', 'false')
+  await launcher.click()
+  await expect(draft).toHaveValue('第一行\n第二行')
   await page.mouse.click(700, 20)
   await expect(view).toHaveAttribute('data-live-composer', 'collapsed')
   await expect(chat.locator('.mp-live-compose-open')).toHaveText('第一行 第二行')

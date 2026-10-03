@@ -7,6 +7,7 @@ import { roomActivityPresentation } from './room-activity-presentation'
 import { ChatMessageFeed } from './chat-message-feed'
 import Danmaku from 'danmaku/dist/esm/danmaku.dom.js'
 import { DanmakuClock } from './chat-danmaku-clock'
+import { danmakuPreviewImage, danmakuPreviewMessages } from './chat-danmaku-preview'
 import { danmakuDefaults, type DanmakuPreferenceValues } from './chat-preferences'
 import {
   DanmakuFilter,
@@ -17,12 +18,16 @@ import {
 } from './chat-danmaku-layout'
 import css from './chat-danmaku.css'
 
-function renderMessage(message: ChatMessage) {
+function renderMessage(message: ChatMessage, preview = false) {
   const attachments = message.attachments || [],
     secondary = danmakuCategory(message) === 'activity',
     row = el('div', `mp-danmaku-message${secondary ? ' mp-danmaku-secondary' : ''}`)
   row.dataset.messageId = message.id
   row.dataset.kind = secondary ? 'activity' : message.emoji ? 'sticker' : message.kind
+  if (preview) {
+    row.dataset.preview = 'true'
+    row.append(el('span', 'mp-danmaku-preview-label', t('预览')))
+  }
   if (secondary) {
     const activity = roomActivityPresentation(message)
     row.append(el('span', 'mp-danmaku-text', activity.text))
@@ -42,7 +47,7 @@ function renderMessage(message: ChatMessage) {
   }
   const images = new Set<string>(),
     addImage = (url: string | undefined, label: string) => {
-      const safe = url ? mediaUrl(url) : ''
+      const safe = preview && url === danmakuPreviewImage ? url : url ? mediaUrl(url) : ''
       if (!safe || images.has(safe) || images.size >= 2) return
       images.add(safe)
       const image = el('img', 'mp-danmaku-image')
@@ -70,14 +75,19 @@ function renderMessage(message: ChatMessage) {
   return row
 }
 
-export function mountDanmaku(container: HTMLElement, controller: PartyController) {
+export function mountDanmaku(
+  container: HTMLElement,
+  controller: PartyController,
+  configuration: { preview?: boolean } = {},
+) {
+  const preview = configuration.preview === true
   const host = el('div', 'mp-danmaku-host'),
     root = host.attachShadow({ mode: 'open' }),
     style = el('style'),
     stage = el('div', 'mp-danmaku'),
-    feed = new ChatMessageFeed(),
+    feed = preview ? null : new ChatMessageFeed(),
     filter = new DanmakuFilter(),
-    queue = new DanmakuQueue<ChatMessage>(),
+    queue = preview ? new DanmakuQueue<ChatMessage>(3, 120000) : new DanmakuQueue<ChatMessage>(),
     motion = matchMedia('(prefers-reduced-motion: reduce)')
   type FlyingMessage = {
     id: string
@@ -91,6 +101,7 @@ export function mountDanmaku(container: HTMLElement, controller: PartyController
   const flying = new Map<string, FlyingMessage>()
   style.textContent = css
   host.setAttribute('aria-hidden', 'true')
+  if (preview) host.dataset.preview = 'true'
   root.append(style, stage)
   container.append(host)
   let enabled = false,
@@ -99,6 +110,8 @@ export function mountDanmaku(container: HTMLElement, controller: PartyController
     width = 0,
     height = 0,
     scope = '',
+    previewBatch = 0,
+    previewTimer: ReturnType<typeof setTimeout> | undefined,
     options: DanmakuPreferenceValues = { ...danmakuDefaults },
     geometry = danmakuGeometry(0, 0, options),
     tracks = new DanmakuTracks(0)
@@ -111,7 +124,13 @@ export function mountDanmaku(container: HTMLElement, controller: PartyController
     item.clock.pause()
     item.node.remove()
     tracks.release(item.id)
-    if (drain) pump()
+    if (drain) {
+      pump()
+      if (preview && active() && !flying.size && !queue.peek(performance.now())) {
+        clearTimeout(previewTimer)
+        previewTimer = setTimeout(restart, 600)
+      }
+    }
   }
   const scheduleEnd = (item: FlyingMessage) => {
     clearTimeout(item.timer)
@@ -142,6 +161,8 @@ export function mountDanmaku(container: HTMLElement, controller: PartyController
     )
   }
   const clear = () => {
+    clearTimeout(previewTimer)
+    previewTimer = undefined
     queue.clear()
     filter.clear()
     for (const item of flying.values()) finish(item, false)
@@ -155,7 +176,7 @@ export function mountDanmaku(container: HTMLElement, controller: PartyController
       if (lane === null) return
       queue.shift()
       const node = el('div', 'mp-danmaku-track'),
-        row = renderMessage(message),
+        row = renderMessage(message, preview),
         clock = new DanmakuClock(),
         mode = motion.matches ? 'top' : options.danmakuMode
       node.dataset.lane = String(lane)
@@ -205,12 +226,23 @@ export function mountDanmaku(container: HTMLElement, controller: PartyController
       message = queue.peek(performance.now())
     }
   }
+  const restart = () => {
+    clear()
+    if (!preview || !active() || width <= 0 || height <= 0 || !geometry.rows) return
+    const now = performance.now()
+    queue.push(filter.take(danmakuPreviewMessages(++previewBatch), options, now), now)
+    pump()
+  }
   const update = () => {
+    if (preview) {
+      restart()
+      return
+    }
     const state = controller.state,
       nextScope = `${state.account?.uid || ''}:${state.room?.roomId || ''}`
     if (nextScope !== scope || !active()) clear()
     scope = nextScope
-    const fresh = feed.take(state, active())
+    const fresh = feed!.take(state, active())
     if (!fresh.length) return
     queue.push(filter.take(fresh, options, performance.now()), performance.now())
     pump()
@@ -220,14 +252,16 @@ export function mountDanmaku(container: HTMLElement, controller: PartyController
     if (rect.width === width && rect.height === height) return
     width = rect.width
     height = rect.height
-    clear()
+    restart()
   })
   resize.observe(host)
   const onVisibility = () => update(),
-    onMotion = () => clear()
+    onMotion = () => restart()
   document.addEventListener('visibilitychange', onVisibility)
   motion.addEventListener('change', onMotion)
-  const unsubscribe = controller.subscribe(update)
+  const unsubscribe = preview ? () => {} : controller.subscribe(update),
+    language = preview ? new MutationObserver(restart) : null
+  language?.observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] })
   const initialBounds = host.getBoundingClientRect()
   width = initialBounds.width
   height = initialBounds.height
@@ -245,7 +279,7 @@ export function mountDanmaku(container: HTMLElement, controller: PartyController
       )
         return
       options = { ...value }
-      clear()
+      restart()
     },
     setEnabled(value: boolean) {
       if (value === enabled || disposed) return
@@ -263,6 +297,7 @@ export function mountDanmaku(container: HTMLElement, controller: PartyController
       clear()
       unsubscribe()
       resize.disconnect()
+      language?.disconnect()
       document.removeEventListener('visibilitychange', onVisibility)
       motion.removeEventListener('change', onMotion)
       host.remove()

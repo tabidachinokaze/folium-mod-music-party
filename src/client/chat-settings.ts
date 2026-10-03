@@ -29,6 +29,7 @@ export function mountChatSettings(
   container: HTMLElement,
   preferences: ChatPreferences,
   ui?: Pick<Folium['ui'], 'icon'>,
+  onDanmakuPreview?: (visible: boolean) => void,
 ) {
   const renderers: ((values: ChatPreferenceValues) => void)[] = [],
     disposers: (() => void)[] = [],
@@ -71,8 +72,19 @@ export function mountChatSettings(
     content.append(title)
     box.append(summary, content)
     navigation.append(box)
-    const popup = mountDetailsPopup(box, content, { width: 320 })
+    const popup = mountDetailsPopup(box, content, {
+      width: 320,
+      maxHeight: 'viewport',
+    })
     disposers.push(() => popup.dispose())
+    if (kind === 'danmaku') {
+      const preview = () => onDanmakuPreview?.(!disposed && content.matches(':popover-open'))
+      content.addEventListener('toggle', preview)
+      disposers.push(() => {
+        content.removeEventListener('toggle', preview)
+        onDanmakuPreview?.(false)
+      })
+    }
     return { summary, caption, chevron, content }
   }
   function selectRow(
@@ -209,6 +221,7 @@ export function mountChatSettings(
     peekRow,
     hint,
     slider('floatingOpacity', '消息不透明度'),
+    slider('floatingBubbleOpacity', '消息气泡不透明度'),
     slider('floatingInputOpacity', '输入区背景不透明度'),
     slider('floatingFontSize', '聊天字号'),
     slider('floatingLineHeight', '聊天行距'),

@@ -110,6 +110,7 @@ test('floating chat uses available height without scrollbars and applies separat
   const settings = await openSettings(page)
   await select(settings, '聊天位置', '左下角')
   await slider(settings, '消息不透明度', 55)
+  await slider(settings, '消息气泡不透明度', 60)
   await slider(settings, '输入区背景不透明度', 20)
   await slider(settings, '聊天字号', 125)
   await slider(settings, '聊天行距', 130)
@@ -128,7 +129,11 @@ test('floating chat uses available height without scrollbars and applies separat
     .toBe(true)
   await floating.locator('.mp-live-compose-open').click()
   const composer = floating.locator('.mp-composer'),
-    bubble = history.locator('.mp-bubble').first()
+    bubble = history.locator('.mp-bubble').first(),
+    message = history.locator('.mp-message').first()
+  await expect(message).toHaveCSS('border-radius', '12px')
+  await expect(message).toHaveCSS('background-color', /(?:\/ 0\.6\)|, 0\.6\))/)
+  await expect(bubble).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
   await expect(composer).toHaveCSS('opacity', '1')
   await expect(composer).toHaveCSS('background-color', /(?:\/ 0\.2\)|, 0\.2\))/)
   await expect(composer.locator('textarea')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
@@ -156,6 +161,7 @@ test('floating chat uses available height without scrollbars and applies separat
   await page.reload()
   await page.getByRole('button', { name: '恢复当前房间', exact: true }).click()
   await expect(history).toHaveCSS('opacity', '0.55')
+  await expect(message).toHaveCSS('background-color', /(?:\/ 0\.6\)|, 0\.6\))/)
   await page.getByRole('tab', { name: '聊天', exact: true }).click()
   await openSettings(page)
   await expect(settings.getByRole('slider', { name: '聊天字号' })).toHaveValue('125')
@@ -165,5 +171,51 @@ test('floating chat uses available height without scrollbars and applies separat
     '左下角',
   )
   await expect(settings.getByRole('slider', { name: '消息不透明度' })).toHaveValue('100')
+  await expect(settings.getByRole('slider', { name: '消息气泡不透明度' })).toHaveValue('35')
   await expect(settings.getByRole('slider', { name: '输入区背景不透明度' })).toHaveValue('45')
+})
+
+test('floating bubbles keep text readable at zero background opacity and follow the theme accent', async ({
+  page,
+  request,
+}) => {
+  await request.post('/test/room-layout')
+  await enter(page)
+  const settings = await openSettings(page)
+  await select(settings, '聊天位置', '左下角')
+  const floating = page.locator('.mp-floating-chat'),
+    messages = floating.locator('.mp-message'),
+    author = floating.locator('.mp-meta .mp-message-author').first()
+  await slider(settings, '消息气泡不透明度', 0)
+  await expect(messages.first()).toHaveCSS('background-color', /(?:\/ 0\)|, 0\))/)
+  await expect(floating.locator('.mp-history')).toHaveCSS('opacity', '1')
+  await page.keyboard.press('Escape')
+  for (const [theme, accent] of [
+    ['blue', 'rgb(133, 184, 232)'],
+    ['light', 'rgb(54, 101, 175)'],
+  ]) {
+    await page.getByRole('combobox', { name: '预览主题' }).selectOption(theme!)
+    await expect(author).toHaveCSS('color', accent!)
+  }
+  await openSettings(page)
+  await slider(settings, '消息气泡不透明度', 100)
+  await expect(messages.first()).toHaveCSS(
+    'background-color',
+    /(?:srgb 0\.9686|rgb\(247, 247, 245)/,
+  )
+  await slider(settings, '消息气泡不透明度', 35)
+  await page.keyboard.press('Escape')
+  // Long names/URLs and activity rows wrap inside the same bounded bubble.
+  for (const row of await messages.all()) {
+    await expect(row).toHaveCSS('border-radius', '12px')
+    expect(await row.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true)
+  }
+  await page.screenshot({ path: test.info().outputPath('floating-bubbles-light.png') })
+  await openSettings(page)
+  await select(settings, '聊天位置', '面板内')
+  await page.keyboard.press('Escape')
+  await expect(page.locator('.mp-panel .mp-message').first()).toHaveCSS(
+    'background-color',
+    'rgba(0, 0, 0, 0)',
+  )
 })
