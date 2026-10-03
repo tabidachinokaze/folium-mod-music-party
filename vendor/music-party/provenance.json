@@ -22,12 +22,13 @@
     "main/media-send.ts": "a7350e2ba580da146eef18182409bfd4dcde71ca093ea4fa32b9464a177b5e16"
   },
   "localFileHashes": {
-    "main/service.ts": "08a9fd3ab61592d75535643793a9db79b856da5c0bb76abbe6815a1d2a52f060",
-    "main/multi-api.ts": "deafe7605ad594e97c9aa3448697f644e282103d8e5f8d66464fa866b746c9fe",
-    "shared/types.ts": "cdf9c35d9d9b50ab23eb08cbd0e9db73dc627f3e479cccf294f0e234f25295b2",
+    "main/service.ts": "3b674077ed56810bb28e4e525681863f077a8654541f6f8c7843cb5e892ecf58",
+    "main/multi-api.ts": "949b39e49fccc41d7d128bfa645c715e765c2eb388e097840d56f65fd084293b",
+    "shared/types.ts": "e97707cbc94fe0c000d00aa512f404079a161af55bd3d49668cd01ef2b30de75",
     "shared/multiplayer.ts": "917ff9283079ac8d977ec9a8418df08f3c2bed9e55888ebd72f54946c95c993b",
     "shared/message-content.ts": "692d25dbf490070814d3d58e6f6b914512c83f03b156c6bf0e15a802605aa4b1",
     "shared/message-action.ts": "aff114e6fda0af854851eb392455ed229714c8b7a74fb70beb51c822c212ffb8",
-    "shared/stickers.ts": "651f9abec4823094e5ed0cab91f0f39f110ec3650e8655c95668f17a65827053"
+    "shared/stickers.ts": "651f9abec4823094e5ed0cab91f0f39f110ec3650e8655c95668f17a65827053",
+    "shared/chat.ts": "d8fb1965c98a75a414aa1d6d359987e6eedcb30dc99d9ba348f38325121710c6"
   }
 }

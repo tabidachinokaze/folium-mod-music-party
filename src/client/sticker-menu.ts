@@ -2,7 +2,11 @@ import type { PartyController } from './controller'
 import { button, el } from './dom'
 import { messageSticker } from './message-sticker'
 import { mountPopup } from './popup-position'
-import { stickerCollectionChanged } from './sticker-collection'
+import {
+  hasSavedSticker,
+  rememberSavedSticker,
+  stickerCollectionChanged,
+} from './sticker-collection'
 import { t } from './i18n'
 import styles from './sticker-menu.css'
 
@@ -33,19 +37,30 @@ export function mountStickerMenu(history: HTMLElement, controller: PartyControll
       row = image.closest<HTMLElement>('.mp-message'),
       emoji = messageSticker(image),
       account = controller.state.account?.uid
-    if (!emoji || emoji.emojiId === '0' || !account || !row || row.classList.contains('is-mine'))
-      return
+    if (!emoji || !account || !row) return
     event.preventDefault()
     event.stopPropagation()
     close()
-    const save = button(t('添加到我的表情包'), () => {
-      if (busy || !row.isConnected || account !== controller.state.account?.uid) return
+    const alreadySaved = hasSavedSticker(controller, emoji)
+    const save = button(t(alreadySaved ? '已添加到我的表情包' : '添加到我的表情包'), () => {
+      if (
+        busy ||
+        !row.isConnected ||
+        account !== controller.state.account?.uid ||
+        hasSavedSticker(controller, emoji)
+      )
+        return
       busy = true
       close()
       void controller.connection
         .attachment('saveSticker', emoji)
-        .then(() => {
+        .then((result) => {
           if (disposed || account !== controller.state.account?.uid) return
+          rememberSavedSticker(
+            controller,
+            emoji,
+            result && typeof result === 'object' && 'emojiId' in result ? result : undefined,
+          )
           stickerCollectionChanged(controller)
           controller.notify('已添加到我的表情包', 'success')
         })
@@ -58,6 +73,7 @@ export function mountStickerMenu(history: HTMLElement, controller: PartyControll
           busy = false
         })
     })
+    save.disabled = alreadySaved
     save.setAttribute('role', 'menuitem')
     menu.replaceChildren(save)
     void controller.folium.ui

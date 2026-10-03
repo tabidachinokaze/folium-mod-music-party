@@ -926,6 +926,16 @@ export interface FoliumPlaybackSession {
     release(): void;
 }
 
+/** A confirmed personal favourite change for the still-current session queue occurrence. */
+export interface FoliumPlaybackFavoriteChange {
+    /** The host song whose personal favourite mutation succeeded. */
+    song: FoliumSong;
+    /** The mod's queue entry id, not the song's media id or host presentation key. */
+    entryId: string;
+    /** The confirmed personal favourite state; false means the favourite was removed. */
+    liked: boolean;
+}
+
 /** EXPERIMENTAL: requires manifest `playback.sessions` and permission `playback.control`. Main window only. */
 export interface FoliumPlaybackSessions {
     /** Experimental service contract version. */
@@ -934,6 +944,8 @@ export interface FoliumPlaybackSessions {
     readonly supportsHandoff?: boolean;
     /** Whether owners may opt in to separate local auditions from queue/recommend actions. */
     readonly supportsAudition?: boolean;
+    /** Whether owners may observe confirmed personal favourite changes for their current queue entry. */
+    readonly supportsFavoriteEvents?: true;
     /** Resolve an online provider's opaque media ID through Omni, returning a host song ref. */
     resolveSong(provider: string, id: string): Promise<FoliumSong>;
     /** FM, Stage, video recording, active transitions and another session are rejected before changing playback. */
@@ -943,6 +955,8 @@ export interface FoliumPlaybackSessions {
         restore: 'queue-stopped';
         /** Receive audition intents for play actions; retain room state and implement local audition/return. */
         audition?: boolean;
+        /** Observe successful personal favourite changes only while the captured owner and current queue occurrence still match. Auditions are excluded. Rejections are reported without releasing playback or undoing the personal favourite. */
+        onFavoriteChanged?: (event: FoliumPlaybackFavoriteChange) => void | Promise<void>;
     }): FoliumPlaybackSession;
 }
 

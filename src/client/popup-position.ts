@@ -9,23 +9,44 @@ type PopupOptions = {
   onClose?: () => void
 }
 type Bounds = { left: number; right: number; top: number; bottom: number }
+type VerticalBounds = Pick<Bounds, 'top' | 'bottom'>
 const activePopups = new WeakMap<Document, () => void>()
+
+// Match the native sidebar's maximum expanded area, not its current content height.
+export function playerPopupBounds(
+  viewportHeight: number,
+  panel: { bottom: number; maxHeight: number } | null,
+  page: VerticalBounds | null = null,
+): VerticalBounds {
+  const bottom = Math.max(
+    8,
+    Math.min(viewportHeight - 8, panel?.bottom ?? page?.bottom ?? viewportHeight - 8),
+  )
+  const desiredTop = panel ? panel.bottom - panel.maxHeight : (page?.top ?? 8)
+  return { top: Math.min(bottom, Math.max(8, desiredTop)), bottom }
+}
 
 // Message actions belong to the selected image, rather than the outer sidebar.
 export function contextualPopupPosition(
   anchor: Bounds,
   viewport: { width: number; height: number },
   size: { width: number; height: number },
+  collisionBounds?: VerticalBounds,
 ) {
   const margin = 8,
     gap = 10,
     width = Math.min(size.width, Math.max(0, viewport.width - margin * 2)),
-    maxHeight = Math.max(0, viewport.height - margin * 2),
+    minTop = Math.max(margin, collisionBounds?.top ?? margin),
+    maxBottom = Math.max(
+      minTop,
+      Math.min(viewport.height - margin, collisionBounds?.bottom ?? viewport.height - margin),
+    ),
+    maxHeight = Math.max(0, maxBottom - minTop),
     height = Math.min(size.height, maxHeight),
     center = (anchor.left + anchor.right) / 2,
     left = Math.max(margin, Math.min(center - width / 2, viewport.width - width - margin)),
-    above = anchor.top - gap - margin,
-    below = viewport.height - margin - anchor.bottom - gap,
+    above = anchor.top - gap - minTop,
+    below = maxBottom - anchor.bottom - gap,
     side = above >= height || above >= below ? 'above' : 'below',
     desiredTop = side === 'above' ? anchor.top - gap - height : anchor.bottom + gap,
     arrowInset = Math.min(16, width / 2)
@@ -33,7 +54,7 @@ export function contextualPopupPosition(
     width,
     maxHeight,
     left,
-    top: Math.max(margin, Math.min(desiredTop, viewport.height - height - margin)),
+    top: Math.max(minTop, Math.min(desiredTop, maxBottom - height)),
     side,
     arrowLeft: Math.max(arrowInset, Math.min(center - left, width - arrowInset)),
   }
@@ -47,6 +68,7 @@ export function popupPosition(
   size: { width: number; height: number },
   align: 'start' | 'end' = 'end',
   useViewportHeight = false,
+  verticalBounds?: VerticalBounds,
 ) {
   const margin = 8,
     gap = 12,
@@ -62,8 +84,10 @@ export function popupPosition(
     width = Math.min(preferredWidth, viewport.width - panel.right - gap - margin)
     left = panel.right + gap
   } else if (panel) left = panel.right - width
-  const minTop = margin,
-    maxBottom = viewport.height - margin,
+  const minTop = useViewportHeight ? Math.max(margin, verticalBounds?.top ?? margin) : margin,
+    maxBottom = useViewportHeight
+      ? Math.min(viewport.height - margin, verticalBounds?.bottom ?? viewport.height - margin)
+      : viewport.height - margin,
     maxHeight = Math.max(0, maxBottom - minTop),
     height = useViewportHeight ? Math.min(size.height, maxHeight) : size.height
   const desiredTop = panel
@@ -106,6 +130,22 @@ function ancestors(element: HTMLElement) {
   return result
 }
 
+function visibleHistoryBounds(anchor: HTMLElement): VerticalBounds | undefined {
+  const history = anchor.closest<HTMLElement>('.mp-history')
+  if (!history) return undefined
+  const visible = {
+    top: history.getBoundingClientRect().top,
+    bottom: history.getBoundingClientRect().bottom,
+  }
+  for (const parent of ancestors(history).slice(1)) {
+    if (!/(?:auto|scroll|hidden|clip)/.test(getComputedStyle(parent).overflowY)) continue
+    const rect = parent.getBoundingClientRect()
+    visible.top = Math.max(visible.top, rect.top)
+    visible.bottom = Math.min(visible.bottom, rect.bottom)
+  }
+  return visible
+}
+
 export function mountPopup(popup: HTMLElement, anchor: HTMLElement, options: PopupOptions = {}) {
   popup.popover = 'manual'
   popup.classList.add('mp-floating-popup')
@@ -120,16 +160,31 @@ export function mountPopup(popup: HTMLElement, anchor: HTMLElement, options: Pop
     if (options.placement === 'contextual') {
       const rect = anchor.getBoundingClientRect(),
         viewport = { width: window.innerWidth, height: window.innerHeight },
-        initial = contextualPopupPosition(rect, viewport, {
-          width: options.width ?? 208,
-          height: 0,
-        })
+        historyBounds = visibleHistoryBounds(anchor),
+        initial = contextualPopupPosition(
+          rect,
+          viewport,
+          {
+            width: options.width ?? 208,
+            height: 0,
+          },
+          historyBounds,
+        )
+      if (historyBounds && (rect.bottom <= historyBounds.top || rect.top >= historyBounds.bottom)) {
+        close()
+        return
+      }
       popup.style.width = `${initial.width}px`
       popup.style.maxHeight = `${initial.maxHeight}px`
-      const placed = contextualPopupPosition(rect, viewport, {
-        width: options.width ?? 208,
-        height: popup.getBoundingClientRect().height,
-      })
+      const placed = contextualPopupPosition(
+        rect,
+        viewport,
+        {
+          width: options.width ?? 208,
+          height: popup.getBoundingClientRect().height,
+        },
+        historyBounds,
+      )
       popup.style.left = `${placed.left}px`
       popup.style.top = `${placed.top}px`
       popup.style.setProperty('--mp-popup-arrow-x', `${placed.arrowLeft}px`)
@@ -140,6 +195,17 @@ export function mountPopup(popup: HTMLElement, anchor: HTMLElement, options: Pop
       panelBounds = panel?.getBoundingClientRect() || null,
       rect = anchor.getBoundingClientRect(),
       viewport = { width: window.innerWidth, height: window.innerHeight },
+      nativeMaxHeight = panel ? Number.parseFloat(getComputedStyle(panel).maxHeight) : NaN,
+      verticalBounds =
+        options.maxHeight === 'viewport'
+          ? playerPopupBounds(
+              viewport.height,
+              panelBounds && Number.isFinite(nativeMaxHeight) && nativeMaxHeight > 0
+                ? { bottom: panelBounds.bottom, maxHeight: nativeMaxHeight }
+                : null,
+              anchor.closest<HTMLElement>('.mp-private-home')?.getBoundingClientRect() || null,
+            )
+          : undefined,
       initial = popupPosition(
         rect,
         panelBounds,
@@ -150,10 +216,11 @@ export function mountPopup(popup: HTMLElement, anchor: HTMLElement, options: Pop
         },
         options.align,
         options.maxHeight === 'viewport',
+        verticalBounds,
       )
     popup.style.width = `${initial.width}px`
     // Apply the limit before measuring: additional sticker pages may grow the
-    // popup naturally, while its border box stays inside the player viewport.
+    // popup naturally, preserving the player/sidebar's vertical clearance.
     if (initial.maxHeight !== undefined) popup.style.maxHeight = `${initial.maxHeight}px`
     const placed = popupPosition(
       rect,
@@ -165,6 +232,7 @@ export function mountPopup(popup: HTMLElement, anchor: HTMLElement, options: Pop
       },
       options.align,
       options.maxHeight === 'viewport',
+      verticalBounds,
     )
     popup.style.left = `${placed.left}px`
     popup.style.top = `${placed.top}px`
@@ -202,6 +270,7 @@ export function mountPopup(popup: HTMLElement, anchor: HTMLElement, options: Pop
   resize.observe(anchor)
   const visibility = new MutationObserver(() => {
     if (observedAncestors.some((parent) => parent.hidden)) close()
+    else schedule()
   })
   doc.addEventListener('pointerdown', outside)
   doc.addEventListener('keydown', escape)
@@ -216,7 +285,10 @@ export function mountPopup(popup: HTMLElement, anchor: HTMLElement, options: Pop
         return
       visibility.disconnect()
       for (const parent of observedAncestors)
-        visibility.observe(parent, { attributes: true, attributeFilter: ['hidden'] })
+        visibility.observe(parent, {
+          attributes: true,
+          attributeFilter: ['hidden', 'style', 'class'],
+        })
       const attachedRoot = anchor.getRootNode()
       if (root !== attachedRoot) {
         root?.removeEventListener('scroll', schedule, true)

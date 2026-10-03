@@ -1,6 +1,13 @@
 import type { FoliumPlaybackQueue } from '../vendor/folium/contract'
 import { vi } from 'vitest'
-import type { Folium, HostSong, Intent, PlaybackState, PlaybackResult } from '../src/client/host'
+import type {
+  Folium,
+  HostSong,
+  Intent,
+  PlaybackState,
+  PlaybackResult,
+  ExternalPlayback,
+} from '../src/client/host'
 import type { RoomPlayback } from '@party/shared/types'
 
 // tests/fixtures.ts
@@ -66,8 +73,9 @@ export function fakeHost() {
     version: 2 as const,
     supportsHandoff: true,
     supportsAudition: true,
+    supportsFavoriteEvents: true as const,
     resolveSong: vi.fn(async (_: string, id: string) => song(id)),
-    acquire: vi.fn(({ onIntent }: { onIntent: (event: Intent) => void }) => {
+    acquire: vi.fn(({ onIntent }: Parameters<ExternalPlayback['acquire']>[0]) => {
       dispatch = onIntent
       return lease
     }),

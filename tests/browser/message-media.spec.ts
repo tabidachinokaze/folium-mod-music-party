@@ -30,7 +30,7 @@ test('received stickers hide app fallback, offer collection on right-click and r
     const payload = route.request().postDataJSON()
     if (payload.name === 'saveSticker') {
       saved.push(payload.args[0])
-      return route.fulfill({ json: { ok: true, result: { ...sticker, emojiId: '991' } } })
+      return route.fulfill({ json: { ok: true, result: true } })
     }
     const method = payload.name === 'call' ? payload.args[0]?.method : ''
     if (method === 'stickerPage') pages++
@@ -78,8 +78,11 @@ test('received stickers hide app fallback, offer collection on right-click and r
   await expect
     .poll(async () => {
       const image = (await roomImage.boundingBox())!,
-        popup = (await menu.boundingBox())!
+        popup = (await menu.boundingBox())!,
+        history = (await chat.locator('.mp-history').boundingBox())!
       return (
+        popup.y >= history.y &&
+        popup.y + popup.height <= history.y + history.height &&
         popup.x < image.x + image.width &&
         popup.x + popup.width > image.x &&
         (Math.abs(popup.y + popup.height - image.y) <= 12 ||
@@ -106,8 +109,8 @@ test('received stickers hide app fallback, offer collection on right-click and r
     0,
   )
   await privateImage.click({ button: 'right' })
-  await home.getByRole('menuitem', { name: '添加到我的表情包' }).click()
-  await expect.poll(() => saved.length).toBe(2)
+  await expect(home.getByRole('menuitem', { name: '已添加到我的表情包' })).toBeDisabled()
+  expect(saved).toHaveLength(1)
   await home.screenshot({ path: test.info().outputPath('received-sticker.png') })
   const calls = (await (await request.get('/test/state')).json()).calls
   expect(calls).not.toContain('privateSend')

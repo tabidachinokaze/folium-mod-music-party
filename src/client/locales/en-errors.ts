@@ -1,6 +1,9 @@
 // src/client/locales/en-errors.ts
 // Exact local validation/RPC messages only. Server-provided free text stays unchanged.
 export const enErrors: Record<string, string> = {
+  '无法确认当前房间，红心动态未发送':
+    'Could not confirm the current room. The favorite activity was not sent.',
+  '房间已切换歌曲，红心动态未发送': 'The room song changed. The favorite activity was not sent.',
   请粘贴网易云多人一起听的完整邀请链接: 'Paste the full NetEase multiplayer invite link.',
   邀请链接格式不正确: 'The invite link is not a valid URL.',
   请使用网易云官方多人邀请链接: 'Use an official NetEase multiplayer invite link.',

@@ -84,6 +84,7 @@ const fields: Partial<Record<Method, string[]>> = {
   multiRemove: ['roomId', 'songId', 'bizId'],
   multiUp: ['roomId', 'songId', 'bizId'],
   multiLike: ['roomId', 'songId', 'bizId'],
+  multiRedHeart: ['roomId', 'songId', 'bizId'],
   multiLeave: ['roomId'],
   multiAdd: ['roomId', 'songId'],
   multiNext: ['roomId', 'songId', 'bizId'],
@@ -269,17 +270,21 @@ export class ApiService {
           throw new Error('请先扫码登录')
         if (method === 'qrCheck' && args.key !== this.activeKey)
           throw new Error('二维码已更新，请扫描新的二维码')
-        if (['multiRemove', 'multiUp', 'multiLike'].includes(method)) {
+        if (['multiRemove', 'multiUp', 'multiLike', 'multiRedHeart'].includes(method)) {
           const status = await this.invoke('multiStatus', { cookie: this.cookie, timeout: 12000 })
+          if (method === 'multiRedHeart' && status.body?.code !== 200)
+            throw new Error('无法确认当前房间，红心动态未发送')
           if (status.body?.data?.multiLtRoomSnapshot?.roomId !== args.roomId)
             throw new Error('账号已不在此房间，请重新同步')
-          if (method === 'multiLike') {
+          if (method === 'multiLike' || method === 'multiRedHeart') {
             const current = status.body.data.multiLtRoomSnapshot.roomPlaySongInfo?.playSong
             if (
               String(current?.songBizId) !== args.bizId ||
               String(current?.songId) !== args.songId
             )
-              throw new Error('房间已切换歌曲，请给当前歌曲点赞')
+              throw new Error(method === 'multiRedHeart'
+                ? '房间已切换歌曲，红心动态未发送'
+                : '房间已切换歌曲，请给当前歌曲点赞')
           }
           if (method === 'multiRemove') {
             const account = await this.invoke('login_status', {
@@ -513,7 +518,8 @@ export class ApiService {
           body.data?.success !== true
         )
           throw new Error('多人操作缺少成功确认，请查看观测记录并刷新房间状态')
-        if (['multiAdd', 'multiNext'].includes(method) && body.data?.failedCode !== 0)
+        if (['multiAdd', 'multiNext', 'multiRedHeart'].includes(method) &&
+          (body.data?.failedCode !== 0 || (method === 'multiRedHeart' && body.data?.result === false)))
           throw new Error(
             body.data?.failedMsg || `房间未接受操作（${body.data?.failedCode ?? '缺少确认'}）`,
           )

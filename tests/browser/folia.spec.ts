@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { verifyAlbumAuditionAndRemote, verifyPrivateSongChoices } from './folia-resources'
+import { installFavoriteProbe } from './folia-favorites'
 
 // tests/browser/folia.spec.ts
 // Optional integration against the real patched Folia dev renderer and audio pipeline.
@@ -17,10 +18,11 @@ test('actual Folium registration and host audio: restore, native next, local pau
   await page.addInitScript(() => {
     localStorage.clear()
     localStorage.setItem('i18nextLng', 'zh-CN')
-    localStorage.setItem('folia_last_seen_ponder_onboarding_version', '0.7.19')
+    localStorage.setItem('folia_last_seen_ponder_onboarding_version', '0.7.20')
     localStorage.setItem('online_provider:netease:cookie', 'MUSIC_U=test-only')
     localStorage.setItem('static_mode', 'true')
     localStorage.setItem('player_loop_mode', 'one')
+    localStorage.setItem('player_control_slot_secondary', 'like')
     ;(window as any).electron = {
       getNeteasePort: async () => 4176,
       getNeteaseApiStatus: async () => ({ status: 'ready' }),
@@ -72,6 +74,7 @@ test('actual Folium registration and host audio: restore, native next, local pau
       ? route.continue()
       : route.fulfill({ contentType: 'application/json', body: '{}' })
   })
+  const favorites = await installFavoriteProbe(page, request)
   await page.goto(foliaUrl!)
   await page.locator('#app-splash').waitFor({ state: 'detached', timeout: 60000 })
   await page.evaluate(async () => {
@@ -95,7 +98,7 @@ test('actual Folium registration and host audio: restore, native next, local pau
         id: 'music-party',
         name: 'Music Party',
         permissions: ['playback.control'],
-        folia: '>=0.7.19 <=0.7.19',
+        folia: '>=0.7.20 <=0.7.20',
         experimental: ['playback.sessions'],
       },
       {
@@ -151,6 +154,9 @@ test('actual Folium registration and host audio: restore, native next, local pau
       page.locator('.mp-chat-view').getByRole('button', { name: '发送', exact: true }),
     ).toBeInViewport()
     expect(await page.locator('.mp-chat-view .mp-sticker-menu').boundingBox()).toBeNull()
+    await expect
+      .poll(async () => (await page.locator('.mp-panel').boundingBox())!.height)
+      .toBeLessThan(350)
   }
   await page.screenshot({ path: 'test-results/folia-chat-contained.png', animations: 'disabled' })
   await page.getByRole('tab', { name: '房间', exact: true }).click()
@@ -214,6 +220,7 @@ test('actual Folium registration and host audio: restore, native next, local pau
     .click()
   await expect(page.locator('.mp-match-song-summary')).toContainText('下一站 · 20')
   expect((await (await request.get('/test/state')).json()).operations).toHaveLength(0)
+  await favorites.verifyRoomFavorite()
   expect(
     await page.evaluate(() => (window as any).partyHost.api.playback.getState().song?.id),
   ).toBe('1')
@@ -392,7 +399,9 @@ test('actual Folium registration and host audio: restore, native next, local pau
     }),
   ).toEqual(playbackBeforeAlbum)
   await page.screenshot({ path: 'test-results/folia-private-album.png', animations: 'disabled' })
-  await verifyAlbumAuditionAndRemote(page, request, foliaUrl!)
+  await verifyAlbumAuditionAndRemote(page, request, foliaUrl!, (remote) =>
+    favorites.verifyPersonalOnly('701', remote),
+  )
   await albumView.locator('button:has(svg.lucide-chevron-left)').first().click()
   await expect(albumView).toHaveCount(0)
   await expect(sharedAlbum).toBeVisible()
@@ -448,6 +457,7 @@ test('actual Folium registration and host audio: restore, native next, local pau
   expect(afterLeave.time).toBeCloseTo(beforeLeave.time, 0)
   expect(afterLeave.state).toBe('paused')
   expect(await page.locator('audio[loop]').count()).toBeGreaterThan(0)
+  await favorites.verifyPersonalOnly(beforeLeave.song)
   await page.evaluate(() => (window as any).partyHost.dispose())
   expect(errors).toEqual([])
 })

@@ -16,6 +16,7 @@ import {
   type Folium,
   type HostSong,
   type Intent,
+  type FavoriteChange,
 } from './host'
 import { RoomPlayer } from './player'
 import { loadQueue, loadChat } from './room-data'
@@ -62,6 +63,7 @@ export class PartyController {
   private transition: RoomTransition | null = null
   private interval = 5000
   private likeTail: Promise<void> = Promise.resolve()
+  private redHeartPending = new Set<string>()
   constructor(
     readonly folium: Folium,
     connection?: AccountConnection,
@@ -98,8 +100,9 @@ export class PartyController {
           const snapshot = parseSnapshot(raw, this.now())
           // The server has already joined us. Keep a recovery card if the local player is busy.
           this.patch({ availableRoom: snapshot })
+          const epoch = ++this.epoch
           this.begin()
-          this.activateRoom(snapshot, ++this.epoch)
+          this.activateRoom(snapshot, epoch)
         } catch (error: any) {
           this.patch({ error: error.message })
         }
@@ -300,7 +303,12 @@ export class PartyController {
       )
     if (!this.state.account) throw new Error(t('请先连接网易云账号'))
     if (this.state.room) throw new Error(t('请先退出当前房间'))
-    this.player.start((intent) => this.intent(intent))
+    const epoch = this.epoch,
+      uid = this.state.account.uid
+    this.player.start(
+      (intent) => this.intent(intent),
+      (event) => this.favoriteChanged(event, epoch, uid),
+    )
   }
   async enter(kind: 'restore' | 'join' | 'create', input = '', allowStrangerMatch = false) {
     if (this.state.matching) throw new Error(t('请先取消匹配'))
@@ -632,6 +640,50 @@ export class PartyController {
       }
     })
     return this.likeTail
+  }
+  /** A room red-heart is an extra activity after host-confirmed personal collection. */
+  private async favoriteChanged(event: FavoriteChange, epoch: number, uid: string) {
+    const roomId = this.state.room?.roomId
+    const current = () => {
+      const song = this.state.room?.playback?.song
+      return (
+        !this.disposed &&
+        epoch === this.epoch &&
+        uid === this.state.account?.uid &&
+        !!roomId &&
+        this.state.room?.roomId === roomId &&
+        !this.player?.auditioning &&
+        !this.state.auditioning &&
+        event.liked === true &&
+        event.song.source === 'netease' &&
+        event.song.id === song?.songId &&
+        event.entryId === song?.songBizId
+      )
+    }
+    if (!current()) return
+    const key = `${epoch}:${uid}:${roomId}:${event.entryId}`
+    if (this.redHeartPending.has(key)) return
+    this.redHeartPending.add(key)
+    try {
+      await this.connection.call('multiRedHeart', {
+        roomId,
+        songId: event.song.id,
+        bizId: event.entryId,
+      })
+      // Chat polling receives the server's real activity. Never invent a local message
+      // or overwrite the host's already-confirmed personal favorite state.
+    } catch (error: any) {
+      if (current())
+        this.notify(
+          t('已加入我的喜欢，但房间红心动态同步失败：{error}', {
+            error: t(error.message || '请求失败'),
+          }),
+          'error',
+        )
+      // No retry or session release: personal collection succeeded independently.
+    } finally {
+      this.redHeartPending.delete(key)
+    }
   }
   private queueAction(entryId: string | null, actionId: string) {
     if (!entryId && actionId === 'stop-audition') {

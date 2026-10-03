@@ -45,6 +45,7 @@ export const enPickers: Record<string, string> = {
   添加到我的表情包: 'Add to my stickers',
   已添加到我的表情包: 'Added to your stickers',
   '表情保存失败，请重试': 'Could not save the sticker. Please try again.',
+  图片地址不可用于添加表情包: 'This image cannot be added to your stickers.',
   '无法读取表情图片 ID，请选择其他表情':
     'Could not read the sticker image ID. Choose another sticker.',
   表情分组: 'Sticker group',

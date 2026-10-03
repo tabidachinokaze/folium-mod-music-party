@@ -31,6 +31,7 @@ export type Method =
   | 'multiRemove'
   | 'multiUp'
   | 'multiLike'
+  | 'multiRedHeart'
   | 'multiAdd'
   | 'multiNext'
   | 'multiLeave'
@@ -181,6 +182,7 @@ export interface Artist {
 export type SearchKind = 'songs' | 'playlists' | 'artists'
 
 export interface ChatMessage {
+  interactType?: number
   id: string
   roomId: string
   uid: string

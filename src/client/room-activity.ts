@@ -16,7 +16,7 @@ export function hasActivityActor(text: string, nickname: string) {
   return (
     !rest ||
     !!likeActivitySongRange(rest) ||
-    /^(?:[\s·:：，,]|来了|推荐了|离开了|加入了|退出了|为(?:歌曲|这首歌)|点赞了|(?:UP|up)了|置顶了)/u.test(
+    /^(?:[\s·:：，,]|来了|推荐了|离开了|加入了|退出了|为(?:歌曲|这首歌)|点赞了|红心了|(?:UP|up)了|置顶了)/u.test(
       rest,
     )
   )

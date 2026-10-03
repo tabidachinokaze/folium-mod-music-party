@@ -1,6 +1,6 @@
 // src/client/panel-chat-layout.ts
 // The native sidebar sizes to content, with its cover and tab row above this
-// mount. Bound chat to the remaining space without resizing the host's chrome.
+// mount. Cap chat at the remaining space; empty/short histories size to content.
 export function mountPanelChatLayout(page: HTMLElement) {
   const ancestors: HTMLElement[] = []
   let node: HTMLElement | null = page
@@ -15,7 +15,7 @@ export function mountPanelChatLayout(page: HTMLElement) {
   const sync = () => {
     if (!panel?.matches('[data-testid="unified-panel-surface"]')) return
     if (!page.classList.contains('mp-chat-layout')) {
-      page.style.removeProperty('--mp-chat-panel-height')
+      page.style.removeProperty('--mp-chat-panel-max-height')
       return
     }
     if (!panel.offsetHeight || !page.offsetHeight) return
@@ -42,8 +42,8 @@ export function mountPanelChatLayout(page: HTMLElement) {
       }, 0),
       height = Math.max(0, Math.floor(limit - offset - bottomInset))
     const next = `${height}px`
-    if (page.style.getPropertyValue('--mp-chat-panel-height') !== next)
-      page.style.setProperty('--mp-chat-panel-height', next)
+    if (page.style.getPropertyValue('--mp-chat-panel-max-height') !== next)
+      page.style.setProperty('--mp-chat-panel-max-height', next)
   }
   const schedule = () => {
     if (frame) return

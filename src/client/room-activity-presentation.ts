@@ -8,9 +8,9 @@ export interface RoomActivityPart {
 }
 export interface RoomActivityPresentation {
   text: string
-  type: 'join' | 'recommend' | 'promote' | 'like' | 'leave' | 'notice'
+  type: 'join' | 'recommend' | 'promote' | 'like' | 'redheart' | 'leave' | 'notice'
   label: string
-  icon: 'user-plus' | 'music-2' | 'arrow-up-to-line' | 'thumbs-up' | 'log-out' | 'info'
+  icon: 'user-plus' | 'music-2' | 'arrow-up-to-line' | 'thumbs-up' | 'heart' | 'log-out' | 'info'
   parts: RoomActivityPart[]
 }
 type Span = { start: number; end: number; kind: 'actor' | 'song' }
@@ -19,6 +19,7 @@ const events = {
   recommend: { label: '推荐', icon: 'music-2' },
   promote: { label: '置顶', icon: 'arrow-up-to-line' },
   like: { label: '点赞', icon: 'thumbs-up' },
+  redheart: { label: '红心', icon: 'heart' },
   leave: { label: '离开', icon: 'log-out' },
   notice: { label: '动态', icon: 'info' },
 } as const
@@ -30,6 +31,7 @@ function eventType(action: string): RoomActivityPresentation['type'] {
     return 'join'
   if (/^推荐了(?:歌曲|一首歌)(?:[\s:：《「“"·]|$)/u.test(action)) return 'recommend'
   if (/^(?:(?:UP|up)了|置顶了)(?:歌曲)?(?:[\s:：《「“"·]|$)/u.test(action)) return 'promote'
+  if (/^红心了(?:歌曲)?(?:[\s:：《「“"·]|$)/u.test(action)) return 'redheart'
   if (
     /^(?:点赞了(?:歌曲|这首歌)(?:[\s:：《「“"·]|$)|为(?:歌曲|这首歌)(?:[《「“"].*?[》」”"])?\s*点赞(?:了)?(?:[\s，,。！!]|$))/u.test(
       action,
@@ -63,7 +65,7 @@ function templateTitle(action: string, offset: number): Span | null {
   if (likedSong)
     return { start: offset + likedSong.start, end: offset + likedSong.end, kind: 'song' }
   const prefix =
-    /^(?:来了[，,]\s*带来歌曲|带来歌曲|推荐了歌曲[：:]?|(?:(?:UP|up)了|置顶了)(?:歌曲)?[：:]?)\s*/u.exec(
+    /^(?:来了[，,]\s*带来歌曲|带来歌曲|推荐了歌曲[：:]?|(?:(?:UP|up)了|置顶了|红心了)(?:歌曲)?[：:]?)\s*/u.exec(
       action,
     )
   if (!prefix) return null
@@ -90,7 +92,8 @@ function templateTitle(action: string, offset: number): Span | null {
 }
 
 export function roomActivityPresentation(
-  message: Pick<ChatMessage, 'nickname' | 'text' | 'attachments'>,
+  message: Pick<ChatMessage, 'nickname' | 'text' | 'attachments'> &
+    Partial<Pick<ChatMessage, 'kind' | 'interactType'>>,
 ): RoomActivityPresentation {
   const text = roomActivityText(message),
     body = message.text.trim(),
@@ -100,7 +103,12 @@ export function roomActivityPresentation(
     rawAction = body.slice(hasActor ? nickname.length : 0),
     action = rawAction.replace(/^[\s·:：，,]+/u, ''),
     actionOffset = bodyOffset + (hasActor ? nickname.length : 0) + rawAction.length - action.length,
-    type = eventType(action)
+    type =
+      message.kind === 'interaction' && message.interactType === 5
+        ? 'redheart'
+        : message.kind === 'interaction' && message.interactType === 3
+          ? 'like'
+          : eventType(action)
   const spans: Span[] = nickname ? [{ start: 0, end: nickname.length, kind: 'actor' }] : []
   const titles = [
     ...new Set(

@@ -85,6 +85,9 @@ export function parseChatPage(body: any, roomId: string, viewerUid: string): Cha
               ? 'interaction'
               : 'notice',
       ...content,
+      ...(raw.msgType === 1 && Number.isSafeInteger(raw.interactType)
+        ? { interactType: raw.interactType }
+        : {}),
       ...(emoji ? { emoji } : {}),
     })
   }

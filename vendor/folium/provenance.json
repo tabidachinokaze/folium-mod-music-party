@@ -1,7 +1,7 @@
 {
   "repository": "https://github.com/tabidachinokaze/folia-major",
   "branch": "main",
-  "commit": "48fa6357ec93adadcb49f514fcc11e12dd67bd7e",
+  "commit": "18cc6d1dda0c5113d76413ce47742d577eacc27f",
   "path": "src/mods/folium/contract.ts",
-  "sha256": "7afadbf1249e0ca989eac81e8c9f38a99244c1ec3587932ac6d73d212977bb80"
+  "sha256": "9d5c0ba2f8c018346a135e6333fa950551d49afdea57bbe4e420869394404a1c"
 }

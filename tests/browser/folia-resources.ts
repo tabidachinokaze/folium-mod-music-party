@@ -5,6 +5,7 @@ export async function verifyAlbumAuditionAndRemote(
   page: Page,
   request: APIRequestContext,
   foliaUrl: string,
+  verifyAudition?: (remote: Page) => Promise<void>,
 ) {
   const state = () => page.evaluate(() => (window as any).partyHost.api.playback.getState())
   const remote = await page.context().newPage()
@@ -55,6 +56,7 @@ export async function verifyAlbumAuditionAndRemote(
   await album.getByRole('button', { name: '播放全部', exact: true }).click()
   await expect.poll(async () => (await state()).song?.id).toBe('701')
   await expect.poll(async () => (await state()).state).toBe('playing')
+  await verifyAudition?.(remote)
   expect((await (await request.get('/test/state')).json()).current).toBe(before.current)
   expect(
     (await (await request.get('/test/state')).json()).operations.filter(

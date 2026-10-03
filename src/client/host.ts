@@ -4,6 +4,7 @@ import type {
   FoliumPlaybackStartResult,
   FoliumPlaybackSession,
   FoliumPlaybackSessions,
+  FoliumPlaybackFavoriteChange,
 } from '../../vendor/folium/contract'
 import type { Method, Reply } from '@party/shared/types'
 
@@ -18,6 +19,7 @@ export interface PlaybackState {
   duration: number
 }
 export type Intent = FoliumPlaybackSessionIntent
+export type FavoriteChange = FoliumPlaybackFavoriteChange
 export type PlaybackResult = FoliumPlaybackStartResult
 export type Lease = FoliumPlaybackSession
 export type ExternalPlayback = FoliumPlaybackSessions

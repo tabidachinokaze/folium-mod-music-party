@@ -4,6 +4,8 @@ import { ApiService } from '@party/main/service'
 import { createHttpInvoker } from '@party/main/transport'
 import { multiEndpoints, multiPayload, type MultiMethod } from '@party/main/multi-api'
 import { receivedStickerIdentity } from '@party/shared/stickers'
+import { randomUUID } from 'node:crypto'
+import { downloadStickerImage } from './sticker-image'
 import type { Request, Reply } from '@party/shared/types'
 
 // src/main/backend.ts
@@ -28,6 +30,7 @@ const needsToken = new Set([
   'multiRemove',
   'multiUp',
   'multiLike',
+  'multiRedHeart',
 ])
 export function createBackend(
   fetcher: typeof fetch = fetch,
@@ -194,8 +197,27 @@ export function createBackend(
     },
     async saveSticker(value: unknown) {
       if (!current) throw new Error('请先连接网易云账号')
+      const session = current
+      if ((value as { kind?: unknown } | null)?.kind === 'image') {
+        const check = () => {
+          if (session !== current) throw new Error('账号已变化，请重新选择图片')
+        }
+        const file = await downloadStickerImage(value, fetcher, check)
+        check()
+        const reply = await session.media.send(
+          { requestId: randomUUID(), target: { kind: 'sticker' }, file },
+          () => {},
+        )
+        check()
+        if (!reply.ok)
+          throw Object.assign(new Error(reply.error || '表情保存失败，请重试'), {
+            code: reply.code,
+            deliveryUnknown: reply.deliveryUnknown,
+          })
+        return reply.receipt?.emoji || true
+      }
       const identity = receivedStickerIdentity(value)
-      const { body } = await current.invoke('api', {
+      const { body } = await session.invoke('api', {
         uri: '/api/social/emoji/collect',
         crypto: 'eapi',
         data: identity,

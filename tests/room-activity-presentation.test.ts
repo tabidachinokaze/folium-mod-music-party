@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest'
 import { roomActivityPresentation } from '../src/client/room-activity-presentation'
+import { parseChatPage } from '@party/shared/chat'
 
 // tests/room-activity-presentation.test.ts
 const activity = (nickname: string, text: string, ...titles: string[]) => {
@@ -22,6 +23,7 @@ it.each([
   ['tabidachinokaze', 'tabidachinokaze浅赞一下《アプリコット》', 'like', 'アプリコット'],
   ['浅赞一下', '浅赞一下浅赞一下《Love - Yourself》', 'like', 'Love - Yourself'],
   ['小岛', '小岛置顶了歌曲《黄金数》', 'promote', '黄金数'],
+  ['tabidachinokaze', 'tabidachinokaze红心了歌曲《黄金数》', 'redheart', '黄金数'],
 ])('distinguishes actor, action and complete song: %s / %s', (name, text, type, song) => {
   for (const titles of [[song], []]) {
     const result = activity(name, text, ...titles)
@@ -41,6 +43,7 @@ it.each([
   ['小岛', '小岛退出了', 'leave', 'log-out'],
   ['小岛', '小岛加入了房间', 'join', 'user-plus'],
   ['小岛', '推荐了一首歌', 'recommend', 'music-2'],
+  ['小岛', '小岛红心了歌曲《我们俩》', 'redheart', 'heart'],
 ])('recognizes only a leading known action: %s / %s', (name, text, type, icon) => {
   expect(activity(name, text)).toMatchObject({ type, icon })
 })
@@ -58,11 +61,61 @@ it('does not classify lyrics, titles or words about another actor as an event', 
     ['小岛', '浅赞一下《アプリコット》的歌词很好'],
     ['小岛', '浅赞一下这首歌'],
     ['小岛', '浅赞一下《》'],
+    ['小岛', '今天听了红心了歌曲的歌词'],
     ['小岛', ''],
   ]) {
     expect(activity(name, text, '来了')).toMatchObject({ type: 'notice', icon: 'info' })
   }
 })
+
+it.each([
+  [5, 'tabidachinokaze红心了歌曲《黄金数》', 'redheart', '红心', 'heart'],
+  [3, 'tabidachinokaze浅赞一下《黄金数》', 'like', '点赞', 'thumbs-up'],
+  [5, '收藏了这首歌', 'redheart', '红心', 'heart'],
+  // Official structured type wins over a misleading textual template.
+  [3, '红心了歌曲《黄金数》', 'like', '点赞', 'thumbs-up'],
+] as const)(
+  'preserves official room interactType %i through parsing and renders its distinct activity',
+  (interactType, text, type, label, icon) => {
+    const parsed = parseChatPage(
+      {
+        code: 200,
+        data: {
+          records: [
+            {
+              sendUid: '9',
+              sendTime: 1791079200000,
+              roomId: 'official_room',
+              nickname: 'tabidachinokaze',
+              msgType: 1,
+              interactType,
+              imChatRoomMsgBody: { text },
+              resourceInfo: {
+                resourceId: '123',
+                bizId: '456',
+                title: '黄金数',
+                artistName: ['Artist'],
+              },
+            },
+          ],
+          page: { more: false },
+        },
+      },
+      'official_room',
+      '9',
+    ).messages[0]
+    expect(parsed).toMatchObject({ kind: 'interaction', interactType })
+    const view = roomActivityPresentation(parsed)
+    expect(view).toMatchObject({ type, label, icon })
+    expect(view.parts.filter((part) => part.kind === 'actor')).toEqual([
+      { kind: 'actor', text: 'tabidachinokaze' },
+    ])
+    expect(view.text.match(/tabidachinokaze/g)).toHaveLength(1)
+    expect(view.parts.filter((part) => part.kind === 'song')).toEqual([
+      { kind: 'song', text: '黄金数' },
+    ])
+  },
+)
 
 it('extracts the complete quoted song only from the official like template', () => {
   const result = activity('[晚风].*', '[晚风].*浅赞一下《 Love - Yourself 》！')

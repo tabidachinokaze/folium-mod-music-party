@@ -295,7 +295,7 @@
   margin-top: 10px;
 }
 .mp-chat-layout {
-  height: var(--mp-chat-panel-height, auto);
+  max-height: var(--mp-chat-panel-max-height, none);
   min-height: 0;
 }
 .mp-chat-layout > .mp-header,
@@ -305,11 +305,11 @@
 .mp-chat-layout .mp-chat-view {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 0 1 auto;
   min-height: 0;
 }
 .mp-chat-layout .mp-history {
-  flex: 1;
+  flex: 0 1 auto;
   min-height: 0;
   max-height: none;
 }

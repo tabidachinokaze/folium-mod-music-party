@@ -1,6 +1,6 @@
 import { shouldAccept, targetPosition } from '@party/shared/multiplayer'
 import type { RoomPlayback } from '@party/shared/types'
-import type { ExternalPlayback, Folium, Intent, Lease, HostSong } from './host'
+import type { ExternalPlayback, Folium, Intent, Lease, HostSong, FavoriteChange } from './host'
 import type { FoliumPlaybackQueue } from '../../vendor/folium/contract'
 
 import { t } from './i18n'
@@ -47,10 +47,18 @@ export class RoomPlayer {
       }
     })
   }
-  start(onIntent: (event: Intent) => void) {
+  start(
+    onIntent: (event: Intent) => void,
+    onFavoriteChanged?: (event: FavoriteChange) => Promise<void>,
+  ) {
     if (this.lease) return
     try {
-      this.lease = this.bridge.acquire({ onIntent, restore: 'queue-stopped', audition: true })
+      this.lease = this.bridge.acquire({
+        onIntent,
+        restore: 'queue-stopped',
+        audition: true,
+        ...(this.bridge.supportsFavoriteEvents ? { onFavoriteChanged } : {}),
+      })
     } catch (error: any) {
       const messages: Record<string, string> = {
         'external-playback-context-unavailable': t(

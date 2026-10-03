@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { contextualPopupPosition, popupPosition } from '../src/client/popup-position'
+import {
+  contextualPopupPosition,
+  playerPopupBounds,
+  popupPosition,
+} from '../src/client/popup-position'
 
 // tests/popup-position.test.ts
 const anchor = { left: 1550, right: 1680, top: 760, bottom: 790 }
@@ -21,6 +25,29 @@ describe('message context popup placement', () => {
     const placed = contextualPopupPosition({ ...image, top: 10, bottom: 190 }, viewport, size)
     expect(placed).toMatchObject({ top: 200, side: 'below', arrowLeft: 104 })
   })
+  it('flips below the visible chat-list top even when viewport space exists above it', () => {
+    const placed = contextualPopupPosition({ ...image, top: 354, bottom: 534 }, viewport, size, {
+      top: 350,
+      bottom: 760,
+    })
+    expect(placed).toMatchObject({ top: 544, side: 'below', maxHeight: 410 })
+  })
+  it('uses the visible image portion when its top is clipped by chat scrolling', () => {
+    const placed = contextualPopupPosition({ ...image, top: 300, bottom: 480 }, viewport, size, {
+      top: 350,
+      bottom: 760,
+    })
+    expect(placed).toMatchObject({ top: 490, side: 'below' })
+  })
+  it('keeps a bottom-edge message menu above the image and inside the chat list', () => {
+    const placed = contextualPopupPosition({ ...image, top: 570, bottom: 750 }, viewport, size, {
+      top: 350,
+      bottom: 760,
+    })
+    expect(placed).toMatchObject({ top: 512, side: 'above' })
+    expect(placed.top).toBeGreaterThanOrEqual(350)
+    expect(placed.top + size.height).toBeLessThanOrEqual(760)
+  })
   it('keeps edge menus inside the viewport while pointing back to the image', () => {
     const right = contextualPopupPosition({ ...image, left: 1060, right: 1100 }, viewport, size)
     expect(right.left + right.width).toBe(1092)
@@ -38,6 +65,48 @@ describe('message context popup placement', () => {
     expect(placed).toMatchObject({ left: 8, width: 164, top: 8, maxHeight: 124 })
     expect(placed.arrowLeft).toBeGreaterThanOrEqual(16)
     expect(placed.arrowLeft).toBeLessThanOrEqual(placed.width - 16)
+  })
+})
+
+describe('player clearance for expanded sticker libraries', () => {
+  it('derives available bounds from the native maximum height and bottom baseline', () => {
+    const bounds = playerPopupBounds(1020, { bottom: 988, maxHeight: 932 })
+    expect(bounds).toEqual({ top: 56, bottom: 988 })
+    const shortPanel = { left: 800, right: 1120, top: 688, bottom: 988 }
+    const placed = popupPosition(
+      anchor,
+      shortPanel,
+      { width: 1200, height: 1020 },
+      { width: 320, height: 1500 },
+      'end',
+      true,
+      bounds,
+    )
+    expect(placed).toMatchObject({ top: 56, maxHeight: 932 })
+    expect(placed.maxHeight).toBeGreaterThan(shortPanel.bottom - shortPanel.top)
+  })
+  it('retains native clearance as the player viewport shrinks or its baseline moves', () => {
+    expect(playerPopupBounds(560, { bottom: 528, maxHeight: 472 })).toEqual({
+      top: 56,
+      bottom: 528,
+    })
+    expect(playerPopupBounds(560, { bottom: 488, maxHeight: 432 })).toEqual({
+      top: 56,
+      bottom: 488,
+    })
+  })
+  it('uses the private page visible range when no player sidebar is present', () => {
+    const bounds = playerPopupBounds(560, null, { top: 65, bottom: 525 })
+    const placed = popupPosition(
+      anchor,
+      null,
+      { width: 1100, height: 560 },
+      { width: 320, height: 900 },
+      'end',
+      true,
+      bounds,
+    )
+    expect(placed).toMatchObject({ top: 65, maxHeight: 460 })
   })
 })
 

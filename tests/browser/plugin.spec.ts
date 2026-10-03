@@ -689,9 +689,17 @@ test('room sticker list loads the next page on scroll without a load-more button
 }) => {
   await request.post('/test/sticker-pages')
   await restore(page)
-  // Library height follows the player viewport even when the sidebar is short.
+  // Native sidebars are bottom anchored; their maximum height includes player chrome clearance.
   await page.locator('#panel').evaluate((node) => {
-    node.style.height = '300px'
+    Object.assign(node.style, {
+      position: 'fixed',
+      top: 'auto',
+      bottom: '32px',
+      left: 'calc(50% - 160px)',
+      margin: '0',
+      height: '300px',
+      maxHeight: 'calc(100dvh - 88px)',
+    })
   })
   await page.getByRole('tab', { name: '聊天', exact: true }).click()
   const chat = page.locator('.mp-chat-view')
@@ -736,18 +744,18 @@ test('room sticker list loads the next page on scroll without a load-more button
     .toBeGreaterThan(initialHeight)
   const panelBounds = await page.locator('#panel').boundingBox()
   const popupBounds = await content.boundingBox()
-  expect(popupBounds!.y).toBeGreaterThanOrEqual(8)
+  expect(popupBounds!.y).toBeGreaterThanOrEqual(56)
   expect(popupBounds!.y + popupBounds!.height).toBeLessThanOrEqual(
-    page.viewportSize()!.height - 8 + 1,
+    page.viewportSize()!.height - 32 + 1,
   )
   expect(popupBounds!.height).toBeGreaterThan(panelBounds!.height)
   expect(popupBounds!.height).toBeGreaterThan(850)
   await page.setViewportSize({ width: 1100, height: 560 })
-  await expect.poll(async () => (await content.boundingBox())!.height).toBeLessThanOrEqual(544)
+  await expect.poll(async () => (await content.boundingBox())!.height).toBeLessThanOrEqual(472)
   const shortPopup = await content.boundingBox()
-  expect(shortPopup!.y).toBeGreaterThanOrEqual(8)
+  expect(shortPopup!.y).toBeGreaterThanOrEqual(56)
   expect(shortPopup!.y + shortPopup!.height).toBeLessThanOrEqual(
-    page.viewportSize()!.height - 8 + 1,
+    page.viewportSize()!.height - 32 + 1,
   )
   expect(shortPopup!.height).toBeGreaterThan(300)
   expect(await content.evaluate((node) => node.scrollHeight > node.clientHeight)).toBe(true)
@@ -772,14 +780,19 @@ test('room sticker list loads the next page on scroll without a load-more button
   await privateLibrary.dispatchEvent('wheel', { deltaY: 200 })
   await expect(privateLibrary.locator('[data-sticker-key]')).toHaveCount(96)
   await expect.poll(async () => (await privateLibrary.boundingBox())!.height).toBeGreaterThan(340)
-  // The entry animation translates the popup without changing its layout height.
-  await expect.poll(async () => (await privateLibrary.boundingBox())!.y).toBeGreaterThanOrEqual(8)
+  // Home-mode libraries respect the page's visible area instead of inventing a sidebar baseline.
+  const homeBounds = (await home.boundingBox())!
+  await expect
+    .poll(async () => (await privateLibrary.boundingBox())!.y)
+    .toBeGreaterThanOrEqual(Math.max(8, homeBounds.y))
   await expect
     .poll(async () => {
       const bounds = (await privateLibrary.boundingBox())!
       return bounds.y + bounds.height
     })
-    .toBeLessThanOrEqual(page.viewportSize()!.height - 8)
+    .toBeLessThanOrEqual(
+      Math.min(page.viewportSize()!.height - 8, homeBounds.y + homeBounds.height),
+    )
 })
 
 test('promotion counts distinguish zero from missing data and update in queue and member views', async ({

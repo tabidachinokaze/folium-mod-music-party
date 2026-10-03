@@ -4,7 +4,11 @@ import { button, el, picture } from './dom'
 import { imageInput, uploadImage, type PrivateRun } from './private-tools'
 import { mountDetailsPopup } from './popup-position'
 import { t } from './i18n'
-import { stickerCollectionRevision } from './sticker-collection'
+import {
+  forgetSavedStickers,
+  rememberSavedSticker,
+  stickerCollectionRevision,
+} from './sticker-collection'
 
 // src/client/sticker-view.ts
 export function createStickerPicker(
@@ -58,6 +62,7 @@ export function createStickerPicker(
         const ids = [...selected]
         if (!ids.length) return
         await controller.connection.attachment('removeStickers', ids)
+        forgetSavedStickers(controller, ids)
         editing = false
         selected.clear()
         await initialize()
@@ -135,7 +140,10 @@ export function createStickerPicker(
         ...(cursor ? { cursor } : {}),
       })
       if (disposed || current !== epoch) return
-      for (const item of body.data?.emojis || []) items.set(stickerKey(item), item)
+      for (const item of body.data?.emojis || []) {
+        items.set(stickerKey(item), item)
+        rememberSavedSticker(controller, item)
+      }
       hasMore =
         body.data?.page?.more === true &&
         typeof body.data?.page?.cursor === 'string' &&

@@ -1,5 +1,7 @@
 // src/client/locales/en-runtime.ts
 export const enRuntime: Record<string, string> = {
+  '已加入我的喜欢，但房间红心动态同步失败：{error}':
+    'Added to your liked songs, but the room favorite activity could not be synced: {error}',
   '试听播放失败，已返回房间。': 'Audition playback failed. Returned to the room.',
   '试听歌曲暂时无法播放，已返回房间。':
     'This song is unavailable for audition. Returned to the room.',
@@ -23,6 +25,7 @@ export const enRuntime: Record<string, string> = {
   推荐: 'Recommended',
   置顶: 'Promoted',
   点赞: 'Liked',
+  红心: 'Favorited',
   离开: 'Left',
   动态: 'Activity',
   '歌曲 {id}': 'Song {id}',

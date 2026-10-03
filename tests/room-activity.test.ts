@@ -18,6 +18,7 @@ it.each([
   ['tabidachinokaze', 'tabidachinokaze浅赞一下《アプリコット》', 'アプリコット'],
   ['[晚风].*', '[晚风].*浅赞一下《Love - Yourself》', 'Love - Yourself'],
   ['小岛', '小岛置顶了歌曲《黄金数》', '黄金数'],
+  ['tabidachinokaze', 'tabidachinokaze红心了歌曲《黄金数》', '黄金数'],
 ])(
   'keeps the complete official activity without repeating actor or title: %s / %s',
   (name, text, title) => {
