@@ -20,7 +20,7 @@ test.beforeEach(async ({ page, request }) => {
   )
 })
 
-test('received stickers hide app fallback, offer collection on right-click and refresh the picker', async ({
+test('received stickers hide app fallback and collection merges the picker without rebuilding existing images', async ({
   page,
   request,
 }) => {
@@ -69,6 +69,10 @@ test('received stickers hide app fallback, offer collection on right-click and r
   )
   await chat.locator('summary[aria-label="表情包"]').click()
   await expect(chat.getByRole('button', { name: '开心', exact: true })).toBeVisible()
+  const retainedImage = await chat
+    .getByRole('button', { name: '开心', exact: true })
+    .locator('img')
+    .elementHandle()
   const before = pages
   await page.keyboard.press('Escape')
   expect(await chat.locator('.mp-sticker-menu').boundingBox()).toBeNull()
@@ -99,6 +103,13 @@ test('received stickers hide app fallback, offer collection on right-click and r
   expect(saved[0]).toEqual(sticker)
   await chat.locator('summary[aria-label="表情包"]').click()
   await expect.poll(() => pages).toBeGreaterThan(before)
+  await expect(chat.getByRole('button', { name: '开心', exact: true })).toBeVisible()
+  expect(
+    await chat
+      .getByRole('button', { name: '开心', exact: true })
+      .locator('img')
+      .evaluate((image, retained) => image.isSameNode(retained), retainedImage),
+  ).toBe(true)
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: '私信', exact: true }).click()
   await page.getByRole('button', { name: '小岛 · 1 未读', exact: true }).click()
