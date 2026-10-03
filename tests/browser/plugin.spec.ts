@@ -704,7 +704,8 @@ test('room sticker list loads the next page on scroll without a load-more button
   await page.getByRole('tab', { name: '聊天', exact: true }).click()
   const chat = page.locator('.mp-chat-view')
   await chat.locator('summary[aria-label="表情包"]').click()
-  const content = chat.locator('.mp-sticker-content:has(.mp-picker-header)')
+  const content = chat.locator('.mp-sticker-content:has(.mp-picker-header)'),
+    stickerList = content.locator('.mp-sticker-scroll')
   await expect(content.locator('[data-sticker-key]')).toHaveCount(24)
   await expect(content.getByRole('button', { name: /加载更多/ })).toHaveCount(0)
   const initialHeight = (await content.boundingBox())!.height
@@ -730,7 +731,7 @@ test('room sticker list loads the next page on scroll without a load-more button
     await route.continue()
   })
   // The first page may fit without a scrollbar; a downward wheel still requests more.
-  await content.dispatchEvent('wheel', { deltaY: 200 })
+  await stickerList.dispatchEvent('wheel', { deltaY: 200 })
   try {
     await expect(content.getByRole('combobox', { name: '表情分组' })).toBeDisabled()
     await expect(content.getByRole('button', { name: '整理', exact: true })).toBeDisabled()
@@ -758,9 +759,31 @@ test('room sticker list loads the next page on scroll without a load-more button
     page.viewportSize()!.height - 32 + 1,
   )
   expect(shortPopup!.height).toBeGreaterThan(300)
-  expect(await content.evaluate((node) => node.scrollHeight > node.clientHeight)).toBe(true)
+  expect(await stickerList.evaluate((node) => node.scrollHeight > node.clientHeight)).toBe(true)
   await expect(content.getByRole('combobox', { name: '表情分组' })).toBeEnabled()
-  await content.dispatchEvent('wheel', { deltaY: 200 })
+  // Only the grid scrolls. Header actions and group selection retain their exact positions.
+  async function expectFixedHeader(library: import('@playwright/test').Locator) {
+    const header = library.locator('.mp-picker-header'),
+      group = library.getByRole('combobox', { name: '表情分组' }),
+      list = library.locator('.mp-sticker-scroll')
+    const headerY = (await header.boundingBox())!.y,
+      groupY = (await group.boundingBox())!.y
+    await list.evaluate((node) => {
+      node.scrollTop = node.scrollTop > 0 ? 0 : 120
+    })
+    await expect
+      .poll(async () => Math.abs((await header.boundingBox())!.y - headerY))
+      .toBeLessThan(0.1)
+    await expect
+      .poll(async () => Math.abs((await group.boundingBox())!.y - groupY))
+      .toBeLessThan(0.1)
+    expect(await library.evaluate((node) => node.scrollTop)).toBe(0)
+    await expect(header.getByRole('button', { name: '上传表情包' })).toBeVisible()
+    await expect(header.getByRole('button', { name: '整理', exact: true })).toBeVisible()
+  }
+  await expectFixedHeader(content)
+  expect(await stickerList.evaluate((node) => node.scrollTop)).toBeGreaterThan(0)
+  await stickerList.dispatchEvent('wheel', { deltaY: 200 })
   const calls = (await (await request.get('/test/state')).json()).calls
   expect(calls.filter((call: string) => call.startsWith('stickers:'))).toEqual([
     'stickers:first',
@@ -774,10 +797,11 @@ test('room sticker list loads the next page on scroll without a load-more button
   await home.locator('summary').filter({ hasText: '表情包' }).click()
   const privateLibrary = home.locator('.mp-sticker-library')
   await expect(privateLibrary.locator('[data-sticker-key]')).toHaveCount(24)
-  await privateLibrary.evaluate((node) => {
+  const privateList = privateLibrary.locator('.mp-sticker-scroll')
+  await privateList.evaluate((node) => {
     node.scrollTop = node.scrollHeight
   })
-  await privateLibrary.dispatchEvent('wheel', { deltaY: 200 })
+  await privateList.dispatchEvent('wheel', { deltaY: 200 })
   await expect(privateLibrary.locator('[data-sticker-key]')).toHaveCount(96)
   await expect.poll(async () => (await privateLibrary.boundingBox())!.height).toBeGreaterThan(340)
   // Home-mode libraries respect the page's visible area instead of inventing a sidebar baseline.
@@ -793,6 +817,9 @@ test('room sticker list loads the next page on scroll without a load-more button
     .toBeLessThanOrEqual(
       Math.min(page.viewportSize()!.height - 8, homeBounds.y + homeBounds.height),
     )
+  await expectFixedHeader(privateLibrary)
+  await page.keyboard.press('Escape')
+  await expect(privateLibrary).not.toBeVisible()
 })
 
 test('promotion counts distinguish zero from missing data and update in queue and member views', async ({

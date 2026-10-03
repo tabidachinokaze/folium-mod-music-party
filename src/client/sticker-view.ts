@@ -21,6 +21,7 @@ export function createStickerPicker(
   box.append(el('summary', '', t('表情包')))
   const content = el('div', 'mp-sticker-content mp-sticker-library'),
     header = el('header', 'mp-picker-header'),
+    list = el('div', 'mp-sticker-scroll'),
     grid = el('div', 'mp-sticker-grid')
   const select = el('select')
   select.setAttribute('aria-label', t('表情分组'))
@@ -71,7 +72,8 @@ export function createStickerPicker(
   )
   const status = el('p', 'mp-muted')
   header.append(el('strong', '', t('表情包')), uploadButton, organize, remove, cancel)
-  content.append(header, select, status, grid, upload)
+  list.append(grid)
+  content.append(header, select, status, list, upload)
   box.append(content)
   const popup = mountDetailsPopup(box, content, { maxHeight: 'viewport' })
   async function mutate(task: () => Promise<unknown>) {
@@ -155,7 +157,7 @@ export function createStickerPicker(
       if (!disposed && current === epoch) {
         loading = false
         render()
-        lastTop = content.scrollTop
+        lastTop = list.scrollTop
       }
     }
   }
@@ -166,7 +168,7 @@ export function createStickerPicker(
     loading = true
     cursor = ''
     hasMore = true
-    content.scrollTop = lastTop = 0
+    list.scrollTop = lastTop = 0
     items.clear()
     selected.clear()
     render()
@@ -206,22 +208,22 @@ export function createStickerPicker(
     groupId = select.value
     cursor = ''
     hasMore = true
-    content.scrollTop = lastTop = 0
+    list.scrollTop = lastTop = 0
     items.clear()
     selected.clear()
     void run(load)
   })
   const loadMore = () => {
     if (!box.open || !loaded || disposed || loading || mutating || editing || !hasMore) return
-    if (content.scrollHeight - content.scrollTop - content.clientHeight < 48) void run(load)
+    if (list.scrollHeight - list.scrollTop - list.clientHeight < 48) void run(load)
   }
-  content.addEventListener('scroll', () => {
-    const top = content.scrollTop,
+  list.addEventListener('scroll', () => {
+    const top = list.scrollTop,
       down = top > lastTop
     lastTop = top
     if (down) loadMore()
   })
-  content.addEventListener(
+  list.addEventListener(
     'wheel',
     (event) => {
       if (event.deltaY > 0) loadMore()

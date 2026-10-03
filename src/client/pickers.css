@@ -38,6 +38,21 @@
 .mp-sticker-library {
   box-sizing: border-box;
   min-height: 0;
+  overflow: hidden;
+}
+.mp-sticker-library:popover-open {
+  display: flex;
+  flex-direction: column;
+}
+.mp-sticker-library > .mp-picker-header,
+.mp-sticker-library > select,
+.mp-sticker-library > .mp-muted {
+  flex-shrink: 0;
+}
+.mp-sticker-scroll {
+  min-height: 0;
+  overflow: hidden auto;
+  overscroll-behavior: contain;
   scrollbar-gutter: stable;
 }
 .mp-picker-header {
@@ -46,10 +61,7 @@
   flex-wrap: wrap;
   gap: 4px;
   padding-bottom: 8px;
-  position: sticky;
-  top: -12px;
   background: var(--popup);
-  z-index: 1;
 }
 .mp-picker-header strong {
   flex: 1;
