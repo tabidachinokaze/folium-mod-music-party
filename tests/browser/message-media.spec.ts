@@ -71,6 +71,25 @@ test('received stickers hide app fallback, offer collection on right-click and r
   await expect(chat.getByRole('button', { name: '开心', exact: true })).toBeVisible()
   const before = pages
   await page.keyboard.press('Escape')
+  expect(await chat.locator('.mp-sticker-menu').boundingBox()).toBeNull()
+  await roomImage.click({ button: 'right' })
+  const menu = chat.getByRole('menu', { name: '表情包操作' })
+  await expect(menu).toBeVisible()
+  await expect
+    .poll(async () => {
+      const image = (await roomImage.boundingBox())!,
+        popup = (await menu.boundingBox())!
+      return (
+        popup.x < image.x + image.width &&
+        popup.x + popup.width > image.x &&
+        (Math.abs(popup.y + popup.height - image.y) <= 12 ||
+          Math.abs(image.y + image.height - popup.y) <= 12)
+      )
+    })
+    .toBe(true)
+  await menu.screenshot({ path: test.info().outputPath('sticker-context-menu.png') })
+  await page.keyboard.press('Escape')
+  expect(await chat.locator('.mp-sticker-menu').boundingBox()).toBeNull()
   await roomImage.click({ button: 'right' })
   await chat.getByRole('menuitem', { name: '添加到我的表情包' }).click()
   await expect.poll(() => saved.length).toBe(1)

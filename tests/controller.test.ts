@@ -195,6 +195,7 @@ describe('official multiplayer controller', () => {
     await controller.run(() => controller.enter('create'))
     expect(controller.state.room).toBeNull()
     expect(controller.state.error).toContain('已经在多人房间')
+    expect(controller.state.availableRoom?.roomId).toBe('official_room')
     expect(api.call.mock.calls.some(([method]) => method === 'multiCreate')).toBe(false)
     expect(host.bridge.acquire).not.toHaveBeenCalled()
     controller.dispose()
@@ -408,7 +409,7 @@ it('captures the matching song before leaving, rejects changes during that reque
   controller.selectMatchSong(song('22'))
   let finish!: () => void
   api.call.mockImplementation(async (method) => {
-    if (method === 'multiRematchLeave')
+    if (method === 'multiLeave')
       await new Promise<void>((resolve) => {
         finish = resolve
       })

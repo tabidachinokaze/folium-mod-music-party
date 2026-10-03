@@ -1,14 +1,53 @@
 /* src/client/sticker-menu.css */
 .mp-sticker-menu {
+  --mp-menu-bg: #252525;
+  position: fixed;
+  inset: auto;
+  margin: 0;
   padding: 4px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  color: var(--text-primary, var(--folium-primary));
-  background: var(--popup);
+  max-width: calc(100dvw - 16px);
+  border: 1px solid #ffffff14;
+  border-radius: 12px;
+  color: #f5f5f5;
+  background: var(--mp-menu-bg);
   box-shadow: 0 8px 32px #0004;
 }
+.mp-sticker-menu.mp-floating-popup {
+  overflow: visible;
+}
+.mp-sticker-menu::after {
+  content: '';
+  position: absolute;
+  left: var(--mp-popup-arrow-x, 50%);
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  pointer-events: none;
+}
+.mp-sticker-menu[data-side='above']::after {
+  top: 100%;
+  border-top-color: var(--mp-menu-bg);
+}
+.mp-sticker-menu[data-side='below']::after {
+  bottom: 100%;
+  border-bottom-color: var(--mp-menu-bg);
+}
 .mp-sticker-menu .mp-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   width: 100%;
-  padding: 9px 10px;
-  text-align: left;
+  padding: 10px;
+  border-radius: 8px;
+  color: inherit;
+  background: transparent;
+  text-align: center;
+}
+.mp-sticker-menu .mp-button svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+.mp-sticker-menu .mp-button:hover {
+  background: #ffffff14;
 }

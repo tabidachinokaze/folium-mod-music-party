@@ -294,6 +294,28 @@
 .mp-chat-view .mp-composer {
   margin-top: 10px;
 }
+.mp-chat-layout {
+  height: var(--mp-chat-panel-height, auto);
+  min-height: 0;
+}
+.mp-chat-layout > .mp-header,
+.mp-chat-layout > .mp-nav {
+  flex: none;
+}
+.mp-chat-layout .mp-chat-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.mp-chat-layout .mp-history {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+.mp-chat-layout .mp-composer {
+  flex: none;
+}
 @container (max-width: 240px) {
   .mp-room-footer .danger {
     margin-left: 0;

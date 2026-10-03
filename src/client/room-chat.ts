@@ -6,6 +6,7 @@ import { mountMentionComposer } from './mention-composer'
 import { decorateRoomMessage } from './room-message'
 import { createComposerTools, uploadImage } from './private-tools'
 import { mountStickerMenu } from './sticker-menu'
+import { mountComposerSubmit } from './composer-submit'
 
 import { t } from './i18n'
 
@@ -32,6 +33,7 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
   )
   const send = el('button', 'mp-button primary', t('发送'))
   send.type = 'submit'
+  const stopSubmit = mountComposerSubmit(draft, composer, send)
   const tools = createComposerTools(
     controller,
     draft,
@@ -84,6 +86,8 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
     loadingOlder = false
   let frame = 0,
     lastTop = 0,
+    lastClientHeight = history.clientHeight,
+    lastScrollHeight = history.scrollHeight,
     roomId = ''
   let previous: ChatMessage[] = []
   const toLatest = () => {
@@ -92,8 +96,12 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
       if (!visible || disposed || !followLatest) return
       history.scrollTop = history.scrollHeight
       lastTop = history.scrollTop
+      lastClientHeight = history.clientHeight
+      lastScrollHeight = history.scrollHeight
     })
   }
+  const resize = new ResizeObserver(toLatest)
+  resize.observe(history)
   // Upward user movement requests history. Programmatic positioning must never paginate.
   const older = async () => {
     if (!visible || loadingOlder || !controller.state.chatMore || !controller.state.chatCursor)
@@ -108,10 +116,20 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
     }
   }
   history.addEventListener('scroll', () => {
-    const top = history.scrollTop
+    const top = history.scrollTop,
+      geometryChanged =
+        lastClientHeight !== history.clientHeight || lastScrollHeight !== history.scrollHeight
+    lastClientHeight = history.clientHeight
+    lastScrollHeight = history.scrollHeight
     const up = top < lastTop
     lastTop = top
     if (!visible) return
+    // A resize can move the bottom before its scheduled correction. Preserve
+    // follow mode; upward wheel input explicitly disables it before scrolling.
+    if (geometryChanged && followLatest) {
+      toLatest()
+      return
+    }
     followLatest = history.scrollHeight - top - history.clientHeight < 32
     if (up && top < 40) void older()
   })
@@ -136,6 +154,7 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
     event.preventDefault()
     const text = draft.value
     if (!text.trim()) return
+    mentions.close()
     void controller.run(async () => {
       await controller.send(text)
       if (draft.value === text) draft.value = ''
@@ -209,6 +228,8 @@ export function mountRoomChat(container: HTMLElement, controller: PartyControlle
       disposed = true
       stop()
       cancelAnimationFrame(frame)
+      resize.disconnect()
+      stopSubmit()
       sticker.dispose()
       mentions.dispose()
       tools.dispose()

@@ -76,7 +76,10 @@ function registerEntries(folium: Folium, controller: PartyController) {
     }),
   ]
   const online = () => {
+    if (!controller.state.account) return
     if (controller.state.room) void controller.refresh()
+    else if (!controller.state.busy && !controller.state.matching && !controller.state.checkingRoom)
+      void controller.checkAvailableRoom()
   }
   window.addEventListener('online', online)
   window.addEventListener('focus', online)

@@ -83,10 +83,13 @@ export class RoomMatch {
       this.close()
       if (started) void this.connection.call('multiMatchCancel').catch(() => {})
       this.fail(
-        new Error(
-          t('匹配失败：{error}', {
-            error: error instanceof Error ? t(error.message) : t('无法连接官方匹配服务'),
-          }),
+        Object.assign(
+          new Error(
+            t('匹配失败：{error}', {
+              error: error instanceof Error ? t(error.message) : t('无法连接官方匹配服务'),
+            }),
+          ),
+          { code: Number((error as any)?.code) || undefined },
         ),
       )
     }

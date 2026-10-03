@@ -137,6 +137,23 @@ test('actual Folium registration and host audio: restore, native next, local pau
   ).toBeVisible()
   await page.getByRole('button', { name: '恢复当前房间', exact: true }).click()
   await expect(page.locator('.mp-panel > .mp-header .mp-pill')).toHaveText('3 人一起听')
+  await page.getByRole('tab', { name: '聊天', exact: true }).click()
+  for (const height of [960, 760, 1020]) {
+    await page.setViewportSize({ width: 1100, height })
+    await expect
+      .poll(() =>
+        page
+          .getByTestId('unified-panel-surface')
+          .evaluate((node) => node.scrollHeight - node.clientHeight),
+      )
+      .toBeLessThanOrEqual(1)
+    await expect(
+      page.locator('.mp-chat-view').getByRole('button', { name: '发送', exact: true }),
+    ).toBeInViewport()
+    expect(await page.locator('.mp-chat-view .mp-sticker-menu').boundingBox()).toBeNull()
+  }
+  await page.screenshot({ path: 'test-results/folia-chat-contained.png', animations: 'disabled' })
+  await page.getByRole('tab', { name: '房间', exact: true }).click()
   await expect
     .poll(() => page.evaluate(() => (window as any).partyHost.api.playback.getState().state), {
       timeout: 30000,

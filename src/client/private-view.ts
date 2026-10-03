@@ -10,6 +10,7 @@ import { t } from './i18n'
 import { createPrivateResourceActions } from './private-actions'
 import { createPrivateSongChoice } from './private-song-choice'
 import { mountStickerMenu } from './sticker-menu'
+import { mountComposerSubmit } from './composer-submit'
 
 // src/client/private-view.ts
 export function mountPrivate(
@@ -113,6 +114,7 @@ export function mountPrivate(
   )
   const send = el('button', 'mp-button primary', t('发送'))
   send.type = 'submit'
+  const stopSubmit = mountComposerSubmit(draft, form, send)
   const actions = el('div', 'mp-composer-tools')
   actions.append(...tools.nodes, sticker.node, tools.image, send)
   form.append(draft, actions)
@@ -363,6 +365,7 @@ export function mountPrivate(
     },
     dispose() {
       disposed = true
+      stopSubmit()
       resourceActions.cancel()
       songChoice.dispose()
       generation++

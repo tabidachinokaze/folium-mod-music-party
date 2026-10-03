@@ -5,6 +5,7 @@ import type { FoliumPanelContext } from '../../vendor/folium/contract'
 import type { PartyController } from './controller'
 import { button, el } from './dom'
 import { mountRoomChat } from './room-chat'
+import { mountPanelChatLayout } from './panel-chat-layout'
 import { t } from './i18n'
 
 // src/client/panel.ts
@@ -44,12 +45,14 @@ export function mountPanel(
   })
   function renderTabs() {
     page.classList.toggle('mp-room-layout', !!controller.state.room && tab === 0)
+    page.classList.toggle('mp-chat-layout', !!controller.state.room && tab === 2)
     membersView.show(tab === 1)
     sections.forEach((section, i) => {
       section.hidden = tab !== i
       tabs[i].setAttribute('aria-selected', String(tab === i))
     })
     chat.show(tab === 2)
+    chatLayout.sync()
   }
   const prerequisite = el('div', 'mp-error', t('请升级到 Folia 0.7.13，以支持退出房间时继续播放。'))
   const lobby = mountLobby(controller)
@@ -73,6 +76,7 @@ export function mountPanel(
   roomView.append(prerequisite, active, lobby.node, share)
 
   page.append(header, nav, ...sections)
+  const chatLayout = mountPanelChatLayout(page)
   function render() {
     const state = controller.state,
       room = state.room
@@ -111,6 +115,7 @@ export function mountPanel(
     stop()
     stopSong()
     chat.dispose()
+    chatLayout.dispose()
     membersView.dispose()
     lobby.dispose()
     disposeSurface()

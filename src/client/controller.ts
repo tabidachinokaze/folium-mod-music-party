@@ -52,6 +52,7 @@ export class PartyController {
   private disposed = false
   private matcher: RoomMatch
   private matchPreparing = false
+  private roomCheck = 0
   private timers: ReturnType<typeof setTimeout>[] = []
   private chatTask: Promise<void> | null = null
   private lastToast = new Map<string, number>()
@@ -94,8 +95,11 @@ export class PartyController {
       (raw) => {
         if (this.disposed) return
         try {
+          const snapshot = parseSnapshot(raw, this.now())
+          // The server has already joined us. Keep a recovery card if the local player is busy.
+          this.patch({ availableRoom: snapshot })
           this.begin()
-          this.activateRoom(parseSnapshot(raw, this.now()), ++this.epoch)
+          this.activateRoom(snapshot, ++this.epoch)
         } catch (error: any) {
           this.patch({ error: error.message })
         }
@@ -103,6 +107,7 @@ export class PartyController {
       (error) => {
         this.handleAccountError(error as Error & { code?: number })
         this.patch({ error: error.message })
+        void this.checkAvailableRoom(false)
       },
     )
     this.player = bridge
@@ -182,22 +187,28 @@ export class PartyController {
     this.patch({ account })
     await this.checkAvailableRoom()
   }
-  async checkAvailableRoom() {
+  async checkAvailableRoom(reportError = true): Promise<boolean> {
     const epoch = this.epoch
-    if (!this.state.account || this.state.room || this.state.matching) return
+    const uid = this.state.account?.uid
+    if (!uid || this.state.room || this.state.matching || this.state.checkingRoom || this.disposed)
+      return false
+    const check = ++this.roomCheck
     this.patch({ checkingRoom: true })
     try {
       const body = await this.connection.call('multiStatus')
-      if (epoch !== this.epoch || this.disposed) return
+      if (epoch !== this.epoch || uid !== this.state.account?.uid || this.disposed) return false
       const raw = body.data?.multiLtRoomSnapshot
       this.patch({ availableRoom: raw?.roomId ? parseSnapshot(raw, this.now()) : null })
+      return true
     } catch (error: any) {
-      if (epoch === this.epoch) {
+      if (epoch === this.epoch && uid === this.state.account?.uid && !this.disposed) {
         this.handleAccountError(error)
-        this.patch({ error: t('检查当前房间失败：{error}', { error: t(error.message) }) })
+        if (reportError)
+          this.patch({ error: t('检查当前房间失败：{error}', { error: t(error.message) }) })
       }
+      return false
     } finally {
-      if (epoch === this.epoch) this.patch({ checkingRoom: false })
+      if (check === this.roomCheck) this.patch({ checkingRoom: false })
     }
   }
   async leaveAvailableRoom() {
@@ -220,6 +231,7 @@ export class PartyController {
     if (this.state.matching || this.matchPreparing || this.disposed) return
     const generation = this.epoch
     if (!this.state.account) throw new Error(t('请先登录网易云账号'))
+    const uid = this.state.account.uid
     // Capture the chosen ID before any async leave/status request. Changing room playback
     // during those requests must not silently change the song used for this match attempt.
     const song = this.getMatchSong()
@@ -230,14 +242,16 @@ export class PartyController {
     this.patch({ matchSong: { ...song } })
     try {
       if (this.state.room) {
-        await this.connection.call('multiRematchLeave', { roomId: this.state.room.roomId })
-        if (generation !== this.epoch || this.disposed) return
+        // A chosen seed starts a fresh match. CHANGE_ROOM is the official room-changing flow;
+        // use the verified normal-exit operation before submitting our explicit selected song.
+        await this.connection.call('multiLeave', { roomId: this.state.room.roomId })
+        if (generation !== this.epoch || uid !== this.state.account?.uid || this.disposed) return
         this.detach(true)
-      } else {
-        await this.checkAvailableRoom()
-        if (generation !== this.epoch || this.disposed) return
-        if (this.state.availableRoom) throw new Error(t('账号已有房间，请先恢复后重新匹配'))
       }
+      const beforeCheck = this.epoch
+      if (!(await this.checkAvailableRoom())) return
+      if (beforeCheck !== this.epoch || uid !== this.state.account?.uid || this.disposed) return
+      if (this.state.availableRoom) throw new Error(t('账号已有房间，请先恢复后重新匹配'))
       await this.matcher.start(songId)
     } finally {
       this.matchPreparing = false
@@ -290,16 +304,26 @@ export class PartyController {
   }
   async enter(kind: 'restore' | 'join' | 'create', input = '', allowStrangerMatch = false) {
     if (this.state.matching) throw new Error(t('请先取消匹配'))
+    if (this.state.room) throw new Error(t('请先退出当前房间'))
     const invite = kind === 'join' ? parseInvitation(input) : null
     const song = this.folium.playback.getState().song
+    const matchSong = this.getMatchSong()
+    const uid = this.state.account?.uid
     if (kind === 'create' && (song?.source !== 'netease' || !/^[1-9]\d*$/.test(song.id || ''))) {
       throw new Error(t('请先在 Folia 播放一首网易云歌曲，再创建多人房间'))
     }
     const epoch = ++this.epoch
+    ++this.roomCheck
+    this.patch({ checkingRoom: false })
+    let availableRoom = this.state.availableRoom
+    let acquired = false
     try {
       const started = this.now()
       const status = await this.connection.call('multiStatus')
+      if (epoch !== this.epoch || uid !== this.state.account?.uid || this.disposed) return
       let raw = status.data?.multiLtRoomSnapshot
+      availableRoom = raw?.roomId ? parseSnapshot(raw, (started + this.now()) / 2) : null
+      this.patch({ availableRoom })
       if (kind !== 'restore') {
         if (raw?.roomId) throw new Error(t('账号已经在多人房间中，请使用“恢复当前房间”'))
         const result = await this.connection.call(
@@ -310,13 +334,23 @@ export class PartyController {
         )
         raw = result.data?.multiLtRoomSnapshot
       }
-      if (epoch !== this.epoch || this.disposed) return
+      if (epoch !== this.epoch || uid !== this.state.account?.uid || this.disposed) return
       if (!raw) throw new Error(t('账号当前没有官方多人房间'))
       const snapshot = parseSnapshot(raw, (started + this.now()) / 2)
+      availableRoom = snapshot
       this.begin()
+      acquired = true
+      // Freeze the default before room playback replaces the listener's prior local song.
+      if (!this.state.matchSong && matchSong) this.patch({ matchSong: { ...matchSong } })
       this.activateRoom(snapshot, epoch)
     } catch (error) {
-      if (epoch === this.epoch) this.detach()
+      if (epoch !== this.epoch || uid !== this.state.account?.uid || this.disposed) return
+      if (acquired) this.detach()
+      this.patch({ availableRoom })
+      // A write may have succeeded remotely despite a missing/failed response. Read only;
+      // do not repeat the join/create or acquire playback just to discover the room.
+      if (!availableRoom && ![301, 302].includes(Number((error as any)?.code)))
+        await this.checkAvailableRoom(false)
       throw error
     }
   }
@@ -398,8 +432,9 @@ export class PartyController {
       if (epoch !== this.epoch) return
       const raw = body.data?.multiLtRoomSnapshot
       if (raw?.roomId !== room.roomId) {
+        const availableRoom = raw?.roomId ? parseSnapshot(raw, (started + this.now()) / 2) : null
         this.detach()
-        this.patch({ notice: t('账号已离开或切换房间，请重新恢复。') })
+        this.patch({ availableRoom, notice: t('账号已离开或切换房间，请重新恢复。') })
         return
       }
       this.apply(parseSnapshot(raw, (started + this.now()) / 2))
@@ -694,6 +729,7 @@ export class PartyController {
   }
 
   detach(continuePlayback = false) {
+    ++this.roomCheck
     this.matcher.close()
     this.epoch++
     this.timers.forEach(clearTimeout)

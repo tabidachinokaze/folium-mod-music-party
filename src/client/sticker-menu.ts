@@ -11,6 +11,8 @@ export function mountStickerMenu(history: HTMLElement, controller: PartyControll
   const css = el('style')
   css.textContent = styles
   const menu = el('div', 'mp-sticker-menu')
+  // Keep the unmounted menu out of layout before the first right-click.
+  menu.popover = 'manual'
   menu.setAttribute('role', 'menu')
   menu.setAttribute('aria-label', t('表情包操作'))
   // A sibling of the history avoids scroll clipping while preserving the surface theme.
@@ -58,9 +60,18 @@ export function mountStickerMenu(history: HTMLElement, controller: PartyControll
     })
     save.setAttribute('role', 'menuitem')
     menu.replaceChildren(save)
+    void controller.folium.ui
+      .icon('bookmark-plus', { size: 16 })
+      .then((icon) => {
+        if (disposed || !save.isConnected || !icon) return
+        icon.setAttribute('aria-hidden', 'true')
+        save.prepend(icon)
+        popup?.position()
+      })
+      .catch(() => {})
     menuAccount = account
     anchor = image
-    popup = mountPopup(menu, image, { width: 208, align: 'start' })
+    popup = mountPopup(menu, image, { width: 208, placement: 'contextual' })
     popup.open()
     save.focus()
   }

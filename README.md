@@ -6,11 +6,11 @@ Music Party for Folia · [插件仓库](https://github.com/tabidachinokaze/foliu
 
 ## 兼容性：请先看这里
 
-**正式配套：Folia 0.7.19 + 插件 0.3.14。** 请先升级宿主，再安装并重新启用插件。新版使用播放会话接口 v2。
+**正式配套：Folia 0.7.19 + 插件 0.3.15。** 请先升级宿主，再安装并重新启用插件。新版使用播放会话接口 v2。
 
 | 宿主                                      | 插件   | 状态                             |
 | ----------------------------------------- | ------ | -------------------------------- |
-| Folia 0.7.19                              | 0.3.14 | 推荐配套，官方表情收藏与图片预览 |
+| Folia 0.7.19                              | 0.3.15 | 推荐配套，匹配恢复与聊天交互修复 |
 | Folia 0.7.18                              | 0.3.12 | 试听、专辑修复与遥控             |
 | Folia 0.7.17                              | 0.3.11 | 旧版配套，私信资源卡片           |
 | Folia 0.7.12                              | 0.3.4  | 旧版配套，原生侧栏风格           |
@@ -33,7 +33,7 @@ manifest 声明 `experimental: ["playback.sessions"]` 与 `playback.control`，�
    npm run dev:electron
    ```
 
-2. 下载 [插件 0.3.14 ZIP](https://github.com/tabidachinokaze/folium-mod-music-party/releases/tag/v0.3.14)。也可从主分支构建：
+2. 下载 [插件 0.3.15 ZIP](https://github.com/tabidachinokaze/folium-mod-music-party/releases/tag/v0.3.15)。也可从主分支构建：
 
    ```bash
    git clone git@github.com:tabidachinokaze/folium-mod-music-party.git
@@ -42,7 +42,7 @@ manifest 声明 `experimental: ["playback.sessions"]` 与 `playback.control`，�
    npm run build
    ```
 
-3. 在 Folia 的「设置 → 实验室」开启模组系统，将 `folium-mod-music-party-0.3.14.zip` 拖入模组面板并启用。在 Folia 登录网易云后，点击播放栏的一起听图标或执行「打开网易云多人一起听」。
+3. 在 Folia 的「设置 → 实验室」开启模组系统，将 `folium-mod-music-party-0.3.15.zip` 拖入模组面板并启用。在 Folia 登录网易云后，点击播放栏的一起听图标或执行「打开网易云多人一起听」。
 4. 登录网易云且当前音乐来源为网易云时，私信和一起听入口自动显示，无需手动连接。恢复检测到的房间、粘贴官方邀请链接，或播放网易云歌曲后创建房间。私信可以直接从首页顶部胶囊进入，无需先加入房间。
 
 Folia 0.7.11 已包含宿主接口，无需打补丁。若从本 fork 的 0.7.10 源码（基线 `76e1dfe`）适配，可执行 `node scripts/apply-host-patch.mjs /path/to/folia-major`，再重新构建桌面版。补丁不能修改已安装应用的 ASAR，也不适用于上游原版 0.7.9。
@@ -190,3 +190,11 @@ Folia 本体从 [fork 的 GitHub Releases](https://github.com/tabidachinokaze/fo
 ## 0.3.14：官方表情收藏协议
 
 右键收藏收到的表情使用网易云官方 `social/emoji/collect`，携带原消息的 `emojiId` 与 `emojiGroupId`；只有服务端 `data.result` 为 true 才确认成功。不会重新上传或发送表情，也不再依赖图片 URL 中的数字图片 ID。上传自己的图片到表情包继续使用独立的上传流程。
+
+## 0.3.15：匹配恢复与聊天交互
+
+重新匹配先正常退出旧房间，确认退出后使用操作开始时选定的匹配歌曲。接管房间播放前固定默认匹配歌曲，避免房间切歌改变下一次匹配依据。发现账号已有房间、服务端换房或本地播放接管失败时保留“继续一起听”卡片；回到窗口或恢复网络时重新检查大厅的房间状态。
+
+修复首次打开聊天出现的空菜单横条。聊天记录按侧栏剩余高度伸缩，输入区保持可见，记录内部滚动。右键收藏菜单贴近所选表情，并用小箭头指向图片。表情包选择弹窗可扩展至整个播放器可见高度，超出部分内部滚动，不再受侧栏高度限制。
+
+房间聊天与私信均支持 Ctrl+Enter 发送；Enter 保持换行，输入法组字期间不会误发送。

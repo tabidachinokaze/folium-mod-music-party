@@ -68,7 +68,7 @@ export function createStickerPicker(
   header.append(el('strong', '', t('表情包')), uploadButton, organize, remove, cancel)
   content.append(header, select, status, grid, upload)
   box.append(content)
-  const popup = mountDetailsPopup(box, content, { constrainHeightToPanel: true })
+  const popup = mountDetailsPopup(box, content, { maxHeight: 'viewport' })
   async function mutate(task: () => Promise<unknown>) {
     if (mutating || disposed) return
     mutating = true

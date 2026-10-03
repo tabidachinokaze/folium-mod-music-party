@@ -4,11 +4,40 @@ import { t } from './i18n'
 type PopupOptions = {
   width?: number
   align?: 'start' | 'end'
-  constrainHeightToPanel?: boolean
+  maxHeight?: 'viewport'
+  placement?: 'contextual'
   onClose?: () => void
 }
 type Bounds = { left: number; right: number; top: number; bottom: number }
 const activePopups = new WeakMap<Document, () => void>()
+
+// Message actions belong to the selected image, rather than the outer sidebar.
+export function contextualPopupPosition(
+  anchor: Bounds,
+  viewport: { width: number; height: number },
+  size: { width: number; height: number },
+) {
+  const margin = 8,
+    gap = 10,
+    width = Math.min(size.width, Math.max(0, viewport.width - margin * 2)),
+    maxHeight = Math.max(0, viewport.height - margin * 2),
+    height = Math.min(size.height, maxHeight),
+    center = (anchor.left + anchor.right) / 2,
+    left = Math.max(margin, Math.min(center - width / 2, viewport.width - width - margin)),
+    above = anchor.top - gap - margin,
+    below = viewport.height - margin - anchor.bottom - gap,
+    side = above >= height || above >= below ? 'above' : 'below',
+    desiredTop = side === 'above' ? anchor.top - gap - height : anchor.bottom + gap,
+    arrowInset = Math.min(16, width / 2)
+  return {
+    width,
+    maxHeight,
+    left,
+    top: Math.max(margin, Math.min(desiredTop, viewport.height - height - margin)),
+    side,
+    arrowLeft: Math.max(arrowInset, Math.min(center - left, width - arrowInset)),
+  }
+}
 
 // Keep geometry independent of DOM so narrow windows and panel padding are testable.
 export function popupPosition(
@@ -17,7 +46,7 @@ export function popupPosition(
   viewport: { width: number; height: number },
   size: { width: number; height: number },
   align: 'start' | 'end' = 'end',
-  constrainHeightToPanel = false,
+  useViewportHeight = false,
 ) {
   const margin = 8,
     gap = 12,
@@ -33,13 +62,10 @@ export function popupPosition(
     width = Math.min(preferredWidth, viewport.width - panel.right - gap - margin)
     left = panel.right + gap
   } else if (panel) left = panel.right - width
-  const bounded = constrainHeightToPanel && panel !== null,
-    minTop = bounded ? Math.max(margin, panel.top) : margin,
-    maxBottom = bounded
-      ? Math.min(viewport.height - margin, panel.bottom)
-      : viewport.height - margin,
+  const minTop = margin,
+    maxBottom = viewport.height - margin,
     maxHeight = Math.max(0, maxBottom - minTop),
-    height = bounded ? Math.min(size.height, maxHeight) : size.height
+    height = useViewportHeight ? Math.min(size.height, maxHeight) : size.height
   const desiredTop = panel
     ? align === 'start'
       ? anchor.top
@@ -49,7 +75,7 @@ export function popupPosition(
     width,
     left: Math.max(margin, Math.min(left, viewport.width - width - margin)),
     top: Math.max(minTop, Math.min(desiredTop, maxBottom - height)),
-    ...(bounded ? { maxHeight } : {}),
+    ...(useViewportHeight ? { maxHeight } : {}),
   }
 }
 
@@ -91,6 +117,25 @@ export function mountPopup(popup: HTMLElement, anchor: HTMLElement, options: Pop
   const isOpen = () => popup.matches(':popover-open')
   function position() {
     if (!isOpen()) return
+    if (options.placement === 'contextual') {
+      const rect = anchor.getBoundingClientRect(),
+        viewport = { width: window.innerWidth, height: window.innerHeight },
+        initial = contextualPopupPosition(rect, viewport, {
+          width: options.width ?? 208,
+          height: 0,
+        })
+      popup.style.width = `${initial.width}px`
+      popup.style.maxHeight = `${initial.maxHeight}px`
+      const placed = contextualPopupPosition(rect, viewport, {
+        width: options.width ?? 208,
+        height: popup.getBoundingClientRect().height,
+      })
+      popup.style.left = `${placed.left}px`
+      popup.style.top = `${placed.top}px`
+      popup.style.setProperty('--mp-popup-arrow-x', `${placed.arrowLeft}px`)
+      popup.dataset.side = placed.side
+      return
+    }
     const panel = panelFor(anchor),
       panelBounds = panel?.getBoundingClientRect() || null,
       rect = anchor.getBoundingClientRect(),
@@ -104,13 +149,12 @@ export function mountPopup(popup: HTMLElement, anchor: HTMLElement, options: Pop
           height: 0,
         },
         options.align,
-        options.constrainHeightToPanel,
+        options.maxHeight === 'viewport',
       )
     popup.style.width = `${initial.width}px`
     // Apply the limit before measuring: additional sticker pages may grow the
-    // popup naturally, while its border box stays inside the visible panel.
+    // popup naturally, while its border box stays inside the player viewport.
     if (initial.maxHeight !== undefined) popup.style.maxHeight = `${initial.maxHeight}px`
-    else if (options.constrainHeightToPanel) popup.style.removeProperty('max-height')
     const placed = popupPosition(
       rect,
       panelBounds,
@@ -120,7 +164,7 @@ export function mountPopup(popup: HTMLElement, anchor: HTMLElement, options: Pop
         height: popup.getBoundingClientRect().height,
       },
       options.align,
-      options.constrainHeightToPanel,
+      options.maxHeight === 'viewport',
     )
     popup.style.left = `${placed.left}px`
     popup.style.top = `${placed.top}px`
