@@ -6,13 +6,22 @@ async function enterChat(page: Page) {
   await page.getByRole('button', { name: '恢复当前房间', exact: true }).click()
   await page.getByRole('tab', { name: '聊天', exact: true }).click()
 }
-async function settings(page: Page) {
-  await page.locator('.mp-chat-settings > summary').click()
-  return page.locator('.mp-chat-settings-popover')
+async function settings(page: Page, kind: 'chat' | 'danmaku' = 'chat') {
+  await page
+    .locator(`.mp-chat-settings summary[aria-label="${kind === 'chat' ? '聊天显示' : '弹幕设置'}"]`)
+    .click()
+  return page.locator(`.mp-chat-settings-popover[data-settings="${kind}"]`)
+}
+async function choose(container: import('@playwright/test').Locator, name: string, option: string) {
+  await container.getByRole('combobox', { name, exact: true }).click()
+  await container
+    .getByRole('listbox', { name, exact: true })
+    .getByRole('option', { name: option, exact: true })
+    .click()
 }
 async function floating(page: Page, seconds = 5) {
   const popup = await settings(page)
-  await popup.getByRole('combobox', { name: '聊天位置' }).selectOption('bottom-left')
+  await choose(popup, '聊天位置', '左下角')
   await popup.getByRole('spinbutton', { name: '新消息显示时长' }).fill(String(seconds))
   await popup.getByRole('spinbutton', { name: '新消息显示时长' }).press('Tab')
   await page.keyboard.press('Escape')
@@ -64,7 +73,7 @@ test('chat moves without losing its draft, avoids bottom controls, and opens too
   await page.evaluate(() => (window as any).partyTest.remountStage())
   await expect(chat.locator('textarea')).toHaveValue('保留草稿 😊')
   const popup = await settings(page)
-  await popup.getByRole('combobox', { name: '聊天位置' }).selectOption('panel')
+  await choose(popup, '聊天位置', '面板内')
   await page.keyboard.press('Escape')
   await expect(page.locator('#panel').getByRole('textbox', { name: '房间聊天内容' })).toHaveValue(
     '保留草稿 😊',
@@ -190,9 +199,7 @@ test('danmaku renders new text, media and activity without replaying history, an
   request,
 }) => {
   await enterChat(page)
-  const popup = await settings(page)
-  await popup.getByRole('switch', { name: '启用弹幕' }).check()
-  await page.keyboard.press('Escape')
+  await page.getByRole('switch', { name: '启用弹幕' }).check()
   await expect(page.locator('.mp-danmaku-message')).toHaveCount(0)
   await request.post('/test/room-layout')
   await request.post('/test/room-image')
@@ -209,9 +216,7 @@ test('danmaku renders new text, media and activity without replaying history, an
   await expect(page.locator('.mp-danmaku-message')).toHaveCount(0)
   await page.evaluate(() => (window as any).partyTest.setStageDisplay({ showText: true }))
   await expect(page.locator('.mp-danmaku-message')).toHaveCount(0)
-  const again = await settings(page)
-  await again.getByRole('switch', { name: '启用弹幕' }).uncheck()
-  await page.keyboard.press('Escape')
+  await page.getByRole('switch', { name: '启用弹幕' }).uncheck()
   await expect(page.locator('.mp-danmaku-message')).toHaveCount(0)
   await page.evaluate(() => (window as any).partyTest.dispose())
   await expect(page.locator('.mp-chat-presentation')).toHaveCount(0)
@@ -222,8 +227,8 @@ test('danmaku settings persist, filter actual message types, and reset without m
   request,
 }) => {
   await enterChat(page)
-  const popup = await settings(page)
-  await popup.getByRole('switch', { name: '启用弹幕' }).check()
+  await page.getByRole('switch', { name: '启用弹幕' }).check()
+  const popup = await settings(page, 'danmaku')
   await popup
     .getByRole('group', { name: '显示模式' })
     .getByRole('button', { name: '底部', exact: true })
@@ -241,7 +246,7 @@ test('danmaku settings persist, filter actual message types, and reset without m
   await popup.getByRole('button', { name: '文字消息', exact: true }).click()
   await popup.getByRole('button', { name: '图片与表情', exact: true }).click()
   await popup.locator('.mp-chat-settings-advanced > summary').click()
-  await popup.getByRole('combobox', { name: '字体', exact: true }).selectOption('songti')
+  await choose(popup, '字体', '宋体')
   await popup.getByRole('switch', { name: '粗体', exact: true }).uncheck()
   await popup.getByRole('button', { name: '描边', exact: true }).click()
   await expect(popup.getByRole('button', { name: '描边', exact: true })).toHaveAttribute(
@@ -268,7 +273,7 @@ test('danmaku settings persist, filter actual message types, and reset without m
   await page.reload()
   await page.getByRole('button', { name: '恢复当前房间', exact: true }).click()
   await page.getByRole('tab', { name: '聊天', exact: true }).click()
-  await settings(page)
+  await settings(page, 'danmaku')
   await expect(popup.getByRole('slider', { name: '不透明度', exact: true })).toHaveValue('40')
   await expect(popup.getByRole('button', { name: '底部', exact: true })).toHaveAttribute(
     'aria-pressed',
@@ -278,13 +283,13 @@ test('danmaku settings persist, filter actual message types, and reset without m
     'aria-pressed',
     'false',
   )
-  await popup.getByRole('combobox', { name: '聊天位置' }).selectOption('bottom-left')
-  await popup.getByRole('spinbutton', { name: '新消息显示时长' }).fill('9')
-  await popup.getByRole('spinbutton', { name: '新消息显示时长' }).press('Tab')
+  const chatSettings = await settings(page)
+  await choose(chatSettings, '聊天位置', '左下角')
+  await chatSettings.getByRole('spinbutton', { name: '新消息显示时长' }).fill('9')
+  await chatSettings.getByRole('spinbutton', { name: '新消息显示时长' }).press('Tab')
+  await settings(page, 'danmaku')
   await popup.getByRole('button', { name: '恢复弹幕默认设置', exact: true }).click()
-  await expect(popup.getByRole('switch', { name: '启用弹幕' })).toBeChecked()
-  await expect(popup.getByRole('combobox', { name: '聊天位置' })).toHaveValue('bottom-left')
-  await expect(popup.getByRole('spinbutton', { name: '新消息显示时长' })).toHaveValue('9')
+  await expect(page.getByRole('switch', { name: '启用弹幕' })).toBeChecked()
   await expect(popup.getByRole('slider', { name: '不透明度', exact: true })).toHaveValue('85')
   await expect(popup.getByRole('button', { name: '滚动', exact: true })).toHaveAttribute(
     'aria-pressed',
@@ -294,6 +299,12 @@ test('danmaku settings persist, filter actual message types, and reset without m
     'aria-pressed',
     'true',
   )
+  await settings(page)
+  await expect(chatSettings.getByRole('combobox', { name: '聊天位置' })).toHaveAttribute(
+    'aria-valuetext',
+    '左下角',
+  )
+  await expect(chatSettings.getByRole('spinbutton', { name: '新消息显示时长' })).toHaveValue('9')
 })
 
 test('hover pauses only that danmaku while other messages continue and resumes on leave', async ({
@@ -301,9 +312,7 @@ test('hover pauses only that danmaku while other messages continue and resumes o
   request,
 }) => {
   await enterChat(page)
-  const popup = await settings(page)
-  await popup.getByRole('switch', { name: '启用弹幕' }).check()
-  await page.keyboard.press('Escape')
+  await page.getByRole('switch', { name: '启用弹幕' }).check()
   await request.post('/test/room-mentions')
   const draft = page.getByRole('textbox', { name: '房间聊天内容' })
   await draft.fill('悬停暂停测试')

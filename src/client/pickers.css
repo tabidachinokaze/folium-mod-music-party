@@ -45,7 +45,7 @@
   flex-direction: column;
 }
 .mp-sticker-library > .mp-picker-header,
-.mp-sticker-library > select,
+.mp-sticker-library > .mp-select,
 .mp-sticker-library > .mp-muted {
   flex-shrink: 0;
 }

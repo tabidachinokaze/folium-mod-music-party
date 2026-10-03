@@ -4,17 +4,27 @@ import { expect, test, type Page } from '@playwright/test'
 // Exercise the real stage registry and nested host shadows with the suite's mock account.
 export async function verifyNativeChatPresentation(page: Page): Promise<void> {
   const full = page.locator('.mp-floating-chat'),
-    settings = page.locator('.mp-chat-settings-popover')
+    settings = page.locator('.mp-chat-settings-popover[data-settings="chat"]')
   const openSettings = async () => {
     await page.mouse.move(600, 100)
-    if (!(await settings.isVisible())) await page.locator('.mp-chat-settings > summary').click()
+    if (!(await settings.isVisible()))
+      await page.locator('.mp-chat-settings summary[aria-label="聊天显示"]').click()
     await expect(settings).toBeVisible()
+  }
+  const selectPosition = async (name: '左下角' | '面板内') => {
+    const trigger = settings.getByRole('combobox', { name: '聊天位置' })
+    await trigger.click()
+    await settings
+      .getByRole('listbox', { name: '聊天位置' })
+      .getByRole('option', { name, exact: true })
+      .click()
+    await expect(trigger).toHaveAttribute('aria-valuetext', name)
   }
   try {
     await page.setViewportSize({ width: 1100, height: 1020 })
     await page.getByRole('textbox', { name: '房间聊天内容', exact: true }).fill('原生播放器草稿 😊')
     await openSettings()
-    await settings.getByRole('combobox', { name: '聊天位置' }).selectOption('bottom-left')
+    await selectPosition('左下角')
     await page.keyboard.press('Escape')
     await expect(
       page.locator('[data-folium-slot="app.overlay"] .mp-floating-chat'),
@@ -84,9 +94,9 @@ export async function verifyNativeChatPresentation(page: Page): Promise<void> {
     await page.keyboard.press('Escape')
     await page.evaluate(() => (window as any).partyHost.api.ui.openPlayerPanel('room'))
     await page.getByRole('tab', { name: '聊天', exact: true }).click()
+    await page.getByRole('switch', { name: '启用弹幕' }).uncheck()
     await openSettings()
-    await settings.getByRole('switch', { name: '启用弹幕' }).uncheck()
-    await settings.getByRole('combobox', { name: '聊天位置' }).selectOption('panel')
+    await selectPosition('面板内')
     await page.keyboard.press('Escape')
     await page.getByRole('textbox', { name: '房间聊天内容', exact: true }).fill('')
     await page.setViewportSize({ width: 1100, height: 1020 })

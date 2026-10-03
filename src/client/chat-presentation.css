@@ -37,17 +37,21 @@
 .mp-floating-chat > .mp-chat-view {
   display: flex;
   flex-direction: column;
+  flex: 0 1 auto;
   min-height: 0;
+  max-height: inherit;
 }
 .mp-floating-chat .mp-history {
   min-height: 0;
-  max-height: min(300px, 38dvh);
+  max-height: none;
   flex: 0 1 auto;
   padding: 2px 4px 6px;
-  scrollbar-color: transparent transparent;
+  scrollbar-width: none;
+  scrollbar-gutter: auto;
+  opacity: var(--mp-floating-opacity, 1);
 }
-.mp-floating-chat:is(:hover, :focus-within) .mp-history {
-  scrollbar-color: color-mix(in srgb, currentColor 22%, transparent) transparent;
+.mp-floating-chat .mp-history::-webkit-scrollbar {
+  display: none;
 }
 .mp-floating-chat .mp-composer {
   flex: none;
@@ -55,11 +59,19 @@
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--folium-bg, #171717) 86%, transparent);
+  background: rgb(
+    from var(--folium-bg, light-dark(#f5f5f5, #171717)) r g b /
+      var(--mp-floating-input-opacity, 0.45)
+  );
   backdrop-filter: blur(18px);
 }
 .mp-floating-chat .mp-composer textarea {
   padding-right: 28px;
+  background: transparent;
+}
+.mp-floating-chat .mp-composer textarea,
+.mp-floating-chat .mp-live-compose-open {
+  font-size: var(--mp-floating-font-size, 12px);
 }
 .mp-floating-chat .mp-empty {
   padding: 8px 0;
@@ -67,6 +79,7 @@
   text-shadow: 0 1px 3px light-dark(#fff9, #000c);
 }
 .mp-live-compose-launcher {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -74,7 +87,10 @@
   padding: 3px 5px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: color-mix(in srgb, var(--folium-bg, #171717) 60%, transparent);
+  background: rgb(
+    from var(--folium-bg, light-dark(#f5f5f5, #171717)) r g b /
+      var(--mp-floating-input-opacity, 0.45)
+  );
   backdrop-filter: blur(14px);
 }
 .mp-live-compose-launcher .mp-button {
@@ -138,6 +154,7 @@
 .mp-chat-peek .mp-message {
   margin: 0;
   max-width: 100%;
+  opacity: var(--mp-floating-opacity, 1);
 }
 :is(.mp-floating-chat, .mp-chat-peek) .mp-message {
   display: block;
@@ -146,7 +163,8 @@
   margin: 4px 0;
   padding: 0;
   text-align: left;
-  line-height: 1.7;
+  font-size: var(--mp-floating-font-size, 12px);
+  line-height: calc(1.7 * var(--mp-floating-line-height, 1));
   text-shadow: 0 1px 3px light-dark(#fff9, #000c);
 }
 :is(.mp-floating-chat, .mp-chat-peek) .mp-message-avatar,
@@ -162,7 +180,7 @@
   font-size: 0;
 }
 :is(.mp-floating-chat, .mp-chat-peek) .mp-meta .mp-message-author {
-  font-size: 12px;
+  font-size: var(--mp-floating-font-size, 12px);
   font-weight: 600;
   color: light-dark(#087e8b, #77d8e7);
 }
@@ -176,12 +194,12 @@
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  font-size: 12px;
+  font-size: var(--mp-floating-font-size, 12px);
 }
 :is(.mp-floating-chat, .mp-chat-peek) .mp-activity-body {
   padding: 0;
-  font-size: 11px;
-  line-height: 1.65;
+  font-size: calc(var(--mp-floating-font-size, 12px) * 11 / 12);
+  line-height: calc(1.65 * var(--mp-floating-line-height, 1));
   color: var(--muted);
 }
 :is(.mp-floating-chat, .mp-chat-peek) .mp-activity-actor,

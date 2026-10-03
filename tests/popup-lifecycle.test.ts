@@ -68,9 +68,19 @@ function environment(floating = false) {
     getBoundingClientRect: () => ({ left: 860, right: 900, top: 970, bottom: 998 }),
   } as unknown as HTMLElement
   const style = { width: '', left: '', top: '', maxHeight: '', removeProperty: vi.fn() }
+  const popupListeners = new Map<string, Set<EventListener>>()
   const element = {
     classList: { add: vi.fn() },
     style,
+    addEventListener: vi.fn((type: string, callback: EventListener) => {
+      const callbacks = popupListeners.get(type) ?? new Set<EventListener>()
+      callbacks.add(callback)
+      popupListeners.set(type, callbacks)
+    }),
+    removeEventListener: vi.fn((type: string, callback: EventListener) => {
+      popupListeners.get(type)?.delete(callback)
+    }),
+    contains: (node: Node) => node === element,
     matches: () => open,
     isConnected: true,
     showPopover: () => {
@@ -81,10 +91,23 @@ function environment(floating = false) {
     },
     getBoundingClientRect: () => ({ height }),
   } as unknown as HTMLElement
-  const popup = mountPopup(element, anchor, floating ? { maxHeight: 'viewport' } : {})
+  const onClose = vi.fn()
+  const popup = mountPopup(element, anchor, {
+    ...(floating ? { maxHeight: 'viewport' as const } : {}),
+    onClose,
+  })
   return {
     popup,
     style,
+    anchor,
+    onClose,
+    externalHide() {
+      element.hidePopover()
+      popupListeners.get('toggle')?.forEach((callback) => callback(new Event('toggle')))
+    },
+    get toggleListeners() {
+      return popupListeners.get('toggle')?.size ?? 0
+    },
     keydown(event: Partial<KeyboardEvent>) {
       const handler = listeners.addEventListener.mock.calls.find(
         ([name]) => name === 'keydown',
@@ -174,4 +197,26 @@ it('consumes Escape only while a popup is open, leaving the host navigation for 
   view.keydown(event)
   expect(event.stopPropagation).toHaveBeenCalledOnce()
   view.popup.dispose()
+})
+
+it('releases popup state after an external hide and removes its toggle listener on disposal', () => {
+  const view = environment()
+  view.popup.open()
+  expect(view.pendingFrames).toBe(1)
+  view.externalHide()
+  expect(view.open).toBe(false)
+  expect(view.pendingFrames).toBe(0)
+  expect(view.anchor.setAttribute).toHaveBeenLastCalledWith('aria-expanded', 'false')
+  expect(view.onClose).toHaveBeenCalledOnce()
+  view.popup.close()
+  expect(view.onClose).toHaveBeenCalledOnce()
+
+  view.popup.open()
+  expect(view.open).toBe(true)
+  expect(view.pendingFrames).toBe(1)
+  view.popup.dispose()
+  expect(view.onClose).toHaveBeenCalledTimes(2)
+  expect(view.toggleListeners).toBe(0)
+  view.externalHide()
+  expect(view.onClose).toHaveBeenCalledTimes(2)
 })

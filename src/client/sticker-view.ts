@@ -5,6 +5,7 @@ import { button, el, picture } from './dom'
 import { imageInput, uploadImage, type PrivateRun } from './private-tools'
 import { mountDetailsPopup } from './popup-position'
 import { t } from './i18n'
+import { mountSelect } from './select-control'
 import {
   forgetSavedStickers,
   rememberSavedSticker,
@@ -43,6 +44,7 @@ export function createStickerPicker(
     grid = el('div', 'mp-sticker-grid')
   const select = el('select')
   select.setAttribute('aria-label', t('表情分组'))
+  const groupControl = mountSelect(select)
   let disposed = false,
     mutating = false,
     epoch = 0,
@@ -102,7 +104,7 @@ export function createStickerPicker(
   const status = el('p', 'mp-muted')
   header.append(el('strong', '', t('表情包')), uploadButton, organize, remove, cancel)
   list.append(grid)
-  content.append(header, select, status, list, upload)
+  content.append(header, groupControl.node, status, list, upload)
   box.append(content)
   const popup = mountDetailsPopup(box, content, { maxHeight: 'viewport' })
 
@@ -246,6 +248,7 @@ export function createStickerPicker(
     remove.hidden = !editing || !selected.size
     remove.textContent = t('删除 ({count})', { count: selected.size })
     select.disabled = editing || mutating || loading
+    groupControl.sync()
     const buttons = [...(group?.items || [])].map(([key, item]) => stickerNode(group!, key, item)),
       retained = new Set(buttons)
     for (const child of [...grid.children])
@@ -367,6 +370,7 @@ export function createStickerPicker(
       )
       select.value = groupId
       select.hidden = choices.length < 2
+      groupControl.sync()
       groupsLoaded = true
       groupsSyncedRevision = revision
     })()
@@ -514,6 +518,7 @@ export function createStickerPicker(
       stopCollection()
       stopAccount()
       content.removeEventListener('beforetoggle', saveBeforeClose)
+      groupControl.dispose()
       popup.dispose()
     },
   }

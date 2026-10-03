@@ -307,10 +307,18 @@ test('upload merges the first page without losing the tail or nodes, and group s
       .evaluate((node, previous) => node.isSameNode(previous), retained),
   ).toBe(true)
   expect(Math.abs((await offset(library, 21)) - before.offset)).toBeLessThan(2)
-  await library.getByRole('combobox', { name: '表情分组' }).selectOption('2')
+  await library.getByRole('combobox', { name: '表情分组' }).click()
+  await library
+    .getByRole('listbox', { name: '表情分组' })
+    .getByRole('option', { name: '其他表情', exact: true })
+    .click()
   await expect(library.locator('[data-sticker-key]')).toHaveCount(8)
   const calls = state.pages.length
-  await library.getByRole('combobox', { name: '表情分组' }).selectOption('1')
+  await library.getByRole('combobox', { name: '表情分组' }).click()
+  await library
+    .getByRole('listbox', { name: '表情分组' })
+    .getByRole('option', { name: '我的表情', exact: true })
+    .click()
   await expect(library.locator('[data-sticker-key]')).toHaveCount(65)
   expect(state.pages).toHaveLength(calls)
   expect(

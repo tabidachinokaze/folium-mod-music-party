@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   contextualPopupPosition,
+  dropdownPopupPosition,
   playerPopupBounds,
   popupPosition,
 } from '../src/client/popup-position'
@@ -10,6 +11,54 @@ const anchor = { left: 1550, right: 1680, top: 760, bottom: 790 }
 const panel = { left: 1406, right: 1726, top: 210, bottom: 1090 }
 const viewport = { width: 1760, height: 1100 }
 const size = { width: 340, height: 400 }
+
+describe('nested dropdown placement', () => {
+  const trigger = { left: 300, right: 400, top: 300, bottom: 330 },
+    screen = { width: 1000, height: 800 },
+    menu = { width: 160, height: 100 }
+
+  it('opens below its own trigger with a four-pixel gap', () => {
+    expect(dropdownPopupPosition(trigger, screen, menu)).toEqual({
+      left: 300,
+      top: 334,
+      width: 160,
+      maxHeight: 180,
+      side: 'below',
+    })
+  })
+  it('flips above a trigger near the viewport bottom', () => {
+    const placed = dropdownPopupPosition({ ...trigger, top: 710, bottom: 740 }, screen, menu)
+    expect(placed).toMatchObject({ top: 606, side: 'above', maxHeight: 180 })
+    expect(placed.top + menu.height).toBe(706)
+  })
+  it('keeps short menus below when their actual height fits', () => {
+    expect(
+      dropdownPopupPosition({ ...trigger, top: 680, bottom: 710 }, screen, { ...menu, height: 60 }),
+    ).toMatchObject({ top: 714, maxHeight: 78, side: 'below' })
+  })
+  it('caps a large menu at 180 pixels and reserves the initial measurement space', () => {
+    expect(dropdownPopupPosition(trigger, screen, { ...menu, height: 900 })).toMatchObject({
+      maxHeight: 180,
+      top: 334,
+    })
+    expect(dropdownPopupPosition(trigger, screen, { ...menu, height: 0 }).maxHeight).toBe(180)
+  })
+  it('uses the larger available side in a short viewport without leaving its gutter', () => {
+    const placed = dropdownPopupPosition(
+      { left: 10, right: 150, top: 60, bottom: 90 },
+      { width: 180, height: 140 },
+      { width: 200, height: 300 },
+    )
+    expect(placed).toEqual({ left: 8, top: 8, width: 164, maxHeight: 48, side: 'above' })
+    expect(placed.top + placed.maxHeight).toBe(56)
+  })
+  it('clamps both horizontal edges independently of a parent panel', () => {
+    expect(dropdownPopupPosition({ ...trigger, left: 960, right: 990 }, screen, menu).left).toBe(
+      832,
+    )
+    expect(dropdownPopupPosition({ ...trigger, left: 0, right: 30 }, screen, menu).left).toBe(8)
+  })
+})
 
 describe('message context popup placement', () => {
   const image = { left: 900, right: 1020, top: 400, bottom: 580 }

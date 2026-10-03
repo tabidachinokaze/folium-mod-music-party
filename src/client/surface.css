@@ -23,7 +23,7 @@
   );
   --accent: var(--folium-accent, currentColor);
   --danger: light-dark(#c93434, #f87171);
-  --popup: color-mix(in srgb, var(--folium-bg, #171717) 95%, var(--folium-primary, #eeeeee));
+  --popup: light-dark(rgb(255 255 255 / 96%), rgb(0 0 0 / 94%));
   font-size: 12px;
   line-height: 1.5;
   container-type: inline-size;

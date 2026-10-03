@@ -148,6 +148,16 @@ export function createChatPresentation(controller: PartyController, prefs: ChatP
       peekActive = activeStage && floating && !fullVisible,
       parent = floating ? full : panel?.container || parking
 
+    const appearance = {
+      '--mp-floating-opacity': String(settings.floatingOpacity / 100),
+      '--mp-floating-input-opacity': String(settings.floatingInputOpacity / 100),
+      '--mp-floating-font-size': `${(12 * settings.floatingFontSize) / 100}px`,
+      '--mp-floating-line-height': String(settings.floatingLineHeight / 100),
+    }
+    for (const [key, value] of Object.entries(appearance))
+      if (surface.page.style.getPropertyValue(key) !== value)
+        surface.page.style.setProperty(key, value)
+
     if (scope !== previousScope) {
       previousScope = scope
       hovering = false

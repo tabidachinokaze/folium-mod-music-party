@@ -1,7 +1,44 @@
 // src/client/chat-overlay-geometry.ts
-// The pinned Folia adapter reads bottom-control geometry without changing host DOM.
-const selector =
-  '[data-toast-card], [data-ponder="player-bar"], [data-player-bottom-obstacle], [style*="bottom:"], [class*="bottom-"]'
+// The pinned Folia adapter reads control geometry without changing host DOM.
+// VisualizerShell's back button has no data marker; its placement and icon are stable.
+const topSelector = '[data-player-top-obstacle], button.top-6.left-6:has(svg.lucide-chevron-left)',
+  selector = `[data-toast-card], [data-ponder="player-bar"], [data-player-bottom-obstacle], [style*="bottom:"], [class*="bottom-"], ${topSelector}`
+
+type Bounds = { left: number; top: number; width: number; height: number }
+type Obstacle = Bounds & { allowWide?: boolean; edge?: 'top' | 'bottom' }
+
+export function chatOverlayLayout(stage: Bounds, obstacles: Obstacle[], bottomInset = 32) {
+  const left = Math.min(24, Math.max(8, (stage.width - 280) / 2)),
+    width = Math.min(340, Math.max(0, stage.width - left * 2))
+  let bottom = Math.max(32, bottomInset),
+    topMargin = 24
+  for (const item of obstacles) {
+    const top = item.top - stage.top,
+      right = item.left + item.width - stage.left,
+      itemLeft = item.left - stage.left
+    if (
+      item.width > 0 &&
+      (item.width <= stage.width * 0.65 || item.allowWide) &&
+      item.height > 0 &&
+      item.height < stage.height * 0.5 &&
+      top + item.height <= stage.height + 24 &&
+      right > left &&
+      itemLeft < left + width
+    ) {
+      if (item.edge === 'top' && top >= -24 && top + item.height <= stage.height * 0.5)
+        topMargin = Math.max(topMargin, top + item.height + 12)
+      else if (item.edge !== 'top' && top >= stage.height * 0.4)
+        bottom = Math.max(bottom, stage.height - top + 12)
+    }
+  }
+  bottom = Math.min(Math.max(0, stage.height - topMargin), bottom)
+  return {
+    left: Math.round(left),
+    width: Math.round(width),
+    bottom: Math.round(bottom),
+    height: Math.max(0, Math.floor(stage.height - bottom - topMargin)),
+  }
+}
 
 export function mountChatOverlayGeometry(node: HTMLElement) {
   const doc = node.ownerDocument
@@ -14,6 +51,7 @@ export function mountChatOverlayGeometry(node: HTMLElement) {
   const attributes = new MutationObserver(() => schedule())
   function discover() {
     resize.disconnect()
+    resize.observe(node)
     attributes.disconnect()
     candidates = Array.from(doc.querySelectorAll<HTMLElement>(selector)).filter((item) => {
       if (item.closest('[data-folium-slot]')) return false
@@ -22,6 +60,7 @@ export function mountChatOverlayGeometry(node: HTMLElement) {
         item.matches(
           '[data-toast-card], [data-ponder="player-bar"], [data-player-bottom-obstacle]',
         ) ||
+        item.matches(topSelector) ||
         style.position === 'fixed' ||
         (style.position === 'absolute' && style.bottom !== 'auto')
       )
@@ -47,11 +86,9 @@ export function mountChatOverlayGeometry(node: HTMLElement) {
       discoverAgain = false
       discover()
     }
-    const height = window.innerHeight,
-      viewportWidth = window.innerWidth,
-      left = Math.min(24, Math.max(8, (viewportWidth - 280) / 2)),
-      width = Math.min(340, Math.max(0, viewportWidth - left * 2))
-    let bottom = 32
+    const stage = node.getBoundingClientRect(),
+      obstacles: Obstacle[] = []
+    let bottomInset = 32
     for (const item of candidates) {
       if (!item.isConnected || !item.getClientRects().length) continue
       if (item.matches('[data-ponder="player-bar"]')) {
@@ -59,7 +96,7 @@ export function mountChatOverlayGeometry(node: HTMLElement) {
         for (let level = 0; parent && level < 5; level++, parent = parent.parentElement) {
           const value = Number.parseFloat(parent.style.bottom)
           if (Number.isFinite(value)) {
-            bottom = Math.max(bottom, value)
+            bottomInset = Math.max(bottomInset, value)
             break
           }
         }
@@ -75,27 +112,23 @@ export function mountChatOverlayGeometry(node: HTMLElement) {
       }
       if (!visible) continue
       const rect = item.getBoundingClientRect()
-      if (
-        rect.width > 0 &&
-        (rect.width <= viewportWidth * 0.65 ||
-          item.matches(
-            '[data-toast-card], [data-ponder="player-bar"], [data-player-bottom-obstacle]',
-          )) &&
-        rect.height > 0 &&
-        rect.height < height * 0.5 &&
-        rect.top >= height * 0.4 &&
-        rect.bottom <= height + 24 &&
-        rect.right > left &&
-        rect.left < left + width
-      )
-        bottom = Math.max(bottom, height - rect.top + 12)
+      obstacles.push({
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height,
+        edge: item.matches(topSelector) ? 'top' : 'bottom',
+        allowWide: item.matches(
+          '[data-toast-card], [data-ponder="player-bar"], [data-player-bottom-obstacle]',
+        ),
+      })
     }
-    bottom = Math.min(Math.max(8, height - 160), bottom)
+    const layout = chatOverlayLayout(stage, obstacles, bottomInset)
     const values = {
-      '--mp-overlay-left': `${Math.round(left)}px`,
-      '--mp-overlay-width': `${Math.round(width)}px`,
-      '--mp-overlay-bottom': `${Math.round(bottom)}px`,
-      '--mp-overlay-height': `${Math.max(0, Math.floor(height - bottom - 24))}px`,
+      '--mp-overlay-left': `${layout.left}px`,
+      '--mp-overlay-width': `${layout.width}px`,
+      '--mp-overlay-bottom': `${layout.bottom}px`,
+      '--mp-overlay-height': `${layout.height}px`,
     }
     for (const [key, value] of Object.entries(values))
       if (node.style.getPropertyValue(key) !== value) node.style.setProperty(key, value)

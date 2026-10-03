@@ -17,11 +17,18 @@ export type DanmakuPreferenceValues = Readonly<{
   danmakuOverlap: boolean
   danmakuDedupe: boolean
 }>
+export type FloatingChatPreferenceValues = Readonly<{
+  floatingOpacity: number
+  floatingInputOpacity: number
+  floatingFontSize: number
+  floatingLineHeight: number
+}>
 export type ChatPreferenceValues = Readonly<{
   position: 'panel' | 'bottom-left'
   danmaku: boolean
   peekSeconds: number
 }> &
+  FloatingChatPreferenceValues &
   DanmakuPreferenceValues
 export interface ChatPreferences {
   get(): ChatPreferenceValues
@@ -50,8 +57,21 @@ export const danmakuRanges = {
   danmakuFontSize: { min: 75, max: 150, step: 1 },
   danmakuSpeed: { min: 50, max: 150, step: 1 },
 } as const
+export const floatingChatDefaults: FloatingChatPreferenceValues = Object.freeze({
+  floatingOpacity: 100,
+  floatingInputOpacity: 45,
+  floatingFontSize: 100,
+  floatingLineHeight: 100,
+})
+export const floatingChatRanges = {
+  floatingOpacity: { min: 20, max: 100, step: 1 },
+  floatingInputOpacity: { min: 0, max: 100, step: 1 },
+  floatingFontSize: { min: 75, max: 150, step: 1 },
+  floatingLineHeight: { min: 100, max: 160, step: 1 },
+} as const
 const label = (zh: string, en: string) => ({ 'zh-CN': zh, en })
 const danmakuGroup = label('弹幕设置', 'Danmaku settings')
+const floatingGroup = label('聊天显示', 'Chat display')
 const section: FoliumSettingsSectionDef = {
   id: 'chat',
   label: label('聊天设置', 'Chat settings'),
@@ -81,6 +101,21 @@ const section: FoliumSettingsSectionDef = {
       max: 30,
       step: 1,
     },
+    ...(
+      [
+        ['floatingOpacity', '消息不透明度', 'Message opacity'],
+        ['floatingInputOpacity', '输入区背景不透明度', 'Input background opacity'],
+        ['floatingFontSize', '聊天字号', 'Chat font size'],
+        ['floatingLineHeight', '聊天行距', 'Chat line spacing'],
+      ] as const
+    ).map(([key, zh, en]): FoliumParam => ({
+      key,
+      type: 'number',
+      label: label(zh, en),
+      group: floatingGroup,
+      defaultValue: floatingChatDefaults[key],
+      ...floatingChatRanges[key],
+    })),
     {
       key: 'danmakuMode',
       type: 'select',
@@ -174,6 +209,11 @@ function normalize(values: Readonly<Record<string, unknown>>): ChatPreferenceVal
 // Keep the enable switch and the chat window's location/duration as the user chose them.
 export function resetDanmakuPreferences(preferences: ChatPreferences) {
   preferences.set(danmakuDefaults)
+}
+
+// Reset appearance without moving an open conversation to another surface.
+export function resetChatDisplayPreferences(preferences: ChatPreferences) {
+  preferences.set({ ...floatingChatDefaults, peekSeconds: 5 })
 }
 
 export function createChatPreferences(folium: Folium): ChatPreferences {

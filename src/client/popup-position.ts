@@ -5,12 +5,49 @@ type PopupOptions = {
   width?: number
   align?: 'start' | 'end'
   maxHeight?: 'viewport'
-  placement?: 'contextual'
+  placement?: 'contextual' | 'dropdown'
   onClose?: () => void
 }
 type Bounds = { left: number; right: number; top: number; bottom: number }
 type VerticalBounds = Pick<Bounds, 'top' | 'bottom'>
-const activePopups = new WeakMap<Document, () => void>()
+type PopupEntry = {
+  popup: HTMLElement
+  anchor: HTMLElement
+  parent: PopupEntry | null
+  close(): void
+  isOpen(): boolean
+}
+const activePopups = new WeakMap<Document, PopupEntry>()
+
+function descendsFrom(entry: PopupEntry | undefined, parent: PopupEntry): boolean {
+  for (let current = entry?.parent; current; current = current.parent)
+    if (current === parent) return true
+  return false
+}
+
+export function dropdownPopupPosition(
+  anchor: Bounds,
+  viewport: { width: number; height: number },
+  size: { width: number; height: number },
+) {
+  const margin = 8,
+    gap = 4,
+    width = Math.min(size.width, Math.max(0, viewport.width - margin * 2)),
+    below = Math.max(0, viewport.height - margin - anchor.bottom - gap),
+    above = Math.max(0, anchor.top - margin - gap),
+    wantedHeight = Math.min(180, size.height || 180),
+    side = below >= wantedHeight || below >= above ? 'below' : 'above',
+    maxHeight = Math.min(180, side === 'below' ? below : above),
+    height = Math.min(size.height, maxHeight),
+    desiredTop = side === 'above' ? anchor.top - gap - height : anchor.bottom + gap
+  return {
+    width,
+    maxHeight,
+    side,
+    left: Math.max(margin, Math.min(anchor.left, viewport.width - width - margin)),
+    top: Math.max(margin, Math.min(desiredTop, viewport.height - margin - height)),
+  }
+}
 
 // Match the native sidebar's maximum expanded area, not its current content height.
 export function playerPopupBounds(
@@ -181,14 +218,57 @@ export function mountPopup(popup: HTMLElement, anchor: HTMLElement, options: Pop
   popup.classList.add('mp-floating-popup')
   const doc = anchor.ownerDocument
   let disposed = false,
+    registered = false,
+    closing = false,
     frame = 0,
     observedAncestors: HTMLElement[] = [],
     root: Node | null = null
   const isOpen = () => popup.matches(':popover-open')
+  const entry: PopupEntry = {
+    popup,
+    anchor,
+    parent: null,
+    close,
+    isOpen: () => !closing && isOpen(),
+  }
   function position() {
     if (!isOpen()) return
     if (!anchor.isConnected) {
       close()
+      return
+    }
+    if (options.placement === 'dropdown') {
+      const rect = anchor.getBoundingClientRect(),
+        parent = entry.parent,
+        parentBounds = parent?.popup.getBoundingClientRect(),
+        viewport = { width: window.innerWidth, height: window.innerHeight }
+      if (
+        parent &&
+        (!parent.isOpen() ||
+          !parent.popup.contains(anchor) ||
+          (parentBounds &&
+            (rect.bottom <= parentBounds.top ||
+              rect.top >= parentBounds.bottom ||
+              rect.right <= parentBounds.left ||
+              rect.left >= parentBounds.right)))
+      ) {
+        close()
+        return
+      }
+      const initial = dropdownPopupPosition(rect, viewport, {
+        width: options.width ?? 136,
+        height: 0,
+      })
+      popup.style.width = `${initial.width}px`
+      popup.style.maxHeight = `${initial.maxHeight}px`
+      const placed = dropdownPopupPosition(rect, viewport, {
+        width: options.width ?? 136,
+        height: popup.getBoundingClientRect().height,
+      })
+      popup.style.left = `${placed.left}px`
+      popup.style.top = `${placed.top}px`
+      popup.style.maxHeight = `${placed.maxHeight}px`
+      popup.dataset.side = placed.side
       return
     }
     if (options.placement === 'contextual') {
@@ -286,21 +366,51 @@ export function mountPopup(popup: HTMLElement, anchor: HTMLElement, options: Pop
     })
   }
   function close() {
+    if (closing) return
+    closing = true
     cancelAnimationFrame(frame)
     frame = 0
-    if (!isOpen()) return
-    popup.hidePopover()
+    let active = activePopups.get(doc)
+    while (active && descendsFrom(active, entry)) {
+      active.close()
+      const next = activePopups.get(doc)
+      if (next === active) break
+      active = next
+    }
+    const wasOpen = registered || isOpen()
+    if (isOpen()) popup.hidePopover()
     visibility.disconnect()
-    if (activePopups.get(doc) === close) activePopups.delete(doc)
+    if (activePopups.get(doc) === entry) {
+      let parent = entry.parent
+      while (parent && !parent.isOpen()) parent = parent.parent
+      if (parent) activePopups.set(doc, parent)
+      else activePopups.delete(doc)
+    }
+    registered = false
+    entry.parent = null
     anchor.setAttribute('aria-expanded', 'false')
-    options.onClose?.()
+    closing = false
+    if (wasOpen) options.onClose?.()
   }
   const outside = (event: Event) => {
+    if (!registered && !isOpen()) return
     const path = event.composedPath()
-    if (!path.includes(popup) && !path.includes(anchor)) close()
+    if (path.includes(popup) || path.includes(anchor)) return
+    for (
+      let child = activePopups.get(doc);
+      child && descendsFrom(child, entry);
+      child = child.parent ?? undefined
+    )
+      if (path.includes(child.popup) || path.includes(child.anchor)) return
+    close()
   }
   const escape = (event: KeyboardEvent) => {
-    if (event.key === 'Escape' && isOpen()) {
+    if (
+      event.key === 'Escape' &&
+      !event.defaultPrevented &&
+      activePopups.get(doc) === entry &&
+      isOpen()
+    ) {
       event.preventDefault()
       // Folia's window shortcut also handles Escape; dismiss this popup only.
       event.stopPropagation()
@@ -315,6 +425,12 @@ export function mountPopup(popup: HTMLElement, anchor: HTMLElement, options: Pop
     if (observedAncestors.some((parent) => parent.hidden)) close()
     else schedule()
   })
+  const toggled = () => {
+    // Host/page teardown can call hidePopover directly; still release the
+    // active chain, descendant menus, observers and the trigger's open state.
+    if (registered && !isOpen()) close()
+  }
+  popup.addEventListener('toggle', toggled)
   doc.addEventListener('pointerdown', outside)
   doc.addEventListener('keydown', escape)
   doc.addEventListener('scroll', schedule, true)
@@ -323,6 +439,11 @@ export function mountPopup(popup: HTMLElement, anchor: HTMLElement, options: Pop
     position,
     close,
     open() {
+      if (registered && isOpen()) {
+        position()
+        schedule()
+        return
+      }
       observedAncestors = ancestors(anchor)
       if (disposed || observedAncestors.some((parent) => parent.hidden) || !popup.isConnected)
         return
@@ -340,10 +461,26 @@ export function mountPopup(popup: HTMLElement, anchor: HTMLElement, options: Pop
       }
       const panel = panelFor(anchor)
       if (panel) resize.observe(panel)
-      const previous = activePopups.get(doc)
-      if (previous && previous !== close) previous()
-      activePopups.set(doc, close)
-      popup.showPopover()
+      let previous = activePopups.get(doc)
+      while (
+        previous &&
+        previous !== entry &&
+        (!previous.isOpen() || !previous.popup.contains(anchor))
+      ) {
+        previous.close()
+        const next = activePopups.get(doc)
+        if (next === previous) break
+        previous = next
+      }
+      if (previous !== entry) entry.parent = previous || null
+      activePopups.set(doc, entry)
+      registered = true
+      try {
+        popup.showPopover()
+      } catch (error) {
+        close()
+        throw error
+      }
       anchor.setAttribute('aria-expanded', 'true')
       position()
       // Opening a details-backed popover can precede its expanded layout.
@@ -356,6 +493,7 @@ export function mountPopup(popup: HTMLElement, anchor: HTMLElement, options: Pop
       cancelAnimationFrame(frame)
       resize.disconnect()
       visibility.disconnect()
+      popup.removeEventListener('toggle', toggled)
       doc.removeEventListener('pointerdown', outside)
       doc.removeEventListener('keydown', escape)
       doc.removeEventListener('scroll', schedule, true)

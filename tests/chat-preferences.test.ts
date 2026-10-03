@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   createChatPreferences,
   danmakuDefaults,
+  floatingChatDefaults,
+  resetChatDisplayPreferences,
   resetDanmakuPreferences,
 } from '../src/client/chat-preferences'
 import type { Folium } from '../src/client/host'
@@ -50,6 +52,7 @@ describe('chat preferences through native settings parameters', () => {
       danmaku: false,
       peekSeconds: 5,
       ...danmakuDefaults,
+      ...floatingChatDefaults,
     })
     expect(view.definition().id).toBe('chat')
     const fields = view.definition().settings
@@ -77,6 +80,7 @@ describe('chat preferences through native settings parameters', () => {
       danmaku: true,
       peekSeconds: 12,
       ...danmakuDefaults,
+      ...floatingChatDefaults,
     })
     preferences.set({ position: 'panel', peekSeconds: 8 })
     expect(view.set).toHaveBeenLastCalledWith({ position: 'panel', peekSeconds: 8 })
@@ -91,6 +95,7 @@ describe('chat preferences through native settings parameters', () => {
       danmaku: true,
       peekSeconds: 8,
       ...danmakuDefaults,
+      ...floatingChatDefaults,
     })
     remounted.dispose()
   })
@@ -122,6 +127,7 @@ describe('chat preferences through native settings parameters', () => {
       danmaku: false,
       peekSeconds: 5,
       ...danmakuDefaults,
+      ...floatingChatDefaults,
     })
     preferences.set({ peekSeconds: -20 })
     expect(preferences.get().peekSeconds).toBe(1)
@@ -192,6 +198,10 @@ describe('chat preferences through native settings parameters', () => {
     ['danmakuOpacity', 10, 100],
     ['danmakuFontSize', 75, 150],
     ['danmakuSpeed', 50, 150],
+    ['floatingOpacity', 20, 100],
+    ['floatingInputOpacity', 0, 100],
+    ['floatingFontSize', 75, 150],
+    ['floatingLineHeight', 100, 160],
   ] as const)('bounds %s at both write and native-store read boundaries', (key, min, max) => {
     const view = host({ [key]: max + 100 }),
       preferences = createChatPreferences(view.folium)
@@ -231,10 +241,46 @@ describe('chat preferences through native settings parameters', () => {
     preferences.dispose()
   })
 
+  it('persists floating appearance independently and resets it without moving chat or changing danmaku', () => {
+    const view = host({
+        position: 'bottom-left',
+        peekSeconds: 17,
+        danmaku: true,
+        danmakuOpacity: 35,
+      }),
+      preferences = createChatPreferences(view.folium),
+      appearance = {
+        floatingOpacity: 70,
+        floatingInputOpacity: 0,
+        floatingFontSize: 140,
+        floatingLineHeight: 130,
+      }
+    preferences.set(appearance)
+    expect(view.set).toHaveBeenLastCalledWith(appearance)
+    preferences.dispose()
+    const remounted = createChatPreferences(view.folium)
+    expect(remounted.get()).toMatchObject(appearance)
+    resetChatDisplayPreferences(remounted)
+    expect(remounted.get()).toMatchObject({
+      ...floatingChatDefaults,
+      peekSeconds: 5,
+      position: 'bottom-left',
+      danmaku: true,
+      danmakuOpacity: 35,
+    })
+    expect(view.set.mock.lastCall![0]).not.toHaveProperty('position')
+    expect(view.set.mock.lastCall![0]).not.toHaveProperty('danmaku')
+    const count = view.set.mock.calls.length
+    resetChatDisplayPreferences(remounted)
+    expect(view.set).toHaveBeenCalledTimes(count)
+    remounted.dispose()
+  })
+
   it('restores danmaku options without disabling it or resetting chat position and timing', () => {
     const view = host({
         position: 'bottom-left',
         peekSeconds: 23,
+        floatingOpacity: 60,
         danmaku: true,
         danmakuMode: 'top',
         danmakuFont: 'heiti',
@@ -248,8 +294,10 @@ describe('chat preferences through native settings parameters', () => {
     resetDanmakuPreferences(preferences)
     expect(preferences.get()).toEqual({
       ...danmakuDefaults,
+      ...floatingChatDefaults,
       position: 'bottom-left',
       peekSeconds: 23,
+      floatingOpacity: 60,
       danmaku: true,
     })
     const patch = view.set.mock.calls[0][0]

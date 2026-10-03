@@ -36,7 +36,8 @@ export function mountPanel(
   memberView.classList.add('mp-members-view')
   chatView.classList.add('mp-chat-section')
   const membersView = mountMembers(memberView, controller)
-  const stopSettings = chatPreferences && mountChatSettings(chatView, chatPreferences)
+  const stopSettings =
+    chatPreferences && mountChatSettings(chatView, chatPreferences, controller.folium.ui)
   const chatSlot = el('div', 'mp-chat-slot')
   chatView.append(chatSlot)
   const chat = chatPresentation?.mountPanel(chatSlot)

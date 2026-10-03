@@ -2,6 +2,12 @@
 export const enChat: Record<string, string> = {
   悬浮聊天: 'Floating chat',
   聊天设置: 'Chat settings',
+  聊天显示: 'Chat display',
+  消息不透明度: 'Message opacity',
+  输入区背景不透明度: 'Input background opacity',
+  聊天字号: 'Chat font size',
+  聊天行距: 'Chat line spacing',
+  恢复聊天显示默认设置: 'Reset chat display settings',
   聊天位置: 'Chat position',
   面板内: 'In panel',
   左下角: 'Bottom left',
@@ -12,6 +18,7 @@ export const enChat: Record<string, string> = {
   '说点什么…': 'Say something…',
   收起聊天输入: 'Collapse chat input',
   弹幕设置: 'Danmaku settings',
+  弹幕: 'Danmaku',
   显示模式: 'Display mode',
   滚动: 'Scrolling',
   顶部: 'Top',
@@ -36,6 +43,5 @@ export const enChat: Record<string, string> = {
   无: 'None',
   允许弹幕重叠: 'Allow overlapping comments',
   合并重复弹幕: 'Merge repeated comments',
-  '悬停暂停当前弹幕，移开继续。': 'Hover to pause that comment. Move away to resume.',
   恢复弹幕默认设置: 'Reset danmaku settings',
 }
