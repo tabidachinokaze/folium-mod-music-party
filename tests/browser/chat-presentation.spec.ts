@@ -341,6 +341,8 @@ test('hover pauses only that danmaku while other messages continue and resumes o
   const targetBox = (await target.boundingBox())!
   await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2)
   await expect(target).toHaveAttribute('data-paused', 'true')
+  await expect(target).toHaveCSS('border-radius', '999px')
+  await expect(target).toHaveCSS('background-color', 'rgba(0, 0, 0, 0.35)')
   const targetBefore = (await target.boundingBox())!.x,
     otherBefore = (await other.boundingBox())!.x
   // Compare both simultaneous animations over the same interval.

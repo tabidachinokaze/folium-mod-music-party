@@ -89,3 +89,60 @@ test('closing settings removes preview comments while retaining live room commen
   await expect(live).toHaveCount(2)
   await expect(page.locator('.mp-history')).not.toContainText('弹幕预览')
 })
+
+test('scrolling preview loops by itself and keeps its position and hover state while settings change', async ({
+  page,
+}) => {
+  const popup = await openSettings(page),
+    text = page.locator(`${previewSelector} .mp-danmaku-message[data-kind="text"]`)
+  await popup.getByRole('button', { name: '图片与表情', exact: true }).click()
+  await popup.getByRole('button', { name: '房间动态', exact: true }).click()
+  await slider(popup, '速度', 150)
+  await expect.poll(async () => (await text.boundingBox())?.x ?? 1100).toBeLessThan(650)
+  await text.evaluate((node: HTMLElement) => {
+    node.dataset.continuity = 'same-message'
+    node.dispatchEvent(new PointerEvent('pointerenter'))
+  })
+  await expect(text).toHaveAttribute('data-paused', 'true')
+  const frozen = (await text.boundingBox())!.x
+  await popup.locator('.mp-chat-settings-advanced > summary').click()
+  await slider(popup, '悬停背景不透明度', 0)
+  await expect(text).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+  await slider(popup, '悬停背景不透明度', 75)
+  await slider(popup, '不透明度', 65)
+  await slider(popup, '字号', 125)
+  await slider(popup, '速度', 75)
+  await slider(popup, '显示区域', 75)
+  await expect(text).toHaveAttribute('data-continuity', 'same-message')
+  await expect(text).toHaveAttribute('data-paused', 'true')
+  await expect(text).toHaveCSS('background-color', 'rgba(0, 0, 0, 0.75)')
+  await expect(text).toHaveCSS('border-radius', '999px')
+  await expect(text).toHaveCSS('font-size', '21.25px')
+  expect(Math.abs((await text.boundingBox())!.x - frozen)).toBeLessThan(3)
+  await text.dispatchEvent('pointerleave')
+  await expect.poll(async () => frozen - (await text.boundingBox())!.x).toBeGreaterThan(40)
+  const beforeSpeedChange = (await text.boundingBox())!.x
+  await slider(popup, '速度', 150)
+  await expect(text).toHaveAttribute('data-continuity', 'same-message')
+  expect(Math.abs((await text.boundingBox())!.x - beforeSpeedChange)).toBeLessThan(60)
+  let id = await text.getAttribute('data-message-id')
+  for (let cycle = 0; cycle < 2; cycle++) {
+    // No interaction drives the next cycle; each outgoing sample renews itself.
+    await expect
+      .poll(async () => text.getAttribute('data-message-id'), { timeout: 12000 })
+      .not.toBe(id)
+    await expect(text).toHaveCount(1)
+    id = await text.getAttribute('data-message-id')
+    await expect.poll(async () => (await text.boundingBox())?.x ?? 1100).toBeLessThan(800)
+  }
+  await page.keyboard.press('Escape')
+  await expect(text).toHaveCount(0)
+  await page.reload()
+  await page.getByRole('button', { name: '恢复当前房间', exact: true }).click()
+  await page.getByRole('tab', { name: '聊天', exact: true }).click()
+  const restored = await openSettings(page)
+  await restored.locator('.mp-chat-settings-advanced > summary').click()
+  await expect(restored.getByRole('slider', { name: '悬停背景不透明度' })).toHaveValue('75')
+  await restored.getByRole('button', { name: '恢复弹幕默认设置', exact: true }).click()
+  await expect(restored.getByRole('slider', { name: '悬停背景不透明度' })).toHaveValue('35')
+})

@@ -6,7 +6,7 @@ import {
   DanmakuTracks,
   danmakuGeometry,
 } from '../src/client/chat-danmaku-layout'
-import { DanmakuClock } from '../src/client/chat-danmaku-clock'
+import { DanmakuClock, danmakuElapsedAtX } from '../src/client/chat-danmaku-clock'
 import { danmakuDefaults } from '../src/client/chat-preferences'
 
 const message = (id: string, text: string, kind: ChatMessage['kind'] = 'text'): ChatMessage => ({
@@ -44,6 +44,31 @@ it('pauses a single comment clock for longer than its lifetime without stopping 
   expect(first.paused).toBe(false)
   expect(paused).toHaveBeenCalledTimes(1)
   expect(played).toHaveBeenCalledTimes(2)
+})
+
+it('rebases elapsed time without losing a paused state or an in-flight horizontal position', () => {
+  let now = 0
+  const clock = new DanmakuClock(() => now)
+  clock.play()
+  now = 3000
+  clock.pause()
+  clock.retime(2)
+  now = 60000
+  expect(clock.paused).toBe(true)
+  expect(clock.currentTime).toBe(2)
+  clock.play()
+  now = 61000
+  expect(clock.currentTime).toBe(3)
+  clock.retime(4)
+  expect(clock.paused).toBe(false)
+  now = 62000
+  expect(clock.currentTime).toBe(5)
+
+  const x = 440,
+    elapsed = danmakuElapsedAtX(x, 1100, 360, 6)
+  expect(1100 - ((1100 + 360) * elapsed) / 6).toBeCloseTo(x)
+  expect(danmakuElapsedAtX(1200, 1100, 360, 6)).toBe(0)
+  expect(danmakuElapsedAtX(-600, 1100, 360, 6)).toBe(6)
 })
 
 it('keeps paused tracks occupied while other tracks may finish and accept another message', () => {

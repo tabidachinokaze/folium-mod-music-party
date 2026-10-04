@@ -131,7 +131,7 @@ test('floating chat uses available height without scrollbars and applies separat
   const composer = floating.locator('.mp-composer'),
     bubble = history.locator('.mp-bubble').first(),
     message = history.locator('.mp-message').first()
-  await expect(message).toHaveCSS('border-radius', '12px')
+  await expect(message).toHaveCSS('border-radius', '22px')
   await expect(message).toHaveCSS('background-color', /(?:\/ 0\.6\)|, 0\.6\))/)
   await expect(bubble).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
   await expect(composer).toHaveCSS('opacity', '1')
@@ -190,12 +190,16 @@ test('floating bubbles keep text readable at zero background opacity and follow 
   await expect(messages.first()).toHaveCSS('background-color', /(?:\/ 0\)|, 0\))/)
   await expect(floating.locator('.mp-history')).toHaveCSS('opacity', '1')
   await page.keyboard.press('Escape')
-  for (const [theme, accent] of [
-    ['blue', 'rgb(133, 184, 232)'],
-    ['light', 'rgb(54, 101, 175)'],
+  for (const [theme, accent, primary] of [
+    ['blue', 'rgb(133, 184, 232)', 'rgb(215, 230, 242)'],
+    ['light', 'rgb(54, 101, 175)', 'rgb(37, 37, 37)'],
   ]) {
     await page.getByRole('combobox', { name: '预览主题' }).selectOption(theme!)
     await expect(author).toHaveCSS('color', accent!)
+    // Secondary rows use smaller type for hierarchy, without compounding alpha
+    // on their body, actor, song and surrounding text over the player artwork.
+    for (const part of ['body', 'actor', 'song', 'text'])
+      await expect(floating.locator(`.mp-activity-${part}`).first()).toHaveCSS('color', primary!)
   }
   await openSettings(page)
   await slider(settings, '消息气泡不透明度', 100)
@@ -207,10 +211,18 @@ test('floating bubbles keep text readable at zero background opacity and follow 
   await page.keyboard.press('Escape')
   // Long names/URLs and activity rows wrap inside the same bounded bubble.
   for (const row of await messages.all()) {
-    await expect(row).toHaveCSS('border-radius', '12px')
+    await expect(row).toHaveCSS('border-radius', '22px')
     expect(await row.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true)
   }
   await page.screenshot({ path: test.info().outputPath('floating-bubbles-light.png') })
+  const shortBubble = messages.filter({ hasText: '这首歌适合在海边听。' }).first()
+  expect(
+    await shortBubble.evaluate(
+      (node) =>
+        Number.parseFloat(getComputedStyle(node).borderTopLeftRadius) >=
+        node.getBoundingClientRect().height / 2,
+    ),
+  ).toBe(true)
   await openSettings(page)
   await select(settings, '聊天位置', '面板内')
   await page.keyboard.press('Escape')

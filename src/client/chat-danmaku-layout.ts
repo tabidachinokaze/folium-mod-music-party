@@ -36,6 +36,15 @@ export function danmakuCategory(message: ChatMessage): 'text' | 'media' | 'activ
   return message.kind === 'text' ? 'text' : 'activity'
 }
 
+export function danmakuContentEnabled(message: ChatMessage, options: DanmakuPreferenceValues) {
+  const category = danmakuCategory(message)
+  return category === 'text'
+    ? options.danmakuText
+    : category === 'media'
+      ? options.danmakuMedia
+      : options.danmakuActivity
+}
+
 export class DanmakuFilter {
   private seen = new Map<string, number>()
 
@@ -43,12 +52,7 @@ export class DanmakuFilter {
     for (const [key, at] of this.seen) if (now - at > 15000) this.seen.delete(key)
     return messages.filter((message) => {
       const category = danmakuCategory(message)
-      if (
-        (category === 'text' && !options.danmakuText) ||
-        (category === 'media' && !options.danmakuMedia) ||
-        (category === 'activity' && !options.danmakuActivity)
-      )
-        return false
+      if (!danmakuContentEnabled(message, options)) return false
       if (!options.danmakuDedupe) return true
       const key = JSON.stringify([
         category,
@@ -74,10 +78,19 @@ export class DanmakuTracks {
 
   constructor(private count: number) {}
 
-  claim(id: string, overlap: boolean): number | null {
+  claim(id: string, overlap: boolean, preferredLane?: number): number | null {
     if (!this.count || this.entries.size >= 40) return null
     if (this.entries.has(id)) return this.entries.get(id)!
     const occupied = new Set(this.entries.values())
+    if (
+      preferredLane !== undefined &&
+      preferredLane >= 0 &&
+      preferredLane < this.count &&
+      (overlap || !occupied.has(preferredLane))
+    ) {
+      this.entries.set(id, preferredLane)
+      return preferredLane
+    }
     for (let offset = 0; offset < this.count; offset++) {
       const lane = (this.next + offset) % this.count
       if (!overlap && occupied.has(lane)) continue
@@ -117,5 +130,9 @@ export class DanmakuQueue<T> {
 
   clear() {
     this.items = []
+  }
+
+  retain(predicate: (value: T) => boolean) {
+    this.items = this.items.filter((item) => predicate(item.value))
   }
 }

@@ -35,7 +35,7 @@
   width: max-content;
   height: var(--mp-danmaku-line-height);
   padding: 5px 8px;
-  border-radius: 8px;
+  border-radius: 999px;
   color: #fff;
   font-family: var(--mp-danmaku-font);
   font-weight: var(--mp-danmaku-weight);
@@ -49,7 +49,7 @@
   pointer-events: none;
 }
 .mp-danmaku-message[data-paused='true'] {
-  background: rgb(0 0 0 / 35%);
+  background: rgb(0 0 0 / var(--mp-danmaku-hover-opacity, 0.35));
   outline: 1px solid rgb(255 255 255 / 25%);
 }
 [data-text-style='shadow'] .mp-danmaku-message {

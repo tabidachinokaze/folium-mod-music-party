@@ -192,8 +192,13 @@
   width: fit-content;
   max-width: 100%;
   margin: 4px 0;
-  padding: 5px 8px;
-  border-radius: 12px;
+  padding: 5px 12px;
+  /* Fully round a one-line bubble; keep long messages and media rectangular
+     enough that their first and last lines remain inside the background. */
+  border-radius: max(
+    22px,
+    calc(0.85 * var(--mp-floating-font-size, 12px) * var(--mp-floating-line-height, 1) + 5px)
+  );
   background: rgb(
     from var(--folium-bg, light-dark(#f5f5f5, #171717)) r g b /
       var(--mp-floating-bubble-opacity, 0.35)
@@ -236,10 +241,11 @@
   padding: 0;
   font-size: calc(var(--mp-floating-font-size, 12px) * 11 / 12);
   line-height: calc(1.65 * var(--mp-floating-line-height, 1));
-  color: var(--muted);
+  color: inherit;
 }
-:is(.mp-floating-chat, .mp-chat-peek) .mp-activity-actor,
-:is(.mp-floating-chat, .mp-chat-peek) .mp-activity-song {
+:is(.mp-floating-chat, .mp-chat-peek)
+  .mp-activity-body
+  :is(.mp-activity-actor, .mp-activity-song, .mp-activity-text) {
   padding: 0;
   background: transparent;
   color: inherit;

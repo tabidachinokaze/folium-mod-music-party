@@ -28,4 +28,23 @@ export class DanmakuClock extends EventTarget {
     this.paused = true
     this.dispatchEvent(new Event('pause'))
   }
+
+  // Preserve the playback state while rebasing one comment's elapsed time.
+  // Public media pause/play events make Danmaku update its wall-clock baseline.
+  retime(seconds: number) {
+    const playing = !this.paused
+    this.pause()
+    this.elapsed = Math.max(0, Number.isFinite(seconds) ? seconds : 0) * 1000
+    if (playing) this.play()
+  }
+}
+
+export function danmakuElapsedAtX(
+  x: number,
+  width: number,
+  commentWidth: number,
+  duration: number,
+) {
+  const progress = (width - x) / Math.max(1, width + commentWidth)
+  return Math.max(0, Math.min(1, progress)) * duration
 }

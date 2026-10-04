@@ -266,6 +266,7 @@ export function mountChatSettings(
       ['songti', '宋体'],
     ]),
     toggleRow('danmakuBold', '粗体'),
+    slider('danmakuHoverOpacity', '悬停背景不透明度'),
     segmented('danmakuTextStyle', '文字效果', [
       ['shadow', '阴影'],
       ['stroke', '描边'],
