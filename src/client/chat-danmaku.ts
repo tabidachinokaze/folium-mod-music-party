@@ -30,8 +30,12 @@ function renderMessage(message: ChatMessage, preview = false) {
     row.append(el('span', 'mp-danmaku-preview-label', t('预览')))
   }
   if (secondary) {
-    const activity = roomActivityPresentation(message)
-    row.append(el('span', 'mp-danmaku-text', activity.text))
+    const activity = roomActivityPresentation(message),
+      actor = activity.parts[0]?.kind === 'actor' ? activity.parts[0] : null
+    // Keep the actor outside the shrinkable body, including activity messages
+    // that already contain their sender's name. Only the action may ellipsize.
+    if (actor) row.append(el('span', 'mp-danmaku-author', actor.text))
+    row.append(el('span', 'mp-danmaku-text', activity.text.slice(actor?.text.length || 0)))
   } else {
     if (message.nickname) row.append(el('span', 'mp-danmaku-author', `${message.nickname}:`))
     const text = message.text.trim(),

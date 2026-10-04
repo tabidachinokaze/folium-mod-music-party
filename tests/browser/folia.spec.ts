@@ -3,6 +3,8 @@ import { verifyAlbumAuditionAndRemote, verifyPrivateSongChoices } from './folia-
 import { installFavoriteProbe } from './folia-favorites'
 import { verifyNativeStickerMenu } from './folia-sticker-menu'
 import { verifyNativeChatPresentation } from './folia-chat-presentation'
+import { verifyNativeWindowResume } from './folia-window-resume'
+import { verifyNativeSettings } from './folia-settings'
 
 // tests/browser/folia.spec.ts
 // Optional integration against the real patched Folia dev renderer and audio pipeline.
@@ -129,6 +131,7 @@ test('actual Folium registration and host audio: restore, native next, local pau
       { timeout: 30000 },
     )
     .toBe(true)
+  await verifyNativeSettings(page)
   await page.evaluate(() => {
     const { api } = (window as any).partyHost
     api.ui.navigate('player')
@@ -257,6 +260,9 @@ test('actual Folium registration and host audio: restore, native next, local pau
       }),
     )
     .toBe(10)
+  await expect(
+    page.getByTestId('unified-panel-surface').locator('[data-session-overline]').first(),
+  ).toHaveText('晚风')
   const repeated = await page.evaluate(async () => {
     const { useExternalQueueStore } = await import(
       /* @vite-ignore */ '/src/services/externalPlaybackQueue.ts' as string
@@ -344,6 +350,7 @@ test('actual Folium registration and host audio: restore, native next, local pau
   })
   const palette = page.getByTestId('command-palette-queue-view')
   await expect(palette).toBeVisible()
+  await expect(palette.locator('[data-session-overline]').first()).toHaveText('晚风')
   await expect(palette.getByRole('button', { name: '同步队列', exact: true })).toBeVisible()
   await expect(palette.getByRole('button', { name: '下一首播放', exact: true })).toHaveCount(0)
   await expect(palette.getByRole('button', { name: '移到队尾', exact: true })).toHaveCount(0)
@@ -359,6 +366,15 @@ test('actual Folium registration and host audio: restore, native next, local pau
   await expect(page.getByRole('button', { name: '小岛', exact: true })).toBeVisible()
   await page.getByRole('textbox', { name: '私信内容' }).pressSequentially(':n')
   await page.getByRole('textbox', { name: '私信内容' }).press('Control+ArrowRight')
+  expect(
+    await page.getByRole('textbox', { name: '私信内容' }).evaluate((node) => {
+      const rect = node.getBoundingClientRect(),
+        parent = node.closest('form')!.getBoundingClientRect(),
+        style = getComputedStyle(node),
+        ring = Math.max(0, parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset))
+      return rect.left - ring >= parent.left && rect.right + ring <= parent.right + 1
+    }),
+  ).toBe(true)
   expect((await (await request.get('/test/state')).json()).current).toBe('4')
   expect(
     await page
@@ -417,6 +433,7 @@ test('actual Folium registration and host audio: restore, native next, local pau
   ).toBeVisible()
   // The infinite collage repeats tiles spatially; keyboard focus selects one occurrence.
   const currentPoster = page.locator('.lattice-poster.is-current').first()
+  await expect(currentPoster.locator('[data-session-overline]')).toHaveText('晚风')
   await currentPoster.focus()
   await currentPoster.press('Enter')
   await expect(
@@ -434,6 +451,7 @@ test('actual Folium registration and host audio: restore, native next, local pau
     ;(window as any).partyHost.api.ui.navigate('player')
     ;(window as any).partyHost.api.ui.openPlayerPanel('room')
   })
+  await verifyNativeWindowResume(page, request)
   const beforeLeave = await page.evaluate(() => {
     const audio = Array.from(document.querySelectorAll('audio')).find(
       (item) => item.currentSrc && item.duration > 0,

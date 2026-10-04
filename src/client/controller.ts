@@ -1,3 +1,4 @@
+import { parseWindowRoomResume, type WindowRoomResume } from './window-resume'
 import { RoomMatch } from './room-match'
 import { nativeQueue } from './native-queue'
 import {
@@ -20,6 +21,7 @@ import {
 } from './host'
 import { RoomPlayer } from './player'
 import { loadQueue, loadChat } from './room-data'
+import { PrivateNotifications } from './private-notifications'
 
 import { t } from './i18n'
 
@@ -47,6 +49,7 @@ export interface PartyState {
 export class PartyController {
   state: PartyState
   readonly connection: AccountConnection
+  readonly privateNotifications: PrivateNotifications
   private player: RoomPlayer | null
   private listeners = new Set<() => void>()
   private epoch = 0
@@ -91,6 +94,9 @@ export class PartyController {
       chatMore: false,
     }
     this.connection = connection || new AccountConnection(folium)
+    this.privateNotifications = new PrivateNotifications(this.connection, (error) =>
+      this.handleAccountError(error),
+    )
     this.matcher = new RoomMatch(
       this.connection,
       (matching, matchPhase) => this.patch({ matching, matchPhase }),
@@ -149,6 +155,8 @@ export class PartyController {
     if (value.notice) this.notify(value.notice, 'success')
     if (value.error) this.notify(value.error, 'error')
     this.state = { ...this.state, ...value, notice: '' }
+    if (value.account !== undefined)
+      this.privateNotifications.setAccount(value.account?.uid ?? null)
     if (
       value.room !== undefined ||
       value.queue !== undefined ||
@@ -180,10 +188,12 @@ export class PartyController {
     if (error.code === 302 || error.code === 301) {
       this.detach()
       this.patch({ account: null })
+      this.connection.close()
     }
   }
   async connect() {
     if (this.state.room) throw new Error(t('请先退出当前房间'))
+    this.privateNotifications.stop()
     const epoch = this.epoch
     const account = await this.connection.connect()
     if (this.disposed || epoch !== this.epoch) return
@@ -295,7 +305,7 @@ export class PartyController {
     }
     await this.checkAvailableRoom()
   }
-  private begin() {
+  private begin(listening = true) {
     if (this.disposed) throw new Error(t('账号连接已关闭'))
     if (!this.player)
       throw new Error(
@@ -308,9 +318,40 @@ export class PartyController {
     this.player.start(
       (intent) => this.intent(intent),
       (event) => this.favoriteChanged(event, epoch, uid),
+      {
+        listening,
+        captureWindowState: (listening) => {
+          const room = this.state.room
+          return !this.disposed && room && this.state.account?.uid === uid
+            ? { version: 1, uid, roomId: room.roomId, listening }
+            : null
+        },
+      },
     )
   }
-  async enter(kind: 'restore' | 'join' | 'create', input = '', allowStrangerMatch = false) {
+  async resumeWindow(value: unknown, expiresAt: number) {
+    const resume = parseWindowRoomResume(value)
+    if (
+      !resume ||
+      !Number.isFinite(expiresAt) ||
+      expiresAt <= Date.now() ||
+      expiresAt > Date.now() + 60000 ||
+      resume.uid !== this.state.account?.uid ||
+      this.disposed ||
+      this.state.room ||
+      this.state.busy ||
+      this.state.matching
+    )
+      return
+    // A failed continuation stays on the recovery card; it must never join or create a room.
+    await this.run(() => this.enter('restore', '', false, { ...resume, expiresAt }))
+  }
+  async enter(
+    kind: 'restore' | 'join' | 'create',
+    input = '',
+    allowStrangerMatch = false,
+    resume?: WindowRoomResume & { expiresAt: number },
+  ) {
     if (this.state.matching) throw new Error(t('请先取消匹配'))
     if (this.state.room) throw new Error(t('请先退出当前房间'))
     const invite = kind === 'join' ? parseInvitation(input) : null
@@ -335,6 +376,14 @@ export class PartyController {
       let raw = status.data?.multiLtRoomSnapshot
       availableRoom = raw?.roomId ? parseSnapshot(raw, (started + this.now()) / 2) : null
       this.patch({ availableRoom })
+      if (
+        resume &&
+        (kind !== 'restore' ||
+          resume.uid !== uid ||
+          availableRoom?.roomId !== resume.roomId ||
+          resume.expiresAt <= Date.now())
+      )
+        return
       if (kind !== 'restore') {
         if (raw?.roomId) throw new Error(t('账号已经在多人房间中，请使用“恢复当前房间”'))
         const result = await this.connection.call(
@@ -349,7 +398,7 @@ export class PartyController {
       if (!raw) throw new Error(t('账号当前没有官方多人房间'))
       const snapshot = parseSnapshot(raw, (started + this.now()) / 2)
       availableRoom = snapshot
-      this.begin()
+      this.begin(resume?.listening)
       acquired = true
       // Freeze the default before room playback replaces the listener's prior local song.
       if (!this.state.matchSong && matchSong) this.patch({ matchSong: { ...matchSong } })
@@ -809,6 +858,7 @@ export class PartyController {
     })
   }
   dispose() {
+    this.privateNotifications.dispose()
     this.detach()
     this.disposed = true
     this.player?.dispose()

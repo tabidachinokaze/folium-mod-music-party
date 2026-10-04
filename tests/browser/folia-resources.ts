@@ -1,4 +1,5 @@
 import { expect, type Page, type APIRequestContext } from '@playwright/test'
+import { verifyRemoteRecording } from './folia-recording'
 
 // tests/browser/folia-resources.ts
 export async function verifyAlbumAuditionAndRemote(
@@ -18,14 +19,17 @@ export async function verifyAlbumAuditionAndRemote(
   )
   await remote.addInitScript(() => {
     localStorage.setItem('i18nextLng', 'zh-CN')
+    const snapshot = async () => {
+      const state = await (window as any).readPartySnapshot()
+      return (window as any).partyRecordingOverride
+        ? { ...state, exportState: (window as any).partyRecordingOverride }
+        : state
+    }
     ;(window as any).electron = {
-      getRemoteControlSnapshot: () => (window as any).readPartySnapshot(),
+      getRemoteControlSnapshot: snapshot,
       getRemoteControlAlwaysOnTop: async () => false,
       onRemoteControlSnapshot: (callback: any) => {
-        const timer = setInterval(
-          async () => callback(await (window as any).readPartySnapshot()),
-          100,
-        )
+        const timer = setInterval(async () => callback(await snapshot()), 100)
         return () => clearInterval(timer)
       },
       sendRemoteControlCommand: (command: unknown) => (window as any).sendPartyCommand(command),
@@ -50,6 +54,7 @@ export async function verifyAlbumAuditionAndRemote(
     .poll(async () => (await (await request.get('/test/state')).json()).likes)
     .toBe(before.likes + 1)
   await remote.screenshot({ path: 'test-results/folia-remote-room.png' })
+  await verifyRemoteRecording(remote)
 
   const album = page.locator('[data-ponder-page-scope="grid-view-page"]')
   await album.getByRole('heading', { level: 2, name: /^海边专辑(?:\s|$)/ }).click()

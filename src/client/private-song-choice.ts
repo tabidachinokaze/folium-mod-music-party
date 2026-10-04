@@ -87,6 +87,9 @@ export function createPrivateSongChoice(container: HTMLElement) {
   }
   return {
     choose,
+    close() {
+      finish?.(null)
+    },
     dispose() {
       disposed = true
       finish?.(null)

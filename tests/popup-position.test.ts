@@ -299,3 +299,40 @@ describe('bottom-left floating chat popup placement', () => {
     expect(placed.top + placed.maxHeight!).toBe(768)
   })
 })
+
+describe('top-right private conversation popup placement', () => {
+  const conversation = { left: 696, right: 1076, top: 90, bottom: 584 },
+    trigger = { left: 850, right: 896, top: 538, bottom: 568 },
+    screen = { width: 1100, height: 720 }
+
+  it('opens outside the conversation left edge with the same side gap as room chat', () => {
+    const placed = popupPosition(trigger, conversation, screen, { width: 320, height: 280 })
+    expect(placed).toEqual({ left: 364, top: 288, width: 320 })
+    expect(placed.left + placed.width).toBe(conversation.left - 12)
+  })
+
+  it('limits a growing library to native player clearance rather than the dialog height', () => {
+    const bounds = playerPopupBounds(720, { bottom: 688, maxHeight: 632 }),
+      placed = popupPosition(
+        trigger,
+        conversation,
+        screen,
+        { width: 320, height: 900 },
+        'end',
+        true,
+        bounds,
+      )
+    expect(placed).toMatchObject({ left: 364, top: 56, maxHeight: 632 })
+    expect(placed.maxHeight).toBeGreaterThan(conversation.bottom - conversation.top)
+  })
+
+  it('keeps tools in the viewport when the compact conversation leaves no usable side', () => {
+    const placed = popupPosition(
+      { left: 190, right: 220, top: 390, bottom: 420 },
+      { left: 12, right: 348, top: 78, bottom: 468 },
+      { width: 360, height: 480 },
+      { width: 320, height: 240 },
+    )
+    expect(placed).toEqual({ left: 28, top: 180, width: 320 })
+  })
+})

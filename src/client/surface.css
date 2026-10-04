@@ -22,6 +22,19 @@
     color-mix(in srgb, currentColor 60%, transparent)
   );
   --accent: var(--folium-accent, currentColor);
+  /* Material 3-inspired foreground roles use tone rather than translucent text. */
+  --mp-chat-ink: rgb(from var(--folium-primary, currentColor) r g b / 1);
+  --mp-chat-muted-ink: rgb(
+    from var(--folium-secondary, var(--folium-primary, currentColor)) r g b / 1
+  );
+  --mp-chat-accent-ink: rgb(
+    from var(--folium-accent, var(--folium-primary, currentColor)) r g b / 1
+  );
+  --mp-chat-on-surface-variant: color-mix(
+    in oklab,
+    var(--mp-chat-ink) 55%,
+    var(--mp-chat-muted-ink)
+  );
   --danger: light-dark(#c93434, #f87171);
   --popup: light-dark(rgb(255 255 255 / 96%), rgb(0 0 0 / 94%));
   font-size: 12px;
@@ -192,7 +205,7 @@ input::placeholder {
 .mp-empty {
   text-align: center;
   padding: 24px 8px;
-  color: var(--muted);
+  color: var(--mp-chat-on-surface-variant);
   font-size: 11px;
 }
 .mp-avatar {

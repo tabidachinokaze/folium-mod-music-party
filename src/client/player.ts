@@ -50,6 +50,7 @@ export class RoomPlayer {
   start(
     onIntent: (event: Intent) => void,
     onFavoriteChanged?: (event: FavoriteChange) => Promise<void>,
+    options: { listening?: boolean; captureWindowState?: (listening: boolean) => unknown } = {},
   ) {
     if (this.lease) return
     try {
@@ -58,6 +59,9 @@ export class RoomPlayer {
         restore: 'queue-stopped',
         audition: true,
         ...(this.bridge.supportsFavoriteEvents ? { onFavoriteChanged } : {}),
+        ...(this.bridge.onWindowResume && options.captureWindowState
+          ? { captureWindowState: () => options.captureWindowState!(this.listening) }
+          : {}),
       })
     } catch (error: any) {
       const messages: Record<string, string> = {
@@ -68,7 +72,7 @@ export class RoomPlayer {
       }
       throw new Error(messages[error.message] || error.message)
     }
-    this.listening = true
+    this.listening = options.listening ?? true
     this.loaded = this.desired = this.endedKey = ''
   }
   setQueue(queue: FoliumPlaybackQueue) {

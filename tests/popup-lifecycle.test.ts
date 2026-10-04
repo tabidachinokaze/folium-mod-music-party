@@ -4,7 +4,7 @@ import { mountPopup } from '../src/client/popup-position'
 // tests/popup-lifecycle.test.ts
 // Simulate a details-backed popover whose reopening layout is not ready yet.
 // A same-size reopen need not produce a new ResizeObserver notification.
-function environment(floating = false) {
+function environment(floating: boolean | 'private' = false) {
   const frames = new Map<number, FrameRequestCallback>()
   let nextFrame = 0,
     open = false,
@@ -41,11 +41,15 @@ function environment(floating = false) {
   const nativePanel = {
     getBoundingClientRect: () => ({ left: 740, right: 1060, top: 700, bottom: 988, height: 288 }),
   }
+  const floatingSelector =
+      floating === 'private' ? '.mp-private-bubble-dialog' : '.mp-floating-chat',
+    matchesFloating = (selector: string) =>
+      selector.split(',').some((s) => s.trim() === floatingSelector)
   const floatingChat = {
     parentElement: null,
     hidden: false,
-    closest: (selector: string) => (selector === '.mp-floating-chat' ? floatingChat : null),
-    matches: (selector: string) => selector === '.mp-floating-chat',
+    closest: (selector: string) => (matchesFloating(selector) ? floatingChat : null),
+    matches: matchesFloating,
     getRootNode: () => doc,
     getBoundingClientRect: () => ({ left: 380, right: 700, top: 700, bottom: 1000, height: 300 }),
   } as unknown as HTMLElement
@@ -181,6 +185,16 @@ it('finds floating-chat bounds across a shadow host while keeping native player 
   view.popup.open()
   view.frame()
   expect(view.style.left).toBe('712px')
+  expect(view.style.maxHeight).toBe('932px')
+  expect(Number.parseFloat(view.style.top) + 330).toBeLessThanOrEqual(988)
+  view.popup.dispose()
+})
+
+it('finds private-bubble bounds across a shadow host and opens left with native player height', () => {
+  const view = environment('private')
+  view.popup.open()
+  view.frame()
+  expect(view.style.left).toBe('48px')
   expect(view.style.maxHeight).toBe('932px')
   expect(Number.parseFloat(view.style.top) + 330).toBeLessThanOrEqual(988)
   view.popup.dispose()

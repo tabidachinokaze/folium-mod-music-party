@@ -70,9 +70,22 @@ export async function verifyNativeChatPresentation(page: Page): Promise<void> {
     await expect
       .poll(async () => {
         const box = await full.boundingBox()
-        return !!box && box.x >= 8 && box.x < 40 && box.y >= 8 && box.y + box.height <= 1012
+        return !!box && box.x >= 8 && box.x < 40 && box.y >= 75 && box.y + box.height <= 1012
       })
       .toBe(true)
+    const back = page.locator('button.top-6.left-6:has(svg.lucide-chevron-left)')
+    await page.evaluate(async () => {
+      const path = '/src/stores/useAppViewStore.ts'
+      const { setIsPanelOpen } = await import(/* @vite-ignore */ path)
+      setIsPanelOpen(false)
+    })
+    await page.mouse.move(600, 100)
+    await expect(back).toHaveCSS('pointer-events', 'none')
+    await expect.poll(async () => (await full.boundingBox())!.y).toBeGreaterThanOrEqual(75)
+    await page.mouse.move(44, 44)
+    await expect(back).toHaveCSS('pointer-events', 'auto')
+    await expect(back).toHaveCSS('opacity', '1')
+    await page.evaluate(() => (window as any).partyHost.api.ui.openPlayerPanel('room'))
     // The host card may disappear naturally during its configured timeout.
     // While it is present, the chat stays above it, without moving the host control.
     await expect

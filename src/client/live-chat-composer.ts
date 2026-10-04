@@ -9,6 +9,11 @@ export function mountLiveChatComposer(options: {
   draft: HTMLTextAreaElement
   emoji: HTMLDetailsElement
   icon: Promise<SVGSVGElement | null>
+  like: {
+    icon: Promise<SVGSVGElement | null>
+    available(): boolean
+    send(): void
+  }
   closeTools(): void
   onEditorIdle(): void
 }) {
@@ -16,6 +21,13 @@ export function mountLiveChatComposer(options: {
     launcher = el('div', 'mp-live-compose-launcher'),
     open = button('', () => expand(), 'mp-live-compose-open'),
     caption = el('span', 'mp-live-compose-label'),
+    likeButton = button(
+      '👍',
+      () => {
+        if (enabled && !events.signal.aborted && options.like.available()) options.like.send()
+      },
+      'mp-live-compose-like',
+    ),
     emojiButton = button(
       '☺',
       () => {
@@ -35,13 +47,21 @@ export function mountLiveChatComposer(options: {
     collapseAfterComposition = false,
     idleTimer = 0
   open.setAttribute('aria-label', t('说点什么…'))
-  for (const control of [open, close]) {
-    control.setAttribute('aria-controls', composer.id)
-    const chevron = el('span', 'mp-live-compose-chevron')
-    chevron.setAttribute('aria-hidden', 'true')
-    control.append(chevron)
-  }
-  open.prepend(caption)
+  for (const control of [open, close]) control.setAttribute('aria-controls', composer.id)
+  const chevron = el('span', 'mp-live-compose-chevron')
+  chevron.setAttribute('aria-hidden', 'true')
+  close.append(chevron)
+  open.append(caption)
+  likeButton.setAttribute('aria-label', t('为房间歌曲点赞'))
+  likeButton.title = t('为房间歌曲点赞')
+  void options.like.icon
+    .then((icon) => {
+      if (icon && !events.signal.aborted) {
+        icon.setAttribute('aria-hidden', 'true')
+        likeButton.replaceChildren(icon)
+      }
+    })
+    .catch(() => {})
   emojiButton.setAttribute('aria-label', t('Emoji'))
   emojiButton.title = t('Emoji')
   void options.icon
@@ -54,13 +74,14 @@ export function mountLiveChatComposer(options: {
     .catch(() => {})
   close.setAttribute('aria-label', t('收起聊天输入'))
   close.title = t('收起聊天输入')
-  launcher.append(open, emojiButton)
+  launcher.append(open, likeButton, emojiButton)
   container.insertBefore(launcher, composer)
   composer.append(close)
   function sync() {
     launcher.hidden = !enabled || expanded
     composer.hidden = enabled && !expanded
     close.hidden = !enabled || !expanded
+    likeButton.disabled = !options.like.available()
     container.dataset.liveComposer = enabled ? (expanded ? 'expanded' : 'collapsed') : 'off'
     caption.textContent = draft.value.trim().replace(/\s+/g, ' ') || t('说点什么…')
     open.classList.toggle('has-draft', !!draft.value.trim())

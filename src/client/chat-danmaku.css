@@ -67,9 +67,6 @@
 }
 .mp-danmaku-author {
   flex: none;
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
   color: color-mix(in srgb, var(--folium-accent, #c9b0ff) 30%, white);
   font-size: 0.75em;
   font-weight: inherit;
@@ -101,4 +98,8 @@
   font-size: calc(var(--mp-danmaku-size) * 0.8);
   font-weight: 400;
   opacity: 0.72;
+}
+.mp-danmaku-secondary .mp-danmaku-author {
+  color: inherit;
+  font-size: inherit;
 }

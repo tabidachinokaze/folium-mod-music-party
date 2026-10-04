@@ -85,11 +85,24 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  max-width: 100%;
 }
 .mp-composer textarea {
   flex-basis: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 60px;
   resize: none;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.mp-composer textarea:focus-visible {
+  /* Keep the keyboard focus ring inside clipped page and panel boundaries. */
+  outline-offset: -2px;
+}
+.mp-composer textarea::-webkit-scrollbar {
+  display: none;
 }
 .mp-composer button[type='submit'] {
   margin-left: auto;

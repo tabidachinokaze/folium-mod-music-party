@@ -584,3 +584,106 @@ it.each([false, true])(
     controller.dispose()
   },
 )
+
+describe('window recreation continuation', () => {
+  const ticket = { version: 1, uid: '9', roomId: 'official_room', listening: true }
+  it.each([true, false])(
+    'resumes only the verified room and preserves listening=%s',
+    async (listening) => {
+      const { controller, host, api } = setup()
+      await controller.connect()
+      api.call.mockClear()
+      await controller.resumeWindow({ ...ticket, listening }, Date.now() + 60000)
+      await vi.waitFor(() => expect(host.lease.play).toHaveBeenCalled())
+      expect(controller.state.room?.roomId).toBe('official_room')
+      expect(host.state.state).toBe(listening ? 'playing' : 'paused')
+      expect(api.call.mock.calls.map(([method]) => method)).not.toEqual(
+        expect.arrayContaining(['multiCreate', 'multiJoin', 'multiLeave']),
+      )
+      expect(
+        api.call.mock.calls.some(([method]) =>
+          ['multiCreate', 'multiJoin', 'multiLeave'].includes(method),
+        ),
+      ).toBe(false)
+      controller.dispose()
+    },
+  )
+  it.each([
+    { ...ticket, uid: '10' },
+    { ...ticket, roomId: 'another_room' },
+    { ...ticket, version: 2 },
+    { ...ticket, listening: 'yes' },
+  ])('keeps the recovery card for mismatched or malformed state %j', async (value) => {
+    const { controller, host, api } = setup()
+    await controller.connect()
+    api.call.mockClear()
+    await controller.resumeWindow(value, Date.now() + 60000)
+    expect(controller.state.room).toBeNull()
+    expect(controller.state.availableRoom?.roomId).toBe('official_room')
+    expect(host.bridge.acquire).not.toHaveBeenCalled()
+    expect(
+      api.call.mock.calls.some(([method]) =>
+        ['multiCreate', 'multiJoin', 'multiLeave'].includes(method),
+      ),
+    ).toBe(false)
+    controller.dispose()
+  })
+  it('revalidates the room and deadline after status finishes, and ignores a disposed controller', async () => {
+    vi.useFakeTimers()
+    for (const changed of ['room', 'expired', 'disposed']) {
+      const { controller, host, api } = setup()
+      await controller.connect()
+      let complete!: (value: any) => void
+      api.call.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            complete = resolve
+          }),
+      )
+      const resume = controller.resumeWindow(ticket, Date.now() + 1000)
+      if (changed === 'expired') vi.advanceTimersByTime(1001)
+      if (changed === 'disposed') controller.dispose()
+      complete({
+        data: {
+          multiLtRoomSnapshot: {
+            ...rawSnapshot(),
+            roomId: changed === 'room' ? 'different_room' : 'official_room',
+          },
+        },
+      })
+      await resume
+      expect(host.bridge.acquire).not.toHaveBeenCalled()
+      expect(controller.state.room).toBeNull()
+      if (changed === 'room') expect(controller.state.availableRoom?.roomId).toBe('different_room')
+      controller.dispose()
+    }
+  })
+  it('leaves playback unclaimed and shows the recovery card if the host cannot acquire', async () => {
+    const { controller, host, api } = setup()
+    await controller.connect()
+    host.bridge.acquire.mockImplementationOnce(() => {
+      throw new Error('external-playback-context-unavailable')
+    })
+    await controller.resumeWindow(ticket, Date.now() + 60000)
+    expect(controller.state.room).toBeNull()
+    expect(controller.state.availableRoom?.roomId).toBe('official_room')
+    expect(controller.state.busy).toBe(false)
+    expect(
+      api.call.mock.calls.some(([method]) => ['multiCreate', 'multiJoin'].includes(method)),
+    ).toBe(false)
+    controller.dispose()
+  })
+  it('captures no credentials and stops offering continuation after ordinary detach', async () => {
+    const { controller, host } = setup()
+    Object.assign(host.bridge, { onWindowResume: vi.fn(() => () => {}) })
+    await controller.connect()
+    await controller.enter('restore')
+    await vi.waitFor(() => expect(host.state.state).toBe('playing'))
+    const capture = host.bridge.acquire.mock.lastCall![0].captureWindowState!
+    expect(capture()).toEqual(ticket)
+    host.folium.playback.pause()
+    expect(capture()).toEqual({ ...ticket, listening: false })
+    controller.dispose()
+    expect(capture()).toBeNull()
+  })
+})

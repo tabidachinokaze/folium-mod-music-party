@@ -872,6 +872,8 @@ export interface FoliumQueueEntry {
     id: string;
     /** Presentation metadata; duration is in seconds. An optional host ref supplies richer metadata. */
     track: { id: string; source: string; title: string; artist: string; album?: string | null; coverUrl?: string; duration?: number; ref?: string | null };
+    /** Optional plain-text line above the title, such as the recommender's name. The host resolves its locale and renders text only, never HTML. */
+    overline?: FoliumLabel;
     /** Replaces native remove/reorder buttons for this occurrence. */
     actions: readonly FoliumQueueAction[];
     /** Optional row activation action. Without it, selecting the row does not start local playback. */
@@ -946,6 +948,8 @@ export interface FoliumPlaybackSessions {
     readonly supportsAudition?: boolean;
     /** Whether owners may observe confirmed personal favourite changes for their current queue entry. */
     readonly supportsFavoriteEvents?: true;
+    /** Optional renderer-rebuild continuation, delivered once to this mod after host audio restoration. Never emitted on ordinary launches. The state contains only the prior owner's JSON data; expiresAt is an absolute deadline, at most 60 seconds after capture. Revalidate account/session identity before acquiring. */
+    onWindowResume?(handler: (state: unknown, expiresAt: number) => void | Promise<void>): FoliumDisposer;
     /** Resolve an online provider's opaque media ID through Omni, returning a host song ref. */
     resolveSong(provider: string, id: string): Promise<FoliumSong>;
     /** FM, Stage, video recording, active transitions and another session are rejected before changing playback. */
@@ -957,6 +961,8 @@ export interface FoliumPlaybackSessions {
         audition?: boolean;
         /** Observe successful personal favourite changes only while the captured owner and current queue occurrence still match. Auditions are excluded. Rejections are reported without releasing playback or undoing the personal favourite. */
         onFavoriteChanged?: (event: FoliumPlaybackFavoriteChange) => void | Promise<void>;
+        /** Optional, synchronous JSON identity snapshot for window recreation only (max 4096 characters). Return null to opt out. Never include credentials. Available only when onWindowResume exists; normal release/disable clears eligibility. */
+        captureWindowState?: () => unknown;
     }): FoliumPlaybackSession;
 }
 

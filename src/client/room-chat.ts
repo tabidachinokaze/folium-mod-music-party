@@ -1,6 +1,6 @@
 import type { ChatMessage } from '@party/shared/types'
 import type { PartyController } from './controller'
-import { el, messageNode } from './dom'
+import { button, el, messageNode } from './dom'
 import { createStickerPicker } from './sticker-view'
 import { mountMentionComposer } from './mention-composer'
 import { decorateRoomMessage } from './room-message'
@@ -19,6 +19,7 @@ export function mountRoomChat(
 ) {
   const history = el('div', 'mp-history')
   history.setAttribute('aria-label', t('房间聊天记录'))
+  history.id = `mp-room-history-${crypto.randomUUID()}`
   history.tabIndex = 0
   const composer = el('form', 'mp-composer'),
     draft = el('textarea')
@@ -87,13 +88,47 @@ export function mountRoomChat(
   compactTool(tools.image, '▧', 'image')
   actions.append(...tools.nodes, sticker.node, tools.image, send)
   composer.append(draft, actions)
-  container.append(history, composer)
+  const latest = button(
+      '↓',
+      () => {
+        followLatest = true
+        syncLatest()
+        toLatest()
+        history.focus({ preventScroll: true })
+      },
+      'mp-icon-button mp-chat-latest-button',
+    ),
+    latestAnchor = el('div', 'mp-chat-latest-anchor')
+  latest.hidden = true
+  latestAnchor.hidden = true
+  latest.setAttribute('aria-label', t('回到底部'))
+  latest.setAttribute('aria-controls', history.id)
+  latest.title = t('回到底部')
+  void controller.folium.ui
+    .icon('arrow-down', { size: 16 })
+    .then((icon) => {
+      if (icon && !disposed) {
+        icon.setAttribute('aria-hidden', 'true')
+        latest.replaceChildren(icon)
+      }
+    })
+    .catch(() => {})
+  latestAnchor.append(latest)
+  container.append(history, latestAnchor, composer)
   const liveComposer = mountLiveChatComposer({
     container,
     composer,
     draft,
     emoji: tools.nodes[0],
     icon: controller.folium.ui.icon('smile', { size: 18 }),
+    like: {
+      icon: controller.folium.ui.icon('thumbs-up', { size: 18 }),
+      available: () =>
+        !!controller.state.account &&
+        !!controller.state.room?.playback?.song &&
+        !controller.state.busy,
+      send: () => void controller.likeCurrent(),
+    },
     onEditorIdle,
     closeTools() {
       mentions.close()
@@ -104,6 +139,7 @@ export function mountRoomChat(
   const stickerMenu = mountStickerMenu(history, controller)
   let visible = false,
     disposed = false,
+    liveMode = false,
     followLatest = true,
     loadingOlder = false
   let frame = 0,
@@ -113,14 +149,24 @@ export function mountRoomChat(
     roomId = ''
   let previous: ChatMessage[] = []
   const rows = new Map<string, { signature: string; node: HTMLElement }>()
+  const syncLatest = () => {
+    latest.hidden =
+      !liveMode ||
+      !visible ||
+      disposed ||
+      followLatest ||
+      history.scrollHeight - history.scrollTop - history.clientHeight < 32
+    latestAnchor.hidden = latest.hidden
+  }
   const toLatest = () => {
     cancelAnimationFrame(frame)
     frame = requestAnimationFrame(() => {
-      if (!visible || disposed || !followLatest) return
-      history.scrollTop = history.scrollHeight
+      if (!visible || disposed) return
+      if (followLatest) history.scrollTop = history.scrollHeight
       lastTop = history.scrollTop
       lastClientHeight = history.clientHeight
       lastScrollHeight = history.scrollHeight
+      syncLatest()
     })
   }
   const resize = new ResizeObserver(toLatest)
@@ -154,6 +200,7 @@ export function mountRoomChat(
       return
     }
     followLatest = history.scrollHeight - top - history.clientHeight < 32
+    syncLatest()
     if (up && top < 40) void older()
   })
   history.addEventListener(
@@ -170,6 +217,7 @@ export function mountRoomChat(
     'load',
     () => {
       if (followLatest) toLatest()
+      else syncLatest()
     },
     true,
   )
@@ -206,6 +254,7 @@ export function mountRoomChat(
       mentions.close()
       tools.close()
       stickerMenu.close()
+      syncLatest()
     }
     if (previous === state.messages) return
     const top = history.scrollTop,
@@ -254,13 +303,18 @@ export function mountRoomChat(
     else {
       history.scrollTop = top + (prepended ? history.scrollHeight - height : 0)
       lastTop = history.scrollTop
+      syncLatest()
     }
   }
   const stop = controller.subscribe(render)
   render()
   return {
     canRebuild: () => !controller.state.busy && !liveComposer.isComposing(),
-    setLiveMode: liveComposer.setEnabled,
+    setLiveMode(value: boolean) {
+      liveMode = value
+      liveComposer.setEnabled(value)
+      syncLatest()
+    },
     getLiveComposerState: liveComposer.getState,
     restoreLiveComposerState: liveComposer.restoreState,
     getScrollState() {
@@ -273,11 +327,13 @@ export function mountRoomChat(
       lastTop = history.scrollTop
       lastClientHeight = history.clientHeight
       lastScrollHeight = history.scrollHeight
+      syncLatest()
       if (visible && followLatest) toLatest()
     },
     show(value: boolean, preservePosition = false) {
       if (visible === value) return
       visible = value
+      syncLatest()
       if (visible) {
         if (!preservePosition) followLatest = true
         if (followLatest) toLatest()
@@ -291,6 +347,7 @@ export function mountRoomChat(
     },
     dispose() {
       disposed = true
+      latestAnchor.remove()
       rows.clear()
       stop()
       cancelAnimationFrame(frame)

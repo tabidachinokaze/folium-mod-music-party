@@ -92,7 +92,21 @@ test('floating live chat keeps a compact message flow and expands its composer o
   await expect(view).toHaveAttribute('data-live-composer', 'collapsed')
   await expect(draft).toBeHidden()
   await expect(chat.locator('.mp-live-compose-open')).toHaveText('说点什么…')
+  await expect(chat.locator('.mp-live-compose-open .mp-live-compose-chevron')).toHaveCount(0)
   await chat.locator('.mp-live-compose-open').click()
+  await draft.fill(Array.from({ length: 20 }, (_, i) => String(i)).join('\n'))
+  await expect(draft).toHaveCSS('scrollbar-width', 'none')
+  await expect
+    .poll(() =>
+      draft.evaluate((node: HTMLTextAreaElement) => {
+        node.scrollTop = node.scrollHeight
+        return node.scrollHeight > node.clientHeight && node.scrollTop > 0
+      }),
+    )
+    .toBe(true)
+  await draft.press('Control+End')
+  await draft.pressSequentially('x')
+  await expect(draft).toHaveValue(/19x$/)
   await draft.fill('第一行')
   await draft.press('Enter')
   await draft.pressSequentially('第二行')
@@ -132,6 +146,165 @@ test('floating live chat keeps a compact message flow and expands its composer o
   await expect(chat.locator('.mp-message-avatar').first()).toBeHidden()
   await expect.poll(() => chat.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true)
   await page.screenshot({ path: test.info().outputPath('live-chat.png') })
+})
+
+test('collapsed chat likes the current room song repeatedly without expanding or losing its draft', async ({
+  page,
+  request,
+}) => {
+  await enterChat(page)
+  await page.getByRole('textbox', { name: '房间聊天内容' }).fill('未发送的草稿')
+  const chat = await floating(page),
+    view = chat.locator('.mp-chat-view'),
+    like = chat.getByRole('button', { name: '为房间歌曲点赞', exact: true }),
+    launcher = chat.locator('.mp-live-compose-open')
+  await expect(like).toBeEnabled()
+  await expect(like).toHaveAttribute('title', '为房间歌曲点赞')
+  expect(
+    await like.evaluate((node) =>
+      node.nextElementSibling?.classList.contains('mp-live-compose-emoji'),
+    ),
+  ).toBe(true)
+  await like.dblclick()
+  await expect.poll(async () => (await (await request.get('/test/state')).json()).likes).toBe(2)
+  await expect(view).toHaveAttribute('data-live-composer', 'collapsed')
+  await expect(launcher).toHaveText('未发送的草稿')
+  await page.evaluate(() => (window as any).partyTest.next())
+  await expect.poll(async () => (await (await request.get('/test/state')).json()).current).toBe('2')
+  await like.click()
+  await expect.poll(async () => (await (await request.get('/test/state')).json()).likes).toBe(3)
+  const votes = (await (await request.get('/test/state')).json()).operations.filter(
+    (operation: any) => operation.operate === 3,
+  )
+  expect(votes[2].bizId).not.toBe(votes[0].bizId)
+  let release!: () => void,
+    sending = false
+  const pending = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  await page.route('**/rpc', async (route) => {
+    if (route.request().postDataJSON()?.args?.[0]?.method === 'multiChatSend') {
+      sending = true
+      await pending
+    }
+    await route.continue()
+  })
+  try {
+    await launcher.click()
+    await chat.getByRole('textbox', { name: '房间聊天内容' }).press('Control+Enter')
+    await expect.poll(() => sending).toBe(true)
+    await chat.getByRole('button', { name: '收起聊天输入', exact: true }).click()
+    await expect(like).toBeDisabled()
+    release()
+    await expect(like).toBeEnabled()
+    await expect(launcher).toHaveText('说点什么…')
+  } finally {
+    release()
+  }
+})
+
+test('bottom-left room chat offers a keyboard-accessible jump to latest without interrupting older-message reading', async ({
+  page,
+}) => {
+  let count = 64
+  await page.route('**/rpc', (route) => {
+    const payload = route.request().postDataJSON()
+    if (payload.name !== 'call' || payload.args[0]?.method !== 'multiChatHistory')
+      return route.continue()
+    return route.fulfill({
+      json: {
+        ok: true,
+        result: {
+          ok: true,
+          data: {
+            code: 200,
+            data: {
+              records: Array.from({ length: count }, (_, index) => ({
+                sendUid: '10',
+                nickname: '小岛',
+                sendTime: 1790600000000 + index * 1000,
+                msgType: 0,
+                imChatRoomMsgBody: { text: `阅读消息 ${index}` },
+              })),
+              page: { more: false },
+            },
+          },
+        },
+      },
+    })
+  })
+  await enterChat(page)
+  const chat = await floating(page),
+    history = chat.getByLabel('房间聊天记录'),
+    latest = chat.getByRole('button', { name: '回到底部', exact: true })
+  await expect(history.getByText('阅读消息 63', { exact: true })).toBeInViewport()
+  await expect(latest).toBeHidden()
+  const initialTop = await history.evaluate((node) => node.scrollTop)
+  await history.hover()
+  await page.mouse.wheel(0, -320)
+  await expect
+    .poll(() => history.evaluate((node) => node.scrollTop))
+    .toBeLessThanOrEqual(initialTop - 319)
+  await expect(latest).toBeVisible()
+  await expect(latest).toHaveAttribute('title', '回到底部')
+  await expect(latest).toHaveCSS('border-radius', '50%')
+  await expect(latest).toHaveAttribute('aria-controls', (await history.getAttribute('id'))!)
+  const launcher = chat.locator('.mp-live-compose-launcher')
+  for (const [theme, opacity] of [
+    ['dark', '20'],
+    ['light', '70'],
+  ]) {
+    await page.getByRole('combobox', { name: '预览主题' }).selectOption(theme!)
+    const appearance = await settings(page)
+    await appearance
+      .getByRole('slider', { name: '输入区背景不透明度', exact: true })
+      .evaluate((node, value) => {
+        ;(node as HTMLInputElement).value = value
+        node.dispatchEvent(new Event('input', { bubbles: true }))
+      }, opacity!)
+    await page.keyboard.press('Escape')
+    await page.mouse.move(1080, 20)
+    await expect
+      .poll(async () => latest.evaluate((node) => getComputedStyle(node).backgroundColor))
+      .toBe(await launcher.evaluate((node) => getComputedStyle(node).backgroundColor))
+    await expect(latest).toHaveCSS('backdrop-filter', 'blur(14px)')
+    await latest.hover()
+    await expect
+      .poll(async () => latest.evaluate((node) => getComputedStyle(node).backgroundColor))
+      .toBe(await launcher.evaluate((node) => getComputedStyle(node).backgroundColor))
+    await latest.focus()
+    await expect(latest).toHaveCSS('outline-style', 'solid')
+  }
+  await page.getByRole('combobox', { name: '预览主题' }).selectOption('dark')
+  await page.mouse.move(1080, 20)
+  const before = await history.evaluate((node) => node.scrollTop),
+    historyBox = (await history.boundingBox())!,
+    jumpBox = (await latest.boundingBox())!,
+    inputBox = (await chat.locator('.mp-live-compose-launcher').boundingBox())!
+  expect(jumpBox.y).toBeGreaterThanOrEqual(historyBox.y)
+  expect(jumpBox.y + jumpBox.height).toBeLessThan(inputBox.y)
+  count++
+  await expect(history).toContainText('阅读消息 64', { timeout: 15000 })
+  await expect
+    .poll(() => history.evaluate((node, top) => Math.abs(node.scrollTop - top), before))
+    .toBeLessThanOrEqual(1)
+  await expect(latest).toBeVisible()
+  await page.screenshot({ path: '/tmp/music-party-private-bubbles/room-chat-latest.png' })
+  await latest.focus()
+  await latest.press('Enter')
+  await expect(latest).toBeHidden()
+  await expect(history).toBeFocused()
+  await expect(history.getByText('阅读消息 64', { exact: true })).toBeInViewport()
+  await expect
+    .poll(() => history.evaluate((node) => node.scrollHeight - node.scrollTop - node.clientHeight))
+    .toBeLessThanOrEqual(1)
+  await history.hover()
+  await page.mouse.wheel(0, -320)
+  await expect(latest).toBeVisible()
+  const popup = await settings(page)
+  await choose(popup, '聊天位置', '面板内')
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('button', { name: '回到底部', exact: true })).toBeHidden()
 })
 
 test('hidden chat previews only new messages for the chosen duration and follows host visibility', async ({

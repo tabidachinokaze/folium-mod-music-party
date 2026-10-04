@@ -13,10 +13,20 @@ export function nativeQueue(state: PartyState, resolved: FoliumSong | null): Fol
   const current = state.room?.playback?.song
   const queuedCurrent = state.queue.find((entry) => entry.songBizId === current?.songBizId)
   const metadata = resolved?.id === current?.songId ? resolved : null
+  const names = new Map(state.room?.members.map((member) => [member.uid, member.nickname.trim()]))
+  if (state.account && !names.get(state.account.uid))
+    names.set(state.account.uid, state.account.nickname.trim())
+  const overline = (uid: string, knownName = '') => {
+    if (uid === '0') return { 'zh-CN': '系统推荐', en: 'System recommendation' }
+    if (!uid) return undefined
+    const name = names.get(uid) || knownName.trim()
+    return name ? { 'zh-CN': name, en: name } : undefined
+  }
   const entries: FoliumQueueEntry[] = state.queue
     .filter((entry) => entry.songBizId !== current?.songBizId)
     .map((entry) => ({
       id: entry.songBizId,
+      overline: overline(entry.songRcmdUid, entry.recommender),
       track: {
         id: entry.songId,
         source: 'netease',
@@ -48,6 +58,10 @@ export function nativeQueue(state: PartyState, resolved: FoliumSong | null): Fol
   if (current)
     entries.unshift({
       id: current.songBizId,
+      overline: overline(
+        current.songRcmdUid,
+        queuedCurrent?.songRcmdUid === current.songRcmdUid ? queuedCurrent.recommender : '',
+      ),
       track: {
         id: current.songId,
         source: 'netease',

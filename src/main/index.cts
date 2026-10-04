@@ -11,6 +11,10 @@ function activate(api: MainApi) {
   api.rpc.handle('call', (request) => backend.call(request))
   api.rpc.handle('matchOpen', (id: string) => backend.matchOpen(id))
   api.rpc.handle('matchPoll', (id: string) => backend.matchPoll(id))
+  api.rpc.handle('privateNotificationsPoll', (cursor: number, session?: string) =>
+    backend.privateNotificationsPoll(cursor, session),
+  )
+  api.rpc.handle('privatePeer', (uid: string) => backend.privatePeer(uid))
   api.rpc.handle('matchClose', (id: string) => backend.matchClose(id))
   api.rpc.handle('media', (request) => backend.media(request))
   api.rpc.handle('removeStickers', (ids) => backend.removeStickers(ids))

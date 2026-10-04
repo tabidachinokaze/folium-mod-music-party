@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events'
+import { gzipSync } from 'node:zlib'
 import { afterEach, expect, it, vi } from 'vitest'
 import {
   frame,
@@ -8,7 +9,12 @@ import {
   readProperties,
   streamCipher,
 } from '../src/main/mini-codec'
-import { MiniNotifications, MUSIC_MINI_APP_KEY } from '../src/main/mini-notifications'
+import {
+  MiniNotifications,
+  MUSIC_MINI_APP_KEY,
+  type MiniNotificationOptions,
+} from '../src/main/mini-notifications'
+import { parsePrivateNotice, PRIVATE_REALTIME_BIZ } from '../src/main/private-notice'
 
 // tests/mini-notifications.test.ts
 const state = vi.hoisted(() => ({ socket: null as any }))
@@ -18,16 +24,21 @@ vi.mock('node:crypto', async (original) => ({
   randomBytes: () => Buffer.alloc(16, 42),
 }))
 afterEach(() => vi.useRealTimers())
-function setup() {
+function setup(options?: MiniNotificationOptions) {
   const socket = Object.assign(new EventEmitter(), {
     write: vi.fn(),
     destroy: vi.fn(),
     setNoDelay: vi.fn(),
   })
   state.socket = socket
-  const transport = new MiniNotifications(),
+  const transport = new MiniNotifications(options),
     encrypt = streamCipher(Buffer.alloc(16, 42))
-  const send = (service: number, command: number, body = Buffer.alloc(0), status?: number) => {
+  const send = (
+    service: number,
+    command: number,
+    body: Buffer = Buffer.alloc(0),
+    status?: number,
+  ) => {
     let bytes = frame(service, command, 1, body)
     if (status !== undefined) {
       const head = Buffer.from([service, command, 1, 0, 2, status & 255, status >> 8])
@@ -85,6 +96,56 @@ it('uses the verified production application, delivers only matching notices and
   x.transport.close()
   expect(x.socket.destroy).toHaveBeenCalledOnce()
 })
+it.each([0n, -1n])(
+  'dispatches consecutive throughtrain and private notifications with non-unique envelope ID %s',
+  async (id) => {
+    const onNotification = vi.fn()
+    const x = setup({ persistent: true, onNotification })
+    await x.login()
+    const timestamp = Date.now()
+    const throughtrain = JSON.stringify({
+      msgType: 133,
+      bizType: 'music_friend_throughtrain_notice',
+      serverExt: JSON.stringify({ simpleUserProfile: { userId: 8 }, title: 'test' }),
+    })
+    const privateNotice = JSON.stringify({
+      msgType: 133,
+      bizType: PRIVATE_REALTIME_BIZ,
+      serverExt: JSON.stringify({
+        data: gzipSync(
+          JSON.stringify({
+            scene: 1,
+            channelId: '8',
+            senderUserId: '8',
+            msgBody: {
+              msgId: 'test-private-message',
+              msgTime: timestamp,
+              msgType: 1,
+              text: { textBody: 'test' },
+            },
+          }),
+        ).toString('base64'),
+      }),
+    })
+    const envelopeId = Buffer.alloc(8)
+    envelopeId.writeBigInt64LE(id)
+    for (const content of [throughtrain, privateNotice]) {
+      const inner = frame(7, 3, 0, properties({ 0: timestamp, 1: 100, 5: content }))
+      x.send(4, 1, Buffer.concat([envelopeId, inner]))
+    }
+    expect(onNotification).toHaveBeenCalledTimes(2)
+    expect(onNotification).toHaveBeenNthCalledWith(1, throughtrain, timestamp)
+    expect(parsePrivateNotice(onNotification.mock.calls[1][0], timestamp, '9')).toMatchObject({
+      kind: 'message',
+      peerUid: '8',
+      messageId: 'test-private-message',
+      text: 'test',
+    })
+    expect(x.socket.write).toHaveBeenCalledTimes(2) // Handshake/login only; no ACK for these IDs.
+    expect(x.socket.destroy).not.toHaveBeenCalled()
+    x.transport.close()
+  },
+)
 it('rejects pending authentication on cancellation and ignores later bytes', async () => {
   const x = setup(),
     pending = x.transport.open({ accId: 'test', token: 'test' })
@@ -104,4 +165,35 @@ it('closes idle connections and rejects malformed authenticated frames', async (
   y.send(7, 3, Buffer.from([1, 5, 127]))
   expect(() => y.transport.poll()).toThrow('字段')
   expect(y.socket.destroy).toHaveBeenCalledOnce()
+})
+
+it('keeps persistent heartbeats beyond the matching lifetime and closes a half-open socket', async () => {
+  vi.useFakeTimers()
+  const onClose = vi.fn()
+  const x = setup({ persistent: true, onClose })
+  await x.login()
+  for (let index = 0; index < 18; index++) {
+    await vi.advanceTimersByTimeAsync(10000)
+    x.send(1, 2)
+  }
+  expect(x.transport.poll()).toEqual([])
+  expect(x.socket.destroy).not.toHaveBeenCalled()
+  await vi.advanceTimersByTimeAsync(50000)
+  expect(() => x.transport.poll()).toThrow('心跳超时')
+  expect(onClose).toHaveBeenCalledOnce()
+  x.transport.close()
+  expect(onClose).toHaveBeenCalledOnce()
+})
+
+it('dispatches other verified notification businesses without letting a subscriber exception break the socket', async () => {
+  const onNotification = vi.fn(() => {
+    throw new Error('subscriber failed')
+  })
+  const x = setup({ persistent: true, onNotification })
+  await x.login()
+  x.send(7, 3, properties({ 0: 123, 5: 'other-business-content' }))
+  expect(onNotification).toHaveBeenCalledWith('other-business-content', 123)
+  expect(x.transport.poll()).toEqual([])
+  expect(x.socket.destroy).not.toHaveBeenCalled()
+  x.transport.close()
 })

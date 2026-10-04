@@ -761,22 +761,25 @@ test('room sticker list loads the next page on scroll without a load-more button
   expect(shortPopup!.height).toBeGreaterThan(300)
   expect(await stickerList.evaluate((node) => node.scrollHeight > node.clientHeight)).toBe(true)
   await expect(content.getByRole('combobox', { name: '表情分组' })).toBeEnabled()
-  // Only the grid scrolls. Header actions and group selection retain their exact positions.
+  // Only the grid scrolls. Measure within the popup so its viewport placement animation
+  // after a resize is not mistaken for the header scrolling with the list.
   async function expectFixedHeader(library: import('@playwright/test').Locator) {
     const header = library.locator('.mp-picker-header'),
       group = library.getByRole('combobox', { name: '表情分组' }),
       list = library.locator('.mp-sticker-scroll')
-    const headerY = (await header.boundingBox())!.y,
-      groupY = (await group.boundingBox())!.y
+    const relativeY = (item: import('@playwright/test').Locator) =>
+      item.evaluate(
+        (node) =>
+          node.getBoundingClientRect().top -
+          node.closest('.mp-sticker-content')!.getBoundingClientRect().top,
+      )
+    const headerY = await relativeY(header),
+      groupY = await relativeY(group)
     await list.evaluate((node) => {
       node.scrollTop = node.scrollTop > 0 ? 0 : 120
     })
-    await expect
-      .poll(async () => Math.abs((await header.boundingBox())!.y - headerY))
-      .toBeLessThan(0.1)
-    await expect
-      .poll(async () => Math.abs((await group.boundingBox())!.y - groupY))
-      .toBeLessThan(0.1)
+    await expect.poll(async () => Math.abs((await relativeY(header)) - headerY)).toBeLessThan(0.1)
+    await expect.poll(async () => Math.abs((await relativeY(group)) - groupY)).toBeLessThan(0.1)
     expect(await library.evaluate((node) => node.scrollTop)).toBe(0)
     await expect(header.getByRole('button', { name: '上传表情包' })).toBeVisible()
     await expect(header.getByRole('button', { name: '整理', exact: true })).toBeVisible()

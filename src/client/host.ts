@@ -8,6 +8,7 @@ import type {
   FoliumRegistries,
 } from '../../vendor/folium/contract'
 import type { Method, Reply } from '@party/shared/types'
+import type { PrivateNotificationBatch, PrivatePeer } from '../shared/private-notices'
 
 import { t } from './i18n'
 
@@ -149,6 +150,14 @@ export class AccountConnection {
         code: reply.code,
         deliveryUnknown: reply.deliveryUnknown,
       })
+    if (method === 'account') {
+      const uid = reply.data?.data?.profile?.userId
+      const valid =
+        (typeof uid === 'number' && Number.isSafeInteger(uid) && uid > 0) ||
+        (typeof uid === 'string' && /^[1-9]\d{0,23}$/.test(uid))
+      if (!valid)
+        throw Object.assign(new Error(t('网易云登录已失效，请在 Folia 重新登录')), { code: 302 })
+    }
     return reply.data
   }
   async matchTransport(name: 'matchOpen' | 'matchPoll' | 'matchClose', id: string) {
@@ -161,6 +170,28 @@ export class AccountConnection {
       void this.folium.rpc.call('matchClose', id).catch(() => {})
       throw new Error(t('账号已变化'))
     }
+    return result
+  }
+  async privateNotificationsPoll(cursor: number, session?: string) {
+    const epoch = this.epoch
+    const current = () => epoch === this.epoch && !!this.cookie && this.readCookie() === this.cookie
+    if (!current()) throw Object.assign(new Error(t('账号已变化')), { code: 302 })
+    // This RPC only reads main's local queue; no account/history request or port reconnect.
+    const result = await this.folium.rpc.call<PrivateNotificationBatch>(
+      'privateNotificationsPoll',
+      cursor,
+      session,
+    )
+    if (!current()) throw Object.assign(new Error(t('账号已变化')), { code: 302 })
+    return result
+  }
+  async privatePeer(uid: string): Promise<PrivatePeer> {
+    if (!/^[1-9]\d{0,23}$/.test(uid)) throw new Error(t('账号已变化'))
+    const epoch = this.epoch
+    const current = () => epoch === this.epoch && !!this.cookie && this.readCookie() === this.cookie
+    if (!current()) throw Object.assign(new Error(t('账号已变化')), { code: 302 })
+    const result = await this.folium.rpc.call<PrivatePeer>('privatePeer', uid)
+    if (!current()) throw Object.assign(new Error(t('账号已变化')), { code: 302 })
     return result
   }
   async attachment(name: 'media' | 'removeStickers' | 'saveSticker', payload: unknown) {

@@ -26,6 +26,11 @@ export interface MiniNotice {
   timestamp: number
   notice: MatchNotice
 }
+export interface MiniNotificationOptions {
+  persistent?: boolean
+  onNotification?: (content: unknown, timestamp: number) => void
+  onClose?: (reason: string) => void
+}
 export class MiniNotifications {
   private socket: Socket | null = null
   private heartbeat: ReturnType<typeof setInterval> | null = null
@@ -37,6 +42,7 @@ export class MiniNotifications {
   private notices: MiniNotice[] = []
   private serial = 2
   private seen = new Set<string>()
+  constructor(private readonly options: MiniNotificationOptions = {}) {}
   async open(credentials: { accId: string; token: string }): Promise<void> {
     if (this.ended || this.socket) throw new Error('匹配通知连接已关闭')
     const key = randomBytes(16),
@@ -95,6 +101,7 @@ export class MiniNotifications {
         this.close(message)
       }
       let authenticated = false
+      let receivedAt = Date.now()
       const receive = (value: ReturnType<typeof packet>, depth = 0) => {
         if (depth > 3) throw new Error('匹配通知包装无效')
         if (value.service === 1 && value.command === 5) {
@@ -106,8 +113,11 @@ export class MiniNotifications {
           if (value.status !== 200) throw new Error(`匹配通知登录失败（${value.status}）`)
           authenticated = true
           if (this.deadline) clearTimeout(this.deadline)
-          this.deadline = setTimeout(() => stop('匹配通知连接已到期，请重试'), 150000)
-          this.deadline.unref()
+          this.deadline = null
+          if (!this.options.persistent) {
+            this.deadline = setTimeout(() => stop('匹配通知连接已到期，请重试'), 150000)
+            this.deadline.unref()
+          }
           this.rejectLogin = null
           this.touched = Date.now()
           resolve()
@@ -115,15 +125,16 @@ export class MiniNotifications {
           throw new Error('匹配通知连接已在其他设备关闭，请重试')
         } else if (value.service === 4 && [1, 2, 10, 11].includes(value.command) && authenticated) {
           const inner = embedded(value.body, value.command === 2 ? 0 : 1),
+            deliveryId = inner.id.readBigInt64LE(),
             id = inner.id.toString('hex')
-          if (
-            inner.packet.service === 7 &&
-            inner.packet.command === 3 &&
-            inner.id.readBigInt64LE() > 0n
-          ) {
+          if (inner.packet.service === 7 && inner.packet.command === 3 && deliveryId > 0n) {
             send(4, 3, Buffer.concat([inner.id, inner.header]))
           }
-          if (!this.seen.has(id)) {
+          // Zero/negative IDs are unacknowledged envelopes, not unique deliveries.
+          // They must all be dispatched, even when different businesses share ID 0.
+          if (deliveryId <= 0n) {
+            receive(inner.packet, depth + 1)
+          } else if (!this.seen.has(id)) {
             if (this.seen.size >= 128) this.seen.delete(this.seen.values().next().value!)
             this.seen.add(id)
             receive(inner.packet, depth + 1)
@@ -136,6 +147,12 @@ export class MiniNotifications {
             if (this.notices.length >= 16) this.notices.shift()
             this.notices.push({ timestamp, notice })
           }
+          if (Number.isFinite(timestamp) && timestamp > 0) {
+            // One malformed business must not break another subscriber or its envelope ACK.
+            try {
+              this.options.onNotification?.(fields.get(5), timestamp)
+            } catch {}
+          }
         }
       }
       socket.setNoDelay(true)
@@ -147,8 +164,10 @@ export class MiniNotifications {
         try {
           for (const bytesFrame of reader.push(
             decrypt(typeof bytes === 'string' ? Buffer.from(bytes) : bytes),
-          ))
+          )) {
+            receivedAt = Date.now()
             receive(packet(bytesFrame))
+          }
         } catch (error) {
           stop(error instanceof Error ? error.message : '匹配通知数据无效')
         }
@@ -158,7 +177,9 @@ export class MiniNotifications {
       this.deadline = setTimeout(() => stop('连接匹配通知服务超时，请重试'), 12000)
       this.deadline.unref()
       this.heartbeat = setInterval(() => {
-        if (Date.now() - this.touched > 20000) stop('匹配页面已关闭')
+        if (!this.options.persistent && Date.now() - this.touched > 20000) stop('匹配页面已关闭')
+        else if (this.options.persistent && authenticated && Date.now() - receivedAt > 45000)
+          stop('网易云通知心跳超时，正在重新连接')
         else if (authenticated) send(1, 2)
       }, 10000)
       this.heartbeat.unref()
@@ -182,5 +203,8 @@ export class MiniNotifications {
     this.seen.clear()
     this.rejectLogin?.(new Error(reason))
     this.rejectLogin = null
+    try {
+      this.options.onClose?.(reason)
+    } catch {}
   }
 }

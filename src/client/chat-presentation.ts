@@ -85,7 +85,7 @@ export function createChatPresentation(controller: PartyController, prefs: ChatP
       !!active &&
       chatNode.contains(active) &&
       ((!!composer && !composer.hidden && composer.contains(active)) ||
-        active.matches('.mp-history:focus-visible'))
+        active.matches('.mp-history:focus-visible, .mp-chat-latest-button:focus-visible'))
     )
   }
   function heldOpen() {

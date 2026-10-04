@@ -1,6 +1,8 @@
 // src/client/locales/en-chat.ts
 export const enChat: Record<string, string> = {
+  为房间歌曲点赞: 'Like the current room song',
   悬浮聊天: 'Floating chat',
+  回到底部: 'Scroll to bottom',
   聊天设置: 'Chat settings',
   聊天显示: 'Chat display',
   消息不透明度: 'Message opacity',

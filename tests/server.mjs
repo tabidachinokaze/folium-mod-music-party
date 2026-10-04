@@ -37,7 +37,33 @@ const sdkProbe = await build({
   write: false,
 })
 const require = createRequire(import.meta.url)
-const activate = require('../dist/music-party/index.cjs')
+// Build the current backend with a local transport: even account auto-connect must never
+// send fixture credentials to the official notification socket during browser tests.
+const mainBuild = await build({
+  entryPoints: ['src/main/index.cts'],
+  bundle: true,
+  platform: 'node',
+  target: 'node22',
+  format: 'cjs',
+  write: false,
+  plugins: [
+    {
+      name: 'mock-main-notification-transport',
+      setup(builder) {
+        builder.onResolve({ filter: /\/mini-notifications$/ }, () => ({
+          path: fileURLToPath(new URL('mini-notifications.mjs', import.meta.url)),
+        }))
+      },
+    },
+  ],
+})
+const mainModule = { exports: {} }
+new Function('require', 'module', 'exports', mainBuild.outputFiles[0].text)(
+  require,
+  mainModule,
+  mainModule.exports,
+)
+const activate = mainModule.exports
 let handlers = new Map(),
   dispose = [],
   current = '1',
@@ -60,10 +86,12 @@ let handlers = new Map(),
   privateLayout = false,
   privateMusic = false,
   privateResources = false,
+  privateSent = [],
   stickerPages = false,
   deletedStickers = new Set()
 const self = { userId: 9, nickname: '晚风' },
   peer = { userId: 10, nickname: '小岛', avatarUrl: 'https://p1.music.126.net/fixture/avatar.jpg' }
+let accountProfile = self
 function reset() {
   dispose.forEach((fn) => fn())
   handlers = new Map()
@@ -92,6 +120,8 @@ function reset() {
   privateLayout = false
   privateMusic = false
   privateResources = false
+  privateSent = []
+  accountProfile = self
   stickerPages = false
   deletedStickers = new Set()
 }
@@ -171,6 +201,10 @@ const server = createServer(async (req, res) => {
     const args = body ? JSON.parse(body) : Object.fromEntries(url.searchParams)
     if (url.pathname === '/test/reset') {
       reset()
+      return json({ ok: true })
+    }
+    if (url.pathname === '/test/account' && /^[1-9]\d{0,9}$/.test(args.uid)) {
+      accountProfile = { userId: Number(args.uid), nickname: '另一个账号' }
       return json({ ok: true })
     }
     if (url.pathname === '/test/private-pages') {
@@ -350,9 +384,10 @@ const server = createServer(async (req, res) => {
       }
       return res.end(wave)
     }
-    if (url.pathname === '/login/status') return json({ code: 200, data: { profile: self } })
+    if (url.pathname === '/login/status')
+      return json({ code: 200, data: { profile: accountProfile } })
     if (url.pathname === '/user/account')
-      return json({ code: 200, account: { id: 9 }, profile: self })
+      return json({ code: 200, account: { id: accountProfile.userId }, profile: accountProfile })
     if (url.pathname === '/register/checktoken/v3')
       return json({ code: 200, token: 'fixture-token' })
     if (url.pathname === '/song/detail')
@@ -478,7 +513,18 @@ const server = createServer(async (req, res) => {
         }))
         return json({ code: 200, msgs: rows, more: false })
       }
-      if (!privatePages) return json({ code: 200, msgs: [privateMessage()], more: false })
+      if (!privatePages)
+        return json({
+          code: 200,
+          msgs: [
+            {
+              ...privateMessage(),
+              fromUser: { ...peer, userId: Number(args.uid) },
+            },
+            ...privateSent.filter((message) => String(message.toUser.userId) === String(args.uid)),
+          ],
+          more: false,
+        })
       const before = Number(args.before || 1790600000001)
       const msgs = Array.from({ length: 25 }, (_, i) => ({
         ...privateMessage(),
@@ -496,14 +542,46 @@ const server = createServer(async (req, res) => {
     }
     if (url.pathname === '/send/text') {
       calls.push('privateSend')
+      privateSent.push({
+        id: 100000 + privateSent.length,
+        time: Date.now(),
+        fromUser: self,
+        toUser: { ...peer, userId: Number(args.user_ids) },
+        msg: JSON.stringify({ msg: args.msg, type: 1 }),
+      })
       return json({ code: 200, data: true })
     }
     if (url.pathname === '/api') {
       const data = typeof args.data === 'string' ? JSON.parse(args.data) : args.data || {},
         uri = args.uri
       calls.push(uri)
+      if (uri === '/api/communication/msg/setting/get') {
+        calls.push(`privatePeer:${data.userId}`)
+        return json({
+          code: 200,
+          data: {
+            online:
+              String(data.userId) === '10' ? true : String(data.userId) === '11' ? false : null,
+            personalHomepage: {
+              userProfileData: {
+                ...peer,
+                userId: Number(data.userId),
+                nickname:
+                  String(data.userId) === '10'
+                    ? '小岛'
+                    : String(data.userId) === '11'
+                      ? '远山'
+                      : '云影',
+              },
+            },
+          },
+        })
+      }
       if (uri.endsWith('/im/token/get'))
-        return json({ code: 200, data: { accId: '9', token: 'fake-test-token' } })
+        return json({
+          code: 200,
+          data: { accId: String(accountProfile.userId), token: 'fake-test-token' },
+        })
       if (uri.endsWith('/multi/match')) {
         matchSongs.push(String(data.songId))
         notificationSent = false

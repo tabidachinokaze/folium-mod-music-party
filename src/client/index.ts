@@ -1,22 +1,31 @@
 import type { FoliumPanelContext } from '../../vendor/folium/contract'
 import { mountPrivateHome } from './private-home'
-import { activeNeteaseSession, type Folium } from './host'
+import { activeNeteaseSession, getPlaybackBridge, type Folium } from './host'
 import { PartyController } from './controller'
 import { mountPanel } from './panel'
 import { setLocale, t } from './i18n'
 import { createPartyIcon, partyIconPaths } from './party-icon'
 import { createChatPreferences } from './chat-preferences'
 import { createChatPresentation } from './chat-presentation'
+import { createPrivateBubbles } from './private-bubbles'
 
 // src/client/index.ts
 function registerEntries(folium: Folium, controller: PartyController) {
   const chatPreferences = createChatPreferences(folium)
   const chatPresentation = createChatPresentation(controller, chatPreferences)
+  const privateBubbles = createPrivateBubbles(controller)
   const open = () => {
     folium.ui.navigate('player')
     folium.ui.openPlayerPanel('room')
   }
   const handles = [
+    folium.registries.stageLayers.register({
+      id: 'private-bubbles',
+      slot: 'app.overlay',
+      order: 650,
+      interactive: false,
+      mount: (container, context) => privateBubbles.mountStage(container, context),
+    }),
     folium.registries.stageLayers.register({
       id: 'chat',
       slot: 'app.overlay',
@@ -97,6 +106,7 @@ function registerEntries(folium: Folium, controller: PartyController) {
     window.removeEventListener('online', online)
     window.removeEventListener('focus', online)
     handles.forEach((handle) => handle.unregister())
+    privateBubbles.dispose()
     chatPresentation.dispose()
     chatPreferences.dispose()
   }
@@ -114,8 +124,17 @@ export default function activate(folium: Folium) {
     generation = 0,
     retryAt = 0,
     failures = 0
+  let pendingResume: { state: unknown; expiresAt: number; session: string } | null = null
+  const continueWindow = async (candidate: PartyController) => {
+    const ticket = pendingResume
+    if (!ticket || !candidate.state.account) return
+    pendingResume = null
+    if (ticket.session === session && activeNeteaseSession() === session && !disposed)
+      await candidate.resumeWindow(ticket.state, ticket.expiresAt)
+  }
   const reset = () => {
     generation++
+    pendingResume = null
     unregister?.()
     unregister = undefined
     controller?.dispose()
@@ -132,7 +151,10 @@ export default function activate(folium: Folium) {
       failures = 0
     }
     if (!next) return
-    if (unregister && controller?.state.account) return
+    if (unregister && controller?.state.account) {
+      await continueWindow(controller)
+      return
+    }
     if (unregister) {
       reset()
       retryAt = Date.now() + 5000
@@ -151,6 +173,7 @@ export default function activate(folium: Folium) {
       }
       unregister = registerEntries(folium, candidate)
       failures = 0
+      await continueWindow(candidate)
     } catch {
       if (mine === generation) retryAt = Date.now() + Math.min(30000, 5000 * ++failures)
     } finally {
@@ -163,7 +186,14 @@ export default function activate(folium: Folium) {
   window.addEventListener('focus', update)
   window.addEventListener('online', update)
   update()
+  const stopResume = getPlaybackBridge(folium)?.onWindowResume?.((state, expiresAt) => {
+    const currentSession = activeNeteaseSession()
+    if (disposed || !currentSession || currentSession !== session) return
+    pendingResume = { state, expiresAt, session: currentSession }
+    update()
+  })
   return () => {
+    stopResume?.()
     disposed = true
     window.clearInterval(timer)
     window.removeEventListener('storage', update)

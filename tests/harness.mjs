@@ -38,7 +38,7 @@ stageNode.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:20
 document.body.append(stageNode)
 const stageDisplay = { showText: true, isPlayerChromeHidden: false, isPanelOpen: true }
 const stageListeners = new Set()
-let stageDefinition, stageMounted
+const stageLayers = new Map()
 const stageContext = {
   getTheme: () => currentTheme,
   getDisplay: () => stageDisplay,
@@ -53,8 +53,10 @@ function setStageDisplay(patch) {
   stageListeners.forEach((fn) => fn())
 }
 function remountStage() {
-  stageMounted?.()
-  stageMounted = stageDefinition?.mount(stageNode, stageContext)
+  for (const layer of stageLayers.values()) {
+    layer.mounted?.()
+    layer.mounted = layer.definition.mount(layer.node, stageContext)
+  }
 }
 const themes = {
   dark: {
@@ -220,8 +222,24 @@ const register = (name) => ({
       privateButton.hidden = false
     }
     if (name === 'stageLayers') {
-      stageDefinition = def
-      remountStage()
+      const previous = stageLayers.get(def.id)
+      previous?.mounted?.()
+      previous?.node.remove()
+      const node = document.createElement('div')
+      node.dataset.stageLayer = def.id
+      node.style.cssText = 'position:absolute;inset:0;pointer-events:none'
+      node.style.zIndex = String(def.order ?? 0)
+      stageNode.append(node)
+      const layer = { definition: def, node, mounted: def.mount(node, stageContext) }
+      stageLayers.set(def.id, layer)
+      return {
+        unregister() {
+          if (stageLayers.get(def.id) !== layer) return
+          layer.mounted?.()
+          layer.node.remove()
+          stageLayers.delete(def.id)
+        },
+      }
     }
     if (name === 'settingsSections') {
       const defaults = Object.fromEntries(
@@ -255,10 +273,6 @@ const register = (name) => ({
     }
     return {
       unregister() {
-        if (name === 'stageLayers') {
-          stageMounted?.()
-          stageMounted = stageDefinition = undefined
-        }
         if (name === 'playerPanelTabs') {
           mounted?.()
           mounted = undefined
@@ -445,6 +459,8 @@ const folium = {
         ],
         'arrow-left': ['m12 19-7-7 7-7', 'M5 12h14'],
         x: ['M18 6 6 18', 'm6 6 12 12'],
+        minus: ['M5 12h14'],
+        'arrow-down': ['M12 5v14', 'm5 12 7 7 7-7'],
         'arrow-up-to-line': ['M5 3h14', 'm18 13-6-6-6 6', 'M12 7v14'],
         'trash-2': ['M3 6h18', 'M19 6v14H5V6', 'M9 6V3h6v3', 'M10 10v6', 'M14 10v6'],
         'user-plus': [

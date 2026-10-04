@@ -116,6 +116,33 @@
   overflow: hidden;
   grid-template-columns: minmax(180px, 28%) minmax(0, 1fr);
 }
+.mp-private-conversation-only {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.mp-private-conversation-only > .mp-private-conversation {
+  flex: 1;
+  padding-left: 0;
+}
+.mp-presence-avatar {
+  overflow: visible;
+}
+.mp-presence-avatar img {
+  border-radius: inherit;
+}
+.mp-presence-dot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #34c759;
+  box-shadow: 0 0 0 2px var(--folium-bg, #171717);
+  pointer-events: none;
+}
 .mp-private-sidebar {
   min-height: 0;
   min-width: 0;
@@ -203,6 +230,10 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 12px;
+}
+.mp-peer-avatar {
+  width: 28px;
+  height: 28px;
 }
 .mp-private-conversation .mp-history {
   flex: 1;

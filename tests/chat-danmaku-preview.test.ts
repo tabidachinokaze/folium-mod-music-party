@@ -3,6 +3,7 @@ import type { PartyController } from '../src/client/controller'
 import { mountDanmaku } from '../src/client/chat-danmaku'
 import { danmakuDefaults } from '../src/client/chat-preferences'
 import { danmakuPreviewImage } from '../src/client/chat-danmaku-preview'
+import * as previewSamples from '../src/client/chat-danmaku-preview'
 
 const engines = vi.hoisted(() => ({ created: vi.fn(), destroyed: vi.fn() }))
 vi.mock('danmaku/dist/esm/danmaku.dom.js', () => ({
@@ -113,9 +114,46 @@ function environment() {
   }
 }
 afterEach(() => {
+  vi.restoreAllMocks()
   vi.useRealTimers()
   vi.unstubAllGlobals()
 })
+
+it.each(['scroll', 'top', 'bottom'] as const)(
+  'preserves complete preview senders outside shrinkable text in %s mode without duplicating activity actors',
+  (mode) => {
+    const nickname = 'tabidachinokaze_音楽🎵',
+      samples = previewSamples.danmakuPreviewMessages(1)
+    vi.spyOn(previewSamples, 'danmakuPreviewMessages').mockImplementation((batch) =>
+      samples.map((sample) => ({
+        ...sample,
+        id: `${sample.id}-${batch}`,
+        nickname,
+        text: sample.kind === 'resource' ? `${nickname}推荐了歌曲：《海边》` : sample.text,
+      })),
+    )
+    const view = environment()
+    view.preview.setOptions({ ...danmakuDefaults, danmakuMode: mode })
+    view.preview.setEnabled(true)
+    expect(view.rows()).toHaveLength(3)
+    for (const row of view.rows()) {
+      const author = row.children.find((child) => child.className === 'mp-danmaku-author')!
+      expect(author.textContent).toBe(nickname + (row.dataset.kind === 'activity' ? '' : ':'))
+      expect(
+        row.children
+          .map((child) => child.textContent)
+          .join('')
+          .split(nickname),
+      ).toHaveLength(2)
+      expect(row.parent?.dataset.mode).toBe(mode)
+    }
+    const activity = view.rows().find((row) => row.dataset.kind === 'activity')!
+    expect(activity.children.map((child) => child.textContent).join('')).toBe(
+      `预览${nickname}推荐了歌曲：《海边》`,
+    )
+    view.preview.dispose()
+  },
+)
 
 it('previews local samples without subscribing to room data and clears all work when closed', () => {
   const view = environment()

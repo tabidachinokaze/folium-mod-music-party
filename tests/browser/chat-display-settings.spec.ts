@@ -127,6 +127,20 @@ test('floating chat uses available height without scrollbars and applies separat
       return box.y >= 75 && obstacle.y - box.y - box.height >= 11
     })
     .toBe(true)
+  // Hiding or unmounting the back control must not let chat cover its reveal area.
+  await page.locator('[data-player-top-obstacle]').evaluate((node: HTMLElement) => {
+    node.style.opacity = '0'
+    node.style.pointerEvents = 'none'
+  })
+  // Allow the bounded geometry observer to react before checking the steady layout.
+  await page.waitForTimeout(200)
+  await expect.poll(async () => (await floating.boundingBox())!.y).toBeGreaterThanOrEqual(75)
+  await page.locator('[data-player-top-obstacle]').evaluate((node) => node.remove())
+  await page.waitForTimeout(200)
+  await expect.poll(async () => (await floating.boundingBox())!.y).toBeGreaterThanOrEqual(75)
+  expect(
+    await page.evaluate(() => !!document.elementFromPoint(44, 44)?.closest('.mp-floating-chat')),
+  ).toBe(false)
   await floating.locator('.mp-live-compose-open').click()
   const composer = floating.locator('.mp-composer'),
     bubble = history.locator('.mp-bubble').first(),

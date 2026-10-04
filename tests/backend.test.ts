@@ -155,3 +155,227 @@ it('does not open a notification socket when cancelled during credential fetch',
   expect(transport.open).not.toHaveBeenCalled()
   backend.close()
 })
+
+it('starts background notifications only after a verified account and retains them when matching closes', async () => {
+  const transport = { open: vi.fn(async () => {}), poll: vi.fn(() => []), close: vi.fn() }
+  const make = vi.fn(() => transport)
+  const fetcher = vi.fn(async (url: any) =>
+    String(url).includes('/login/status')
+      ? response({ code: 200, data: { profile: { userId: 9 } } })
+      : response({ code: 200, data: { accId: '9', token: 'fake-mini-token' } }),
+  )
+  const backend = createBackend(fetcher as typeof fetch, make)
+  backend.connect('MUSIC_U=fake-session', 4176)
+  expect(fetcher).not.toHaveBeenCalled()
+  expect(make).not.toHaveBeenCalled()
+  const result = await backend.call({ method: 'account' })
+  expect(result.ok).toBe(true)
+  await backend.matchOpen('matching-attempt-one')
+  expect(make).toHaveBeenCalledOnce()
+  expect(transport.open).toHaveBeenCalledOnce()
+  backend.matchClose('matching-attempt-one')
+  const feed = backend.privateNotificationsPoll(0)
+  expect(feed.connected).toBe(true)
+  expect(feed.events[0].notice.kind).toBe('sync')
+  expect(transport.close).not.toHaveBeenCalled()
+  backend.connect('MUSIC_U=other-session', 4176)
+  expect(transport.close).toHaveBeenCalledOnce()
+  expect(backend.privateNotificationsPoll(feed.cursor, feed.session)).toMatchObject({
+    reset: true,
+    connected: false,
+    events: [],
+  })
+  backend.close()
+})
+
+it('does not open background notifications for an anonymous profile or a stale account response', async () => {
+  const transport = { open: vi.fn(async () => {}), poll: vi.fn(() => []), close: vi.fn() }
+  const make = vi.fn(() => transport)
+  let resolve!: (value: Response) => void
+  const fetcher = vi.fn(
+    () =>
+      new Promise<Response>((done) => {
+        resolve = done
+      }),
+  )
+  const backend = createBackend(fetcher as typeof fetch, make)
+  backend.connect('MUSIC_U=fake-session', 4176)
+  const anonymous = backend.call({ method: 'account' })
+  resolve(response({ code: 200, data: { profile: null } }))
+  expect((await anonymous).ok).toBe(true)
+  expect(make).not.toHaveBeenCalled()
+  const stale = backend.call({ method: 'account' })
+  backend.connect('MUSIC_U=other-session', 4176)
+  resolve(response({ code: 200, data: { profile: { userId: 9 } } }))
+  expect((await stale).ok).toBe(false)
+  expect(make).not.toHaveBeenCalled()
+  backend.close()
+})
+
+it('restores the verified background subscription when only the local API port changes', async () => {
+  const transports: {
+    open: ReturnType<typeof vi.fn>
+    poll: () => []
+    close: ReturnType<typeof vi.fn>
+  }[] = []
+  const make = () => {
+    const transport = { open: vi.fn(async () => {}), poll: () => [] as [], close: vi.fn() }
+    transports.push(transport)
+    return transport
+  }
+  const backend = createBackend(
+    async (url) =>
+      String(url).includes('/login/status')
+        ? response({ code: 200, data: { profile: { userId: 9 } } })
+        : response({ code: 200, data: { accId: '9', token: 'fake-mini-token' } }),
+    make,
+  )
+  backend.connect('MUSIC_U=fake-session', 4176)
+  await backend.call({ method: 'account' })
+  await backend.matchOpen('matching-attempt-one')
+  backend.matchClose('matching-attempt-one')
+  backend.connect('MUSIC_U=fake-session', 4177)
+  await vi.waitFor(() => expect(backend.privateNotificationsPoll(0).connected).toBe(true))
+  expect(transports).toHaveLength(2)
+  expect(transports[0].close).toHaveBeenCalledOnce()
+  expect(transports[1].open).toHaveBeenCalledOnce()
+  backend.connect('MUSIC_U=other-session', 4177)
+  expect(transports).toHaveLength(2)
+  expect(backend.privateNotificationsPoll(0).connected).toBe(false)
+  backend.close()
+})
+
+describe('private peer profile boundary', () => {
+  it.each([true, false, undefined, null, 'true', 1])(
+    'returns only a narrow profile and an explicit online boolean (%s)',
+    async (online) => {
+      const fetcher = vi.fn(async () =>
+        response({
+          code: 200,
+          cookie: 'MUSIC_U=server-only',
+          data: {
+            online,
+            liveOnline: true,
+            personalHomepage: {
+              userProfileData: {
+                userId: 8,
+                nickname: '\0Peer\n',
+                avatarUrl: 'http://p1.music.126.net/avatar.png',
+                lastLoginIP: 'private-ip',
+              },
+            },
+          },
+        }),
+      )
+      const backend = createBackend(fetcher)
+      backend.connect('MUSIC_U=test-only', 30123)
+      expect(await backend.privatePeer('8')).toEqual({
+        uid: '8',
+        nickname: 'Peer',
+        avatar: 'https://p1.music.126.net/avatar.png',
+        online: typeof online === 'boolean' ? online : null,
+      })
+      const [url, init] = vi.mocked(fetcher).mock.calls[0] as unknown as [URL, RequestInit]
+      expect(url.pathname).toBe('/api')
+      expect(init.headers).toMatchObject({ 'x-apicache-bypass': 'true' })
+      expect(JSON.parse(String(init.body))).toMatchObject({
+        uri: '/api/communication/msg/setting/get',
+        crypto: 'eapi',
+        data: { userId: '8', scene: 1 },
+        cookie: 'MUSIC_U=test-only',
+      })
+      backend.close()
+    },
+  )
+
+  it('does not reuse a cached status or infer online from other fields', async () => {
+    const fetcher = vi.fn(async (_url: any, _init: any) =>
+      response({ code: 200, data: { liveOnline: true, followed: true } }),
+    )
+    const backend = createBackend(fetcher)
+    backend.connect('MUSIC_U=test-only', 30123)
+    const expected = { uid: '8', nickname: '', avatar: '', online: null }
+    expect(await backend.privatePeer('8')).toEqual(expected)
+    expect(await backend.privatePeer('8')).toEqual(expected)
+    expect(String(fetcher.mock.calls[0][0])).not.toBe(String(fetcher.mock.calls[1][0]))
+    backend.close()
+  })
+
+  it('rejects malformed peer IDs before any request and requires an account', async () => {
+    const fetcher = vi.fn()
+    const backend = createBackend(fetcher)
+    await expect(backend.privatePeer('8')).rejects.toThrow('连接')
+    backend.connect('MUSIC_U=test-only', 30123)
+    for (const uid of [0, 8, null, {}, '', '0', '-1', '01', '8.0', '1'.repeat(25), '8&scene=2'])
+      await expect(backend.privatePeer(uid as string)).rejects.toThrow('ID 无效')
+    expect(fetcher).not.toHaveBeenCalled()
+    backend.close()
+  })
+
+  it.each(['switch', 'disconnect'])('rejects a late response after account %s', async (action) => {
+    let resolve!: (value: Response) => void
+    const backend = createBackend(
+      () =>
+        new Promise<Response>((done) => {
+          resolve = done
+        }),
+    )
+    backend.connect('MUSIC_U=first-test-account', 30123)
+    const pending = backend.privatePeer('8')
+    if (action === 'switch') backend.connect('MUSIC_U=second-test-account', 30123)
+    else backend.close()
+    resolve(response({ code: 200, data: { online: true } }))
+    await expect(pending).rejects.toThrow('账号已变化')
+    backend.close()
+  })
+
+  it.each([200, 401])(
+    'keeps authentication codes but strips raw HTTP error bodies (%i)',
+    async (status) => {
+      const backend = createBackend(
+        async () =>
+          new Response(
+            JSON.stringify({
+              code: 302,
+              message: 'MUSIC_U=do-not-export',
+              cookie: 'MUSIC_U=do-not-export',
+            }),
+            { status, headers: { 'Content-Type': 'application/json' } },
+          ),
+      )
+      backend.connect('MUSIC_U=test-only', 30123)
+      const error = (await backend.privatePeer('8').catch((value: unknown) => value)) as Error & {
+        code: number
+      }
+      expect(error.code).toBe(302)
+      expect(error.message).not.toContain('MUSIC_U')
+      expect(error).not.toHaveProperty('body')
+      backend.close()
+    },
+  )
+
+  it('rejects a mismatched profile and omits untrusted avatar addresses', async () => {
+    let userId = 7
+    const backend = createBackend(async () =>
+      response({
+        code: 200,
+        data: {
+          online: true,
+          personalHomepage: {
+            userProfileData: { userId, nickname: 'Peer', avatarUrl: 'javascript:alert(1)' },
+          },
+        },
+      }),
+    )
+    backend.connect('MUSIC_U=test-only', 30123)
+    await expect(backend.privatePeer('8')).rejects.toThrow('不匹配')
+    userId = 8
+    expect(await backend.privatePeer('8')).toEqual({
+      uid: '8',
+      nickname: 'Peer',
+      avatar: '',
+      online: true,
+    })
+    backend.close()
+  })
+})

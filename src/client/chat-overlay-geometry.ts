@@ -11,7 +11,8 @@ export function chatOverlayLayout(stage: Bounds, obstacles: Obstacle[], bottomIn
   const left = Math.min(24, Math.max(8, (stage.width - 280) / 2)),
     width = Math.min(340, Math.max(0, stage.width - left * 2))
   let bottom = Math.max(32, bottomInset),
-    topMargin = 24
+    // The back control fades out (and may unmount), but its reveal area must stay clear.
+    topMargin = 24 + 40 + 12
   for (const item of obstacles) {
     const top = item.top - stage.top,
       right = item.left + item.width - stage.left,
@@ -110,7 +111,7 @@ export function mountChatOverlayGeometry(node: HTMLElement) {
           break
         }
       }
-      if (!visible) continue
+      if (!visible && !item.matches(topSelector)) continue
       const rect = item.getBoundingClientRect()
       obstacles.push({
         left: rect.left,

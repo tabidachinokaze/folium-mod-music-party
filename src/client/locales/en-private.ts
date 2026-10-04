@@ -1,5 +1,15 @@
 // src/client/locales/en-private.ts
 export const enPrivate: Record<string, string> = {
+  在线: 'Online',
+  私信气泡: 'Message bubbles',
+  收到一条新私信: 'Received a new message',
+  '与{name}对话': 'Chat with {name}',
+  '回复 {name}': 'Reply to {name}',
+  '{count} 条未读私信': '{count} unread messages',
+  关闭通知: 'Dismiss notification',
+  收起对话: 'Minimize conversation',
+  关闭对话: 'Close conversation',
+  '请先关闭一个对话气泡，再打开新的对话': 'Close a conversation bubble before opening another',
   私信会话: 'Direct message conversations',
   私信: 'Direct messages',
   会话列表: 'Conversations',

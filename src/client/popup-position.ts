@@ -19,6 +19,16 @@ type PopupEntry = {
 }
 const activePopups = new WeakMap<Document, PopupEntry>()
 
+// Embedded conversations stop host shortcuts; let them dismiss the current
+// picker through the same popup chain before consuming Escape.
+export function dismissTopPopup(doc: Document): boolean {
+  const entry = activePopups.get(doc)
+  if (!entry?.isOpen()) return false
+  entry.close()
+  entry.anchor.focus()
+  return true
+}
+
 function descendsFrom(entry: PopupEntry | undefined, parent: PopupEntry): boolean {
   for (let current = entry?.parent; current; current = current.parent)
     if (current === parent) return true
@@ -144,11 +154,11 @@ export function popupPosition(
 }
 
 function panelFor(anchor: HTMLElement): HTMLElement | null {
-  // Floating chat can live in another shadow root; its tools should open beside
-  // the whole window instead of falling back to a private-composer placement.
+  // Player chat windows can live in another shadow root. Their tools belong
+  // beside the whole window; private-home composers retain their inline placement.
   let branch: HTMLElement | null = anchor
   while (branch) {
-    const floating = branch.closest<HTMLElement>('.mp-floating-chat')
+    const floating = branch.closest<HTMLElement>('.mp-floating-chat, .mp-private-bubble-dialog')
     if (floating) return floating
     const root: Node = branch.getRootNode()
     branch = root instanceof ShadowRoot ? (root.host as HTMLElement) : null
@@ -168,8 +178,8 @@ function panelFor(anchor: HTMLElement): HTMLElement | null {
 }
 
 function playerPanelFor(anchor: HTMLElement, panel: HTMLElement | null) {
-  if (!panel?.matches('.mp-floating-chat')) return panel
-  // The small floating chat window is not the player's maximum expanded area.
+  if (!panel?.matches('.mp-floating-chat, .mp-private-bubble-dialog')) return panel
+  // A floating room chat or private conversation is not the player's maximum area.
   // Reuse a visible native sidebar's clearance when it exists.
   return (
     [
