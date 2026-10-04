@@ -6,6 +6,7 @@ export type DanmakuPreferenceValues = Readonly<{
   danmakuMode: 'scroll' | 'top' | 'bottom'
   danmakuArea: number
   danmakuOpacity: number
+  danmakuBackgroundOpacity: number
   danmakuHoverOpacity: number
   danmakuFontSize: number
   danmakuSpeed: number
@@ -42,6 +43,7 @@ export const danmakuDefaults: DanmakuPreferenceValues = Object.freeze({
   danmakuMode: 'scroll',
   danmakuArea: 55,
   danmakuOpacity: 85,
+  danmakuBackgroundOpacity: 12,
   danmakuHoverOpacity: 35,
   danmakuFontSize: 100,
   danmakuSpeed: 100,
@@ -57,6 +59,7 @@ export const danmakuDefaults: DanmakuPreferenceValues = Object.freeze({
 export const danmakuRanges = {
   danmakuArea: { min: 10, max: 100, step: 1 },
   danmakuOpacity: { min: 10, max: 100, step: 1 },
+  danmakuBackgroundOpacity: { min: 0, max: 100, step: 1 },
   danmakuHoverOpacity: { min: 0, max: 100, step: 1 },
   danmakuFontSize: { min: 75, max: 150, step: 1 },
   danmakuSpeed: { min: 50, max: 150, step: 1 },
@@ -139,6 +142,7 @@ const section: FoliumSettingsSectionDef = {
       [
         ['danmakuArea', '显示区域', 'Display area'],
         ['danmakuOpacity', '不透明度', 'Opacity'],
+        ['danmakuBackgroundOpacity', '弹幕背景不透明度', 'Danmaku background opacity'],
         ['danmakuHoverOpacity', '悬停背景不透明度', 'Hover background opacity'],
         ['danmakuFontSize', '字号', 'Font size'],
         ['danmakuSpeed', '速度', 'Speed'],

@@ -152,6 +152,10 @@ export function mountDanmaku(
     stage.style.setProperty('--mp-danmaku-image-size', `${geometry.imageSize}px`)
     stage.style.setProperty('--mp-danmaku-line-height', `${geometry.lineHeight}px`)
     stage.style.setProperty('--mp-danmaku-weight', options.danmakuBold ? '600' : '400')
+    stage.style.setProperty(
+      '--mp-danmaku-background-opacity',
+      String(options.danmakuBackgroundOpacity / 100),
+    )
     stage.style.setProperty('--mp-danmaku-hover-opacity', String(options.danmakuHoverOpacity / 100))
     stage.style.setProperty(
       '--mp-danmaku-font',

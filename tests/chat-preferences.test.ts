@@ -82,6 +82,14 @@ describe('chat preferences through native settings parameters', () => {
       step: 1,
       defaultValue: 35,
     })
+    expect(fields.find((field) => field.key === 'danmakuBackgroundOpacity')).toMatchObject({
+      type: 'number',
+      label: { 'zh-CN': '弹幕背景不透明度', en: 'Danmaku background opacity' },
+      min: 0,
+      max: 100,
+      step: 1,
+      defaultValue: 12,
+    })
     expect(view.set).not.toHaveBeenCalled()
     preferences.dispose()
   })
@@ -188,6 +196,7 @@ describe('chat preferences through native settings parameters', () => {
       danmakuMode: 'bottom' as const,
       danmakuArea: 100,
       danmakuOpacity: 50,
+      danmakuBackgroundOpacity: 0,
       danmakuHoverOpacity: 0,
       danmakuFontSize: 125,
       danmakuSpeed: 75,
@@ -213,6 +222,7 @@ describe('chat preferences through native settings parameters', () => {
   it.each([
     ['danmakuArea', 10, 100],
     ['danmakuOpacity', 10, 100],
+    ['danmakuBackgroundOpacity', 0, 100],
     ['danmakuHoverOpacity', 0, 100],
     ['danmakuFontSize', 75, 150],
     ['danmakuSpeed', 50, 150],
@@ -266,6 +276,7 @@ describe('chat preferences through native settings parameters', () => {
         peekSeconds: 17,
         danmaku: true,
         danmakuOpacity: 35,
+        danmakuBackgroundOpacity: 64,
         danmakuHoverOpacity: 75,
       }),
       preferences = createChatPreferences(view.folium),
@@ -289,6 +300,7 @@ describe('chat preferences through native settings parameters', () => {
       position: 'bottom-left',
       danmaku: true,
       danmakuOpacity: 35,
+      danmakuBackgroundOpacity: 64,
       danmakuHoverOpacity: 75,
     })
     expect(remounted.get().floatingBubbleOpacity).toBe(35)
@@ -310,6 +322,7 @@ describe('chat preferences through native settings parameters', () => {
         danmakuMode: 'top',
         danmakuFont: 'heiti',
         danmakuOpacity: 25,
+        danmakuBackgroundOpacity: 0,
         danmakuHoverOpacity: 0,
         danmakuText: false,
         danmakuOverlap: true,
@@ -328,6 +341,7 @@ describe('chat preferences through native settings parameters', () => {
       danmaku: true,
     })
     const patch = view.set.mock.calls[0][0]
+    expect(patch.danmakuBackgroundOpacity).toBe(12)
     expect(patch.danmakuHoverOpacity).toBe(35)
     expect(patch).not.toHaveProperty('position')
     expect(patch).not.toHaveProperty('peekSeconds')

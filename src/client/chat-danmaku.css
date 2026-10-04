@@ -41,7 +41,7 @@
   font-weight: var(--mp-danmaku-weight);
   font-size: var(--mp-danmaku-size);
   line-height: 1.4;
-  background: rgb(0 0 0 / 12%);
+  background: rgb(0 0 0 / var(--mp-danmaku-background-opacity, 0.12));
   white-space: nowrap;
   pointer-events: auto;
 }
@@ -101,5 +101,4 @@
   font-size: calc(var(--mp-danmaku-size) * 0.8);
   font-weight: 400;
   opacity: 0.72;
-  background: transparent;
 }

@@ -7,6 +7,27 @@
 }
 .mp-floating-chat,
 .mp-chat-peeks {
+  /* Material 3-inspired foreground roles, derived from the host palette.
+     Keep their alpha opaque: hierarchy comes from tone, not fading artwork
+     through nested text. These roles intentionally only affect floating chat. */
+  --mp-chat-ink: rgb(from var(--folium-primary, currentColor) r g b / 1);
+  --mp-chat-muted-ink: rgb(
+    from var(--folium-secondary, var(--folium-primary, currentColor)) r g b / 1
+  );
+  --mp-chat-accent-ink: rgb(
+    from var(--folium-accent, var(--folium-primary, currentColor)) r g b / 1
+  );
+  --mp-chat-on-surface-variant: color-mix(
+    in oklab,
+    var(--mp-chat-ink) 55%,
+    var(--mp-chat-muted-ink)
+  );
+  --mp-chat-actor: color-mix(
+    in oklab,
+    var(--mp-chat-on-surface-variant) 65%,
+    var(--mp-chat-accent-ink)
+  );
+  --mp-chat-song: color-mix(in oklab, var(--mp-chat-ink) 75%, var(--mp-chat-muted-ink));
   position: absolute;
   left: var(--mp-overlay-left, 24px);
   bottom: var(--mp-overlay-bottom, 32px);
@@ -241,7 +262,7 @@
   padding: 0;
   font-size: calc(var(--mp-floating-font-size, 12px) * 11 / 12);
   line-height: calc(1.65 * var(--mp-floating-line-height, 1));
-  color: inherit;
+  color: var(--mp-chat-on-surface-variant);
 }
 :is(.mp-floating-chat, .mp-chat-peek)
   .mp-activity-body
@@ -250,6 +271,14 @@
   background: transparent;
   color: inherit;
   font-weight: 400;
+}
+:is(.mp-floating-chat, .mp-chat-peek) .mp-activity-body .mp-activity-actor {
+  color: var(--mp-chat-actor);
+  font-weight: 500;
+}
+:is(.mp-floating-chat, .mp-chat-peek) .mp-activity-body .mp-activity-song {
+  color: var(--mp-chat-song);
+  font-weight: 500;
 }
 :is(.mp-floating-chat, .mp-chat-peek) .mp-message .mp-image,
 :is(.mp-floating-chat, .mp-chat-peek) .mp-message .mp-media {

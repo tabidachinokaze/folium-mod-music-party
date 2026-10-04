@@ -33,6 +33,7 @@ export const enChat: Record<string, string> = {
   房间动态: 'Room activity',
   显示区域: 'Display area',
   不透明度: 'Opacity',
+  弹幕背景不透明度: 'Danmaku background opacity',
   悬停背景不透明度: 'Hover background opacity',
   字号: 'Font size',
   速度: 'Speed',

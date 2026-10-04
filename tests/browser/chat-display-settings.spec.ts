@@ -190,16 +190,52 @@ test('floating bubbles keep text readable at zero background opacity and follow 
   await expect(messages.first()).toHaveCSS('background-color', /(?:\/ 0\)|, 0\))/)
   await expect(floating.locator('.mp-history')).toHaveCSS('opacity', '1')
   await page.keyboard.press('Escape')
-  for (const [theme, accent, primary] of [
-    ['blue', 'rgb(133, 184, 232)', 'rgb(215, 230, 242)'],
-    ['light', 'rgb(54, 101, 175)', 'rgb(37, 37, 37)'],
+  for (const [theme, accent] of [
+    ['blue', 'rgb(133, 184, 232)'],
+    ['light', 'rgb(54, 101, 175)'],
   ]) {
     await page.getByRole('combobox', { name: '预览主题' }).selectOption(theme!)
     await expect(author).toHaveCSS('color', accent!)
-    // Secondary rows use smaller type for hierarchy, without compounding alpha
-    // on their body, actor, song and surrounding text over the player artwork.
-    for (const part of ['body', 'actor', 'song', 'text'])
-      await expect(floating.locator(`.mp-activity-${part}`).first()).toHaveCSS('color', primary!)
+    const colors = await floating.evaluate((node) =>
+      ['body', 'actor', 'song', 'text'].map(
+        (part) => getComputedStyle(node.querySelector(`.mp-activity-${part}`)!).color,
+      ),
+    )
+    // Prose, nickname and song get distinct tonal roles; nested text inherits
+    // prose without fading it again. Check contrast against the host surface.
+    expect(new Set(colors.slice(0, 3)).size).toBe(3)
+    expect(colors[3]).toBe(colors[0])
+    const metrics = await page.evaluate((colors) => {
+      const canvas = document.createElement('canvas'),
+        context = canvas.getContext('2d')!,
+        rgba = (color: string) => {
+          context.clearRect(0, 0, 1, 1)
+          context.fillStyle = color
+          context.fillRect(0, 0, 1, 1)
+          return [...context.getImageData(0, 0, 1, 1).data]
+        },
+        luminance = (rgb: number[]) => {
+          const linear = rgb.slice(0, 3).map((byte) => {
+            const value = byte / 255
+            return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+          })
+          return linear[0]! * 0.2126 + linear[1]! * 0.7152 + linear[2]! * 0.0722
+        },
+        background = luminance(rgba(getComputedStyle(document.body).backgroundColor))
+      return colors.map((color) => {
+        const channels = rgba(color),
+          foreground = luminance(channels)
+        return {
+          alpha: channels[3],
+          contrast:
+            (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05),
+        }
+      })
+    }, colors)
+    for (const { alpha, contrast } of metrics) {
+      expect(alpha).toBe(255)
+      expect(contrast).toBeGreaterThanOrEqual(4.5)
+    }
   }
   await openSettings(page)
   await slider(settings, '消息气泡不透明度', 100)
